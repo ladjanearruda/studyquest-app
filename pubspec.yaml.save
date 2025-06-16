@@ -1,0 +1,33 @@
+naname: studyquest_app
+description: App educacional gamificado baseado na BNCC brasileira
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.4.0
+  go_router: ^10.1.2
+  google_fonts: ^6.1.0
+  flutter_animate: ^4.2.0
+  percent_indicator: ^4.2.1
+  shared_preferences: ^2.2.2
+  http: ^1.1.0
+  json_annotation: ^4.8.1
+  audioplayers: ^5.1.0
+  cached_network_image: ^3.2.3
+  flutter_svg: ^2.0.7
+  confetti: ^0.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  json_serializable: ^6.7.1
+  build_runner: ^2.4.6
+
+flutter:
+  uses-material-design: true
