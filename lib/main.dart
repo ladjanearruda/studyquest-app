@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/themes/app_theme.dart';
 import 'features/onboarding/screens/onboarding_screen.dart';
+import 'features/trilha/screens/trilha_mapa_screen.dart';
+import 'features/trilha/screens/trilha_questao_screen.dart';
+import 'features/trilha/screens/trilha_feedback_screen.dart';
+import 'features/trilha/screens/trilha_resultados_screen.dart';
+import 'features/trilha/screens/trilha_gameover_screen.dart';
 
 // Router configurado
 final router = GoRouter(
@@ -31,6 +36,34 @@ final router = GoRouter(
         builder: (_, __) => const OnboardingComplete()), // ← SÓ ESTA
     GoRoute(path: '/trail/forest', builder: (_, __) => const PlaceholderHome()),
     GoRoute(path: '/home', builder: (_, __) => const PlaceholderHome()),
+    GoRoute(path: '/trilha-mapa', builder: (_, __) => const TrilhaMapaScreen()),
+    GoRoute(
+        path: '/trilha-questao/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+          return TrilhaQuestaoScreen(questaoId: id);
+        }),
+    GoRoute(
+      path: '/trilha-feedback',
+      builder: (context, state) {
+        final questaoId =
+            int.tryParse(state.uri.queryParameters['questao'] ?? '0') ?? 0;
+        final acertou = state.uri.queryParameters['acertou'] == 'true';
+        final escolha =
+            int.tryParse(state.uri.queryParameters['escolha'] ?? '0') ?? 0;
+        return TrilhaFeedbackScreen(
+          questaoId: questaoId,
+          acertou: acertou,
+          escolha: escolha,
+        );
+      },
+    ),
+    GoRoute(
+        path: '/trilha-resultados',
+        builder: (_, __) => const TrilhaResultadosScreen()),
+    GoRoute(
+        path: '/trilha-gameover',
+        builder: (_, __) => const TrilhaGameOverScreen()),
   ],
 );
 
