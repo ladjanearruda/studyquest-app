@@ -31,6 +31,19 @@ class TrilhaMapaScreen extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               ),
             ),
+            // Adicionar após o botão da Floresta
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/trilha-oceano-mapa'),
+              icon: const Icon(Icons.waves),
+              label: const Text('Explorar Oceano Atlântico'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              ),
+            ),
           ],
         ),
       ),

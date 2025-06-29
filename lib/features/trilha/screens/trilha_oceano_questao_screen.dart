@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../data/questoes_amazonia.dart';
-import '../widgets/barra_recursos.dart';
-import '../providers/recursos_provider.dart';
-import 'trilha_feedback_screen.dart'; // ✅ Import para modal
+import '../data/questoes_oceano.dart';
+import '../widgets/barra_recursos_oceano.dart';
+import '../providers/recursos_oceano_provider.dart';
+import 'trilha_oceano_feedback_screen.dart'; // ✅ IMPORT NECESSÁRIO PARA MODAL
 
-class TrilhaQuestaoScreen extends ConsumerWidget {
+class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
   final int questaoId;
-  const TrilhaQuestaoScreen({super.key, required this.questaoId});
+  const TrilhaOceanoQuestaoScreen({super.key, required this.questaoId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final questao = QuestoesAmazonia.getQuestao(questaoId);
-    final recursos = ref.watch(recursosProvider);
+    final questao = QuestoesOceano.getQuestao(questaoId);
+    final recursos = ref.watch(recursosOceanoProvider);
 
     if (questao == null) {
       return Scaffold(
@@ -25,7 +25,7 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
     // Verificar Game Over
     if (!recursos.estaVivo) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.go('/trilha-gameover');
+        context.go('/trilha-oceano-gameover');
       });
     }
 
@@ -33,15 +33,15 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.green.shade50, Colors.green.shade100],
+            colors: [Colors.blue.shade50, Colors.blue.shade100],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: Column(
           children: [
-            // Barras de Recursos
-            const BarraRecursos(),
+            // Barras de Recursos Oceânicos
+            const BarraRecursosOceano(),
 
             // Conteúdo da Questão
             Expanded(
@@ -52,11 +52,11 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
                   children: [
                     // Header
                     Text(
-                      'Sobrevivência na Amazônia - Questão ${questaoId + 1} de 20',
+                      'Exploração Oceânica - Questão ${questaoId + 1} de 20',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
+                        color: Colors.blue.shade800,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -71,7 +71,7 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(15),
                           gradient: LinearGradient(
-                            colors: [Colors.white, Colors.green.shade50],
+                            colors: [Colors.white, Colors.blue.shade50],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -102,19 +102,19 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
                               questao.respostaCorreta, questaoId),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.all(16),
-                            backgroundColor: Colors.green.shade50,
-                            foregroundColor: Colors.green.shade800,
+                            backgroundColor: Colors.blue.shade50,
+                            foregroundColor: Colors.blue.shade800,
                             elevation: 3,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                  color: Colors.green.shade200, width: 1),
+                                  color: Colors.blue.shade200, width: 1),
                             ),
                           ),
                           child: Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: Colors.green.shade600,
+                                backgroundColor: Colors.blue.shade600,
                                 child: Text(letra,
                                     style: const TextStyle(
                                         color: Colors.white,
@@ -139,10 +139,10 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
     );
   }
 
-  // ✅ FUNÇÃO COM MODAL LATERAL (padrão oceânico)
+  // ✅ FUNÇÃO COM MODAL LATERAL CORRETO - ERRO CORRIGIDO
   void _responder(BuildContext context, WidgetRef ref, int escolha,
       int respostaCorreta, int questaoId) {
-    final recursosNotifier = ref.read(recursosProvider.notifier);
+    final recursosNotifier = ref.read(recursosOceanoProvider.notifier);
     bool acertou = escolha == respostaCorreta;
 
     // Atualizar recursos vitais
@@ -156,10 +156,10 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Fechar feedback',
-      barrierColor: Colors.black26,
+      barrierLabel: 'Fechar feedback', // ✅ CORRIGIDO: barrierLabel obrigatório
+      barrierColor: Colors.black26, // ✅ CORRIGIDO: Background semi-transparente
       pageBuilder: (context, animation, secondaryAnimation) {
-        return TrilhaFeedbackScreen(
+        return TrilhaOceanoFeedbackScreen(
           questaoId: questaoId,
           acertou: acertou,
           escolha: escolha,

@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/themes/app_theme.dart';
+//imports da floresta
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/trilha/screens/trilha_mapa_screen.dart';
 import 'features/trilha/screens/trilha_questao_screen.dart';
 import 'features/trilha/screens/trilha_feedback_screen.dart';
 import 'features/trilha/screens/trilha_resultados_screen.dart';
 import 'features/trilha/screens/trilha_gameover_screen.dart';
+//imports oceanicos
+import 'features/trilha/screens/trilha_oceano_mapa_screen.dart';
+import 'features/trilha/screens/trilha_oceano_questao_screen.dart';
+import 'features/trilha/screens/trilha_oceano_feedback_screen.dart';
+import 'features/trilha/screens/trilha_oceano_resultados_screen.dart';
+import 'features/trilha/screens/trilha_oceano_gameover_screen.dart';
 
 // Router configurado
 final router = GoRouter(
@@ -64,6 +71,37 @@ final router = GoRouter(
     GoRoute(
         path: '/trilha-gameover',
         builder: (_, __) => const TrilhaGameOverScreen()),
+
+    GoRoute(
+        path: '/trilha-oceano-mapa',
+        builder: (_, __) => const TrilhaOceanoMapaScreen()),
+    GoRoute(
+        path: '/trilha-oceano-questao/:id',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+          return TrilhaOceanoQuestaoScreen(questaoId: id);
+        }),
+    GoRoute(
+      path: '/trilha-oceano-feedback',
+      builder: (context, state) {
+        final questaoId =
+            int.tryParse(state.uri.queryParameters['questao'] ?? '0') ?? 0;
+        final acertou = state.uri.queryParameters['acertou'] == 'true';
+        final escolha =
+            int.tryParse(state.uri.queryParameters['escolha'] ?? '0') ?? 0;
+        return TrilhaOceanoFeedbackScreen(
+          questaoId: questaoId,
+          acertou: acertou,
+          escolha: escolha,
+        );
+      },
+    ),
+    GoRoute(
+        path: '/trilha-oceano-resultados',
+        builder: (_, __) => const TrilhaOceanoResultadosScreen()),
+    GoRoute(
+        path: '/trilha-oceano-gameover',
+        builder: (_, __) => const TrilhaOceanoGameOverScreen()),
   ],
 );
 

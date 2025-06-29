@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../data/questoes_amazonia.dart';
-import '../providers/recursos_provider.dart';
+import '../data/questoes_oceano.dart';
+import '../providers/recursos_oceano_provider.dart';
 
-class TrilhaFeedbackScreen extends ConsumerWidget {
+class TrilhaOceanoFeedbackScreen extends ConsumerWidget {
   final int questaoId;
   final bool acertou;
   final int escolha;
 
-  const TrilhaFeedbackScreen({
+  const TrilhaOceanoFeedbackScreen({
     super.key,
     required this.questaoId,
     required this.acertou,
@@ -18,8 +18,9 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final questao = QuestoesAmazonia.getQuestao(questaoId);
-    final recursos = ref.watch(recursosProvider); // ✅ Mantido: padrão oceânico
+    final questao = QuestoesOceano.getQuestao(questaoId);
+    final recursos =
+        ref.watch(recursosOceanoProvider); // ✅ MANTIDO: padrão da floresta
 
     if (questao == null) {
       return const Scaffold(
@@ -28,7 +29,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
     }
 
     return Material(
-      // ✅ Material wrapper
+      // ✅ ADICIONADO: Material wrapper
       color: Colors.transparent,
       child: Row(
         children: [
@@ -38,7 +39,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
             child: GestureDetector(
               onTap: () => _proximaQuestao(context),
               child: Container(
-                color: Colors.transparent,
+                color: Colors.transparent, // ✅ CORRIGIDO: transparente
               ),
             ),
           ),
@@ -46,10 +47,12 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
           // ✅ MODAL LATERAL (lado direito)
           Container(
             width: MediaQuery.of(context).size.width * 0.7,
-            height: MediaQuery.of(context).size.height,
+            height: MediaQuery.of(context)
+                .size
+                .height, // ✅ ADICIONADO: altura total
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green.shade50, Colors.green.shade100],
+                colors: [Colors.blue.shade50, Colors.blue.shade100],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -116,7 +119,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: Colors.green.shade800,
+                            color: Colors.blue.shade800,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -150,7 +153,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade800,
+                                        color: Colors.blue.shade800,
                                       ),
                                     ),
                                   ],
@@ -211,11 +214,11 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // ✅ STATUS ATUAL DOS RECURSOS (padrão oceânico)
+                                // ✅ STATUS ATUAL DOS RECURSOS (padrão floresta)
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.shade100,
+                                    color: Colors.blue.shade100,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Column(
@@ -225,7 +228,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.green.shade800,
+                                          color: Colors.blue.shade800,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -233,12 +236,12 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceAround,
                                         children: [
-                                          _buildRecursoInfo('🔋', 'Energia',
-                                              recursos.energia),
+                                          _buildRecursoInfo('🫁', 'Oxigênio',
+                                              recursos.oxigenio),
+                                          _buildRecursoInfo('🌡️', 'Temp.',
+                                              recursos.temperatura),
                                           _buildRecursoInfo(
-                                              '💧', 'Água', recursos.agua),
-                                          _buildRecursoInfo(
-                                              '❤️', 'Saúde', recursos.saude),
+                                              '⚡', 'Pressão', recursos.pressao),
                                         ],
                                       ),
                                     ],
@@ -260,7 +263,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                 icon: const Icon(Icons.arrow_forward),
                                 label: Text(_getProximoTexto()),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade600,
+                                  backgroundColor: Colors.blue.shade600,
                                   foregroundColor: Colors.white,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 16),
@@ -285,15 +288,16 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
   }
 
   String _getProximoTexto() {
-    if (questaoId + 1 >= QuestoesAmazonia.totalQuestoes) {
+    if (questaoId >= 19) {
+      // Última questão (índice 19 = questão 20)
       return 'Finalizar Trilha';
     }
     return 'Próxima Questão';
   }
 
-  // ✅ HELPER PARA MOSTRAR RECURSOS (padrão oceânico)
+  // ✅ HELPER PARA MOSTRAR RECURSOS (padrão floresta)
   Widget _buildRecursoInfo(String emoji, String nome, int valor) {
-    Color cor = Colors.green;
+    Color cor = Colors.blue;
     if (valor <= 20) {
       cor = Colors.red;
     } else if (valor <= 50) {
@@ -314,7 +318,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Colors.green.shade700,
+            color: Colors.blue.shade700,
           ),
         ),
         const SizedBox(height: 2),
@@ -333,12 +337,12 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
   void _proximaQuestao(BuildContext context) {
     Navigator.of(context).pop(); // Fecha o modal
 
-    if (questaoId + 1 >= QuestoesAmazonia.totalQuestoes) {
+    if (questaoId >= 19) {
       // Última questão - vai para resultados
-      context.go('/trilha-resultados');
+      context.go('/trilha-oceano-resultados');
     } else {
       // Próxima questão
-      context.go('/trilha-questao/${questaoId + 1}');
+      context.go('/trilha-oceano-questao/${questaoId + 1}');
     }
   }
 }
