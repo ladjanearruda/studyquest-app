@@ -22,5 +22,10 @@ class RecursosNotifier extends StateNotifier<RecursosVitais> {
     state = const RecursosVitais(energia: 100, agua: 100, saude: 100);
   }
 
+  // 🔧 ADICIONADO: Método resetar que é um alias para reset
+  void resetar() {
+    reset(); // Chama o método reset que já existe
+  }
+
   bool get isGameOver => !state.estaVivo;
 }

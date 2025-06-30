@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../data/questoes_amazonia.dart';
+import '../models/recursos_vitais.dart';
 import '../providers/recursos_provider.dart';
+import '../providers/xp_floresta_provider.dart';
+import '../data/questoes_amazonia.dart';
 
 class TrilhaFeedbackScreen extends ConsumerWidget {
-  final int questaoId;
   final bool acertou;
+  final RecursosVitais energiaAntes;
+  final RecursosVitais energiaDepois;
+  final int questaoId;
   final int escolha;
 
   const TrilhaFeedbackScreen({
     super.key,
-    required this.questaoId,
     required this.acertou,
+    required this.energiaAntes,
+    required this.energiaDepois,
+    required this.questaoId,
     required this.escolha,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final questao = QuestoesAmazonia.getQuestao(questaoId);
-    final recursos = ref.watch(recursosProvider); // ✅ Mantido: padrão oceânico
+    final xpState = ref.watch(xpFlorestaProvider);
 
     if (questao == null) {
       return const Scaffold(
@@ -28,25 +34,26 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
     }
 
     return Material(
-      // ✅ Material wrapper
       color: Colors.transparent,
       child: Row(
         children: [
-          // ✅ ÁREA TRANSPARENTE (lado esquerdo) - pode clicar para fechar
+          // Área transparente (lado esquerdo) - pode clicar para fechar
           Expanded(
             flex: 1,
             child: GestureDetector(
               onTap: () => _proximaQuestao(context),
-              child: Container(
-                color: Colors.transparent,
-              ),
+              child: Container(color: Colors.transparent),
             ),
           ),
 
-          // ✅ MODAL LATERAL (lado direito)
+          // Modal lateral (lado direito) - POSICIONADO MAIS PARA CIMA
           Container(
-            width: MediaQuery.of(context).size.width * 0.7,
-            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width * 0.75,
+            height: MediaQuery.of(context).size.height * 0.9, // 90% da altura
+            margin: EdgeInsets.only(
+              top: MediaQuery.of(context).size.height * 0.05, // 5% do topo
+              bottom: MediaQuery.of(context).size.height * 0.05, // 5% do fundo
+            ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.green.shade50, Colors.green.shade100],
@@ -103,9 +110,9 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                   ),
                 ),
 
-                // Conteúdo do Feedback
+                // Conteúdo do Feedback (SCROLLABLE)
                 Expanded(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +138,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 20),
 
-                        // Explicação
+                        // ✅ EXPLICAÇÃO DA QUESTÃO (COMO NO OCEANO)
                         Card(
                           elevation: 3,
                           child: Padding(
@@ -170,7 +177,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
 
                         const SizedBox(height: 20),
 
-                        // Impacto nos Recursos + Status Atual
+                        // ✅ IMPACTO NOS RECURSOS COM LÓGICA DE 100%
                         Card(
                           color: acertou
                               ? Colors.green.shade50
@@ -190,9 +197,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      acertou
-                                          ? 'Recursos Recuperados!'
-                                          : 'Recursos Perdidos!',
+                                      _getRecursoTexto(),
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: acertou
@@ -204,14 +209,12 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  acertou
-                                      ? '+5% em todos os recursos vitais'
-                                      : '-10% em todos os recursos vitais',
+                                  _getRecursoDescricao(),
                                   style: const TextStyle(fontSize: 14),
                                 ),
                                 const SizedBox(height: 16),
 
-                                // ✅ STATUS ATUAL DOS RECURSOS (padrão oceânico)
+                                // Status atual dos recursos
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -233,12 +236,12 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceAround,
                                         children: [
-                                          _buildRecursoInfo('🔋', 'Energia',
-                                              recursos.energia),
+                                          _buildRecursoInfo('⚡', 'Energia',
+                                              energiaDepois.energia),
                                           _buildRecursoInfo(
-                                              '💧', 'Água', recursos.agua),
-                                          _buildRecursoInfo(
-                                              '❤️', 'Saúde', recursos.saude),
+                                              '💧', 'Água', energiaDepois.agua),
+                                          _buildRecursoInfo('❤️', 'Saúde',
+                                              energiaDepois.saude),
                                         ],
                                       ),
                                     ],
@@ -249,30 +252,69 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
                           ),
                         ),
 
-                        const Spacer(),
+                        const SizedBox(height: 20),
 
-                        // Botões de Ação
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () => _proximaQuestao(context),
-                                icon: const Icon(Icons.arrow_forward),
-                                label: Text(_getProximoTexto()),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade600,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                        // ✅ INFORMAÇÕES DE XP E NÍVEL
+                        Card(
+                          color: Colors.amber.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.star,
+                                        color: Colors.amber.shade600),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Progressão do Explorador',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.amber.shade800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: [
+                                    _buildXpInfo('Nível', '${xpState.nivel}'),
+                                    _buildXpInfo(
+                                        'XP Total', '${xpState.xpTotal}'),
+                                    _buildXpInfo('Precisão',
+                                        '${(xpState.porcentagemAcerto * 100).toInt()}%'),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
+
+                        const SizedBox(height: 80), // Espaço para o botão
                       ],
+                    ),
+                  ),
+                ),
+
+                // Botão de ação (FIXO NO FUNDO)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _proximaQuestao(context),
+                      icon: const Icon(Icons.arrow_forward),
+                      label: Text(_getProximoTexto()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -284,30 +326,60 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
     );
   }
 
+  // ✅ LÓGICA INTELIGENTE PARA RECURSOS EM 100%
+  String _getRecursoTexto() {
+    if (acertou) {
+      // Verificar se algum recurso estava em 100% e não mudou
+      bool energiaEm100 =
+          energiaAntes.energia >= 100 && energiaDepois.energia >= 100;
+      bool aguaEm100 = energiaAntes.agua >= 100 && energiaDepois.agua >= 100;
+      bool saudeEm100 = energiaAntes.saude >= 100 && energiaDepois.saude >= 100;
+
+      if (energiaEm100 && aguaEm100 && saudeEm100) {
+        return 'Recursos Mantidos!';
+      } else {
+        return 'Recursos Recuperados!';
+      }
+    } else {
+      return 'Recursos Perdidos!';
+    }
+  }
+
+  String _getRecursoDescricao() {
+    if (acertou) {
+      // Verificar se algum recurso estava em 100%
+      bool algumEm100 = energiaAntes.energia >= 100 ||
+          energiaAntes.agua >= 100 ||
+          energiaAntes.saude >= 100;
+
+      if (algumEm100) {
+        return 'Você está em ótima forma! Continue assim para manter seus recursos no máximo.';
+      } else {
+        return '+5% em todos os recursos vitais';
+      }
+    } else {
+      return '-10% em todos os recursos vitais';
+    }
+  }
+
   String _getProximoTexto() {
-    if (questaoId + 1 >= QuestoesAmazonia.totalQuestoes) {
-      return 'Finalizar Trilha';
+    if (questaoId >= 19) {
+      return 'Ver Resultados';
     }
     return 'Próxima Questão';
   }
 
-  // ✅ HELPER PARA MOSTRAR RECURSOS (padrão oceânico)
-  Widget _buildRecursoInfo(String emoji, String nome, int valor) {
+  Widget _buildRecursoInfo(String emoji, String nome, double valor) {
     Color cor = Colors.green;
     if (valor <= 20) {
       cor = Colors.red;
     } else if (valor <= 50) {
       cor = Colors.orange;
-    } else {
-      cor = Colors.green;
     }
 
     return Column(
       children: [
-        Text(
-          emoji,
-          style: const TextStyle(fontSize: 16),
-        ),
+        Text(emoji, style: const TextStyle(fontSize: 16)),
         const SizedBox(height: 4),
         Text(
           nome,
@@ -319,7 +391,7 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          '${valor}%',
+          '${valor.toInt()}%',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -330,14 +402,34 @@ class TrilhaFeedbackScreen extends ConsumerWidget {
     );
   }
 
-  void _proximaQuestao(BuildContext context) {
-    Navigator.of(context).pop(); // Fecha o modal
+  Widget _buildXpInfo(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.amber.shade800,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.amber.shade700,
+          ),
+        ),
+      ],
+    );
+  }
 
-    if (questaoId + 1 >= QuestoesAmazonia.totalQuestoes) {
-      // Última questão - vai para resultados
+  void _proximaQuestao(BuildContext context) {
+    Navigator.of(context).pop();
+
+    if (questaoId >= 19) {
       context.go('/trilha-resultados');
     } else {
-      // Próxima questão
       context.go('/trilha-questao/${questaoId + 1}');
     }
   }

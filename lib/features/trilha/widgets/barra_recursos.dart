@@ -29,7 +29,8 @@ class BarraRecursos extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecurso(String emoji, String nome, int valor, Color cor) {
+  // 🔧 CORRIGIDO: Mudou parâmetro de 'int valor' para 'double valor'
+  Widget _buildRecurso(String emoji, String nome, double valor, Color cor) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -56,7 +57,8 @@ class BarraRecursos extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text('$valor%',
+        // 🔧 CORRIGIDO: Convertendo double para int na exibição
+        Text('${valor.toInt()}%',
             style: const TextStyle(color: Colors.white, fontSize: 10)),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/recursos_provider.dart';
+import '../providers/xp_floresta_provider.dart';
 
 class TrilhaGameOverScreen extends ConsumerWidget {
   const TrilhaGameOverScreen({super.key});
@@ -9,6 +10,8 @@ class TrilhaGameOverScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recursos = ref.watch(recursosProvider);
+    final xpState =
+        ref.watch(xpFlorestaProvider); // ✅ ADICIONADO para estatísticas
 
     return Scaffold(
       body: Container(
@@ -172,6 +175,99 @@ class TrilhaGameOverScreen extends ConsumerWidget {
 
                       const SizedBox(height: 30), // ✅ REDUZIDO: era 40
 
+                      // ✅ ESTATÍSTICAS FINAIS NO GAME OVER (ADICIONADO)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.green.shade400.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.analytics,
+                                    color: Colors.blue.shade300, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Estatísticas da Expedição',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade200,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Grid de estatísticas
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'Questões\nRespondidas',
+                                    '${xpState.questoesTentadas}',
+                                    Icons.quiz,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'Acertos',
+                                    '${xpState.questoesCorretas}',
+                                    Icons.check_circle,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'Precisão',
+                                    '${(xpState.porcentagemAcerto * 100).toInt()}%',
+                                    Icons
+                                        .track_changes, // ✅ MUDEI: de target para track_changes
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'XP Total',
+                                    '${xpState.xpTotal}',
+                                    Icons.star,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'Nível',
+                                    '${xpState.nivel}',
+                                    Icons.trending_up,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatGameOver(
+                                    'Tipo',
+                                    _getTipoExploradorGameOver(xpState),
+                                    Icons.emoji_events,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
                       // ✅ FRASE MOTIVACIONAL AMAZÔNICA
                       Container(
                         padding: const EdgeInsets.all(16), // ✅ REDUZIDO: era 20
@@ -282,8 +378,8 @@ class TrilhaGameOverScreen extends ConsumerWidget {
     );
   }
 
-  // ✅ WIDGET PARA MOSTRAR RECURSOS ZERADOS
-  Widget _buildRecursoGameOver(String emoji, String nome, int valor) {
+  // 🔧 CORRIGIDO: Mudou parâmetro de 'int valor' para 'double valor'
+  Widget _buildRecursoGameOver(String emoji, String nome, double valor) {
     return Column(
       children: [
         Text(
@@ -300,8 +396,9 @@ class TrilhaGameOverScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 4),
+        // 🔧 CORRIGIDO: Convertendo double para int na exibição
         Text(
-          '${valor}%',
+          '${valor.toInt()}%',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -332,9 +429,56 @@ class TrilhaGameOverScreen extends ConsumerWidget {
     );
   }
 
+  // ✅ ADICIONADOS: Métodos para as estatísticas no Game Over
+  Widget _buildStatGameOver(String title, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white70, size: 16),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTipoExploradorGameOver(XpFlorestaState xpState) {
+    final precisao = xpState.porcentagemAcerto;
+    final nivel = xpState.nivel;
+
+    if (precisao >= 0.9 && nivel >= 3) return 'Lendário';
+    if (precisao >= 0.8 && nivel >= 2) return 'Experiente';
+    if (precisao >= 0.7) return 'Corajoso';
+    if (precisao >= 0.5) return 'Iniciante';
+    return 'Determinado';
+  }
+
   void _tentarNovamente(BuildContext context, WidgetRef ref) {
-    // ✅ RESETAR RECURSOS - método correto
+    // 🔧 CORRIGIDO: Usar método correto do provider
     ref.read(recursosProvider.notifier).reset();
+    ref.read(xpFlorestaProvider.notifier).reset();
 
     // Ir para primeira questão
     context.go('/trilha-questao/0');

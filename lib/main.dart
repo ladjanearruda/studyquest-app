@@ -2,24 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/themes/app_theme.dart';
-//imports da floresta
+
+// ✅ IMPORTS BÁSICOS
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/trilha/screens/trilha_mapa_screen.dart';
 import 'features/trilha/screens/trilha_questao_screen.dart';
 import 'features/trilha/screens/trilha_feedback_screen.dart';
 import 'features/trilha/screens/trilha_resultados_screen.dart';
 import 'features/trilha/screens/trilha_gameover_screen.dart';
-//imports oceanicos
+
+// ✅ IMPORTS OCEÂNICOS
 import 'features/trilha/screens/trilha_oceano_mapa_screen.dart';
 import 'features/trilha/screens/trilha_oceano_questao_screen.dart';
 import 'features/trilha/screens/trilha_oceano_feedback_screen.dart';
 import 'features/trilha/screens/trilha_oceano_resultados_screen.dart';
 import 'features/trilha/screens/trilha_oceano_gameover_screen.dart';
 
+// ✅ MODELS
+import 'features/trilha/models/recursos_vitais.dart';
+
 // Router configurado
 final router = GoRouter(
   initialLocation: '/onboarding/0',
   routes: [
+    // ✅ ROTAS DE ONBOARDING
     GoRoute(path: '/onboarding/0', builder: (_, __) => const Tela0Nome()),
     GoRoute(
         path: '/onboarding/1',
@@ -40,31 +46,36 @@ final router = GoRouter(
         path: '/onboarding/7', builder: (_, __) => const Tela7EstiloEstudo()),
     GoRoute(
         path: '/onboarding/complete',
-        builder: (_, __) => const OnboardingComplete()), // ← SÓ ESTA
+        builder: (_, __) => const OnboardingComplete()),
+
+    // ✅ ROTAS GERAIS
     GoRoute(path: '/trail/forest', builder: (_, __) => const PlaceholderHome()),
     GoRoute(path: '/home', builder: (_, __) => const PlaceholderHome()),
+
+    // ✅ ROTAS DA TRILHA FLORESTA (FUNCIONAIS!)
     GoRoute(path: '/trilha-mapa', builder: (_, __) => const TrilhaMapaScreen()),
+
     GoRoute(
-        path: '/trilha-questao/:id',
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
-          return TrilhaQuestaoScreen(questaoId: id);
-        }),
+      path: '/trilha-questao/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+        return TrilhaQuestaoScreen(questaoId: id);
+      },
+    ),
+
     GoRoute(
       path: '/trilha-feedback',
       builder: (context, state) {
-        final questaoId =
-            int.tryParse(state.uri.queryParameters['questao'] ?? '0') ?? 0;
-        final acertou = state.uri.queryParameters['acertou'] == 'true';
-        final escolha =
-            int.tryParse(state.uri.queryParameters['escolha'] ?? '0') ?? 0;
         return TrilhaFeedbackScreen(
-          questaoId: questaoId,
-          acertou: acertou,
-          escolha: escolha,
+          acertou: true,
+          energiaAntes: RecursosVitais.inicial(),
+          energiaDepois: RecursosVitais.inicial(),
+          questaoId: 0,
+          escolha: 0,
         );
       },
     ),
+
     GoRoute(
         path: '/trilha-resultados',
         builder: (_, __) => const TrilhaResultadosScreen()),
@@ -72,15 +83,19 @@ final router = GoRouter(
         path: '/trilha-gameover',
         builder: (_, __) => const TrilhaGameOverScreen()),
 
+    // ✅ ROTAS DO OCEANO (funcionam)
     GoRoute(
         path: '/trilha-oceano-mapa',
         builder: (_, __) => const TrilhaOceanoMapaScreen()),
+
     GoRoute(
-        path: '/trilha-oceano-questao/:id',
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
-          return TrilhaOceanoQuestaoScreen(questaoId: id);
-        }),
+      path: '/trilha-oceano-questao/:id',
+      builder: (context, state) {
+        final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+        return TrilhaOceanoQuestaoScreen(questaoId: id);
+      },
+    ),
+
     GoRoute(
       path: '/trilha-oceano-feedback',
       builder: (context, state) {
@@ -96,6 +111,7 @@ final router = GoRouter(
         );
       },
     ),
+
     GoRoute(
         path: '/trilha-oceano-resultados',
         builder: (_, __) => const TrilhaOceanoResultadosScreen()),
@@ -121,7 +137,7 @@ class StudyQuestApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'StudyQuest',
       debugShowCheckedModeBanner: false,
-      theme: appTheme, // Mantém seu tema amazônico!
+      theme: appTheme,
       routerConfig: router,
     );
   }

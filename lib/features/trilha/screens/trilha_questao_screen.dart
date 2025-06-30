@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../data/questoes_amazonia.dart';
 import '../widgets/barra_recursos.dart';
 import '../providers/recursos_provider.dart';
-import 'trilha_feedback_screen.dart'; // ✅ Import para modal
+import '../providers/xp_floresta_provider.dart';
+import '../widgets/barra_xp_floresta.dart';
+import '../models/recursos_vitais.dart';
+import 'trilha_feedback_screen.dart';
 
 class TrilhaQuestaoScreen extends ConsumerWidget {
   final int questaoId;
@@ -40,7 +43,10 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            // Barras de Recursos
+            // ✅ BARRA XP NO TOPO
+            const BarraXpFloresta(),
+
+            // Barras de Recursos Vitais
             const BarraRecursos(),
 
             // Conteúdo da Questão
@@ -139,11 +145,21 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
     );
   }
 
-  // ✅ FUNÇÃO COM MODAL LATERAL (padrão oceânico)
+  // 🔧 CORRIGIDO: Função com parâmetros corretos para TrilhaFeedbackScreen
   void _responder(BuildContext context, WidgetRef ref, int escolha,
       int respostaCorreta, int questaoId) {
     final recursosNotifier = ref.read(recursosProvider.notifier);
+    final xpNotifier = ref.read(xpFlorestaProvider.notifier);
+    final recursos = ref.read(recursosProvider);
+
     bool acertou = escolha == respostaCorreta;
+
+    // ✅ CAPTURAR RECURSOS ANTES DA MUDANÇA
+    final recursosAntes = RecursosVitais(
+      energia: recursos.energia,
+      agua: recursos.agua,
+      saude: recursos.saude,
+    );
 
     // Atualizar recursos vitais
     if (acertou) {
@@ -152,7 +168,13 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
       recursosNotifier.erro();
     }
 
-    // MODAL LATERAL COM CONFIGURAÇÃO CORRETA
+    // ✅ ADICIONAR XP
+    final xpGanho = xpNotifier.adicionarXP(acertou);
+
+    // Pegar recursos após mudança
+    final recursosDepois = ref.read(recursosProvider);
+
+    // 🔧 MODAL COM TODOS OS PARÂMETROS CORRETOS
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -160,15 +182,17 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
       barrierColor: Colors.black26,
       pageBuilder: (context, animation, secondaryAnimation) {
         return TrilhaFeedbackScreen(
-          questaoId: questaoId,
           acertou: acertou,
-          escolha: escolha,
+          energiaAntes: recursosAntes,
+          energiaDepois: recursosDepois,
+          questaoId: questaoId, // ✅ ADICIONADO
+          escolha: escolha, // ✅ ADICIONADO
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0), // Entra da direita
+            begin: const Offset(1.0, 0.0),
             end: Offset.zero,
           ).animate(CurvedAnimation(
             parent: animation,
@@ -179,5 +203,17 @@ class TrilhaQuestaoScreen extends ConsumerWidget {
       },
       transitionDuration: const Duration(milliseconds: 400),
     );
+
+    // 🔧 REMOVIDO: navegação automática - deixar usuário decidir
+    // Future.delayed(...)
+  }
+
+  // ✅ MÉTODO AUXILIAR MANTIDO
+  void _proximaQuestao(BuildContext context, int questaoAtual) {
+    if (questaoAtual < 19) {
+      context.go('/trilha-questao/${questaoAtual + 1}');
+    } else {
+      context.go('/trilha-resultados');
+    }
   }
 }
