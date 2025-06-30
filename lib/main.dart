@@ -50,13 +50,17 @@ final router = GoRouter(
         path: '/onboarding/complete',
         builder: (_, __) => const OnboardingComplete()),
 
-    // ✅ ROTAS GERAIS
+    // ✅ ROTAS PRINCIPAIS - MENU CENTRAL
     GoRoute(path: '/home', builder: (_, __) => const MenuTrilhasScreen()),
+    GoRoute(
+        path: '/trilha-mapa', builder: (_, __) => const MenuTrilhasScreen()),
     GoRoute(
         path: '/trail/forest', builder: (_, __) => const MenuTrilhasScreen()),
 
-    // ✅ ROTAS DA TRILHA FLORESTA (FUNCIONAIS!)
-    GoRoute(path: '/trilha-mapa', builder: (_, __) => const TrilhaMapaScreen()),
+    // ✅ ROTAS ESPECÍFICAS DA TRILHA FLORESTA
+    GoRoute(
+        path: '/trilha-floresta-mapa',
+        builder: (_, __) => const TrilhaMapaScreen()),
 
     GoRoute(
       path: '/trilha-questao/:id',
@@ -66,6 +70,7 @@ final router = GoRouter(
       },
     ),
 
+    // ✅ ROTA FEEDBACK FLORESTA (MANTIDA PARA COMPATIBILIDADE)
     GoRoute(
       path: '/trilha-feedback',
       builder: (context, state) {
@@ -86,7 +91,7 @@ final router = GoRouter(
         path: '/trilha-gameover',
         builder: (_, __) => const TrilhaGameOverScreen()),
 
-    // ✅ ROTAS DO OCEANO (funcionam)
+    // ✅ ROTAS ESPECÍFICAS DA TRILHA OCEANO
     GoRoute(
         path: '/trilha-oceano-mapa',
         builder: (_, __) => const TrilhaOceanoMapaScreen()),
@@ -130,6 +135,7 @@ class StudyQuestApp extends StatelessWidget {
   }
 }
 
+// ✅ MANTIDA PARA COMPATIBILIDADE (mas não mais usada)
 class PlaceholderHome extends StatelessWidget {
   const PlaceholderHome({super.key});
 

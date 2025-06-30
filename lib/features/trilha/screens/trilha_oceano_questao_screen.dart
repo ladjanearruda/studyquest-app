@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/questoes_oceano.dart';
 import '../widgets/barra_recursos_oceano.dart';
+import '../widgets/barra_xp_oceano.dart'; // ✅ NOVO: Widget da barra de XP
 import '../providers/recursos_oceano_provider.dart';
-import '../providers/xp_oceano_provider.dart'; // ✅ NOVO: Provider de XP oceânico
-import '../models/recursos_vitais.dart'; // ✅ NECESSÁRIO: Para capturar estado antes/depois
+import '../providers/xp_oceano_provider.dart';
+import '../models/recursos_vitais.dart';
 import 'trilha_oceano_feedback_screen.dart';
 
 class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
@@ -16,7 +17,6 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final questao = QuestoesOceano.getQuestao(questaoId);
     final recursos = ref.watch(recursosOceanoProvider);
-    final xpState = ref.watch(xpOceanoProvider); // ✅ NOVO: Estado do XP
 
     if (questao == null) {
       return Scaffold(
@@ -43,90 +43,8 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            // ✅ NOVO: Barra de XP e Nível no Topo
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade800,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Row(
-                  children: [
-                    // Nível
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade600,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.scuba_diving,
-                              color: Colors.white, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Nível ${xpState.nivel}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // Barra de XP
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${xpState.xpAtual}/${xpState.xpProximoNivel} XP',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                ),
-                              ),
-                              Text(
-                                '${xpState.porcentagemAcerto.isNaN ? 0 : (xpState.porcentagemAcerto * 100).toInt()}% precisão',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          LinearProgressIndicator(
-                            value: xpState.progressoNivel,
-                            backgroundColor: Colors.blue.shade900,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.cyan.shade300),
-                            minHeight: 8,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // ✅ BARRA XP NO TOPO (AGORA PADRONIZADA COM A FLORESTA)
+            const BarraXpOceano(),
 
             // Barras de Recursos Oceânicos
             const BarraRecursosOceano(),
@@ -231,8 +149,7 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
   void _responder(BuildContext context, WidgetRef ref, int escolha,
       int respostaCorreta, int questaoId) {
     final recursosNotifier = ref.read(recursosOceanoProvider.notifier);
-    final xpNotifier =
-        ref.read(xpOceanoProvider.notifier); // ✅ NOVO: XP notifier
+    final xpNotifier = ref.read(xpOceanoProvider.notifier);
 
     bool acertou = escolha == respostaCorreta;
 
@@ -255,10 +172,10 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
         recursosNotifier
             .acerto(); // +5% nos recursos apenas se não estiver em 100%
       }
-      xpNotifier.acerto(); // ✅ NOVO: XP sempre aumenta no acerto
+      xpNotifier.acerto(); // ✅ XP sempre aumenta no acerto
     } else {
       recursosNotifier.erro(); // -10% nos recursos
-      xpNotifier.erro(); // ✅ NOVO: Registra erro para precisão
+      xpNotifier.erro(); // ✅ Registra erro para precisão
     }
 
     // ✅ CAPTURAR ESTADO DOS RECURSOS DEPOIS DA MUDANÇA
@@ -274,14 +191,14 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Fechar feedback',
-      barrierColor: Colors.black54, // ✅ CORRIGIDO: Fundo mais escuro
+      barrierColor: Colors.black54,
       pageBuilder: (context, animation, secondaryAnimation) {
         return TrilhaOceanoFeedbackScreen(
           questaoId: questaoId,
           acertou: acertou,
           escolha: escolha,
-          energiaAntes: energiaAntes, // ✅ NOVO: Estado antes
-          energiaDepois: energiaDepois, // ✅ NOVO: Estado depois
+          energiaAntes: energiaAntes,
+          energiaDepois: energiaDepois,
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -296,7 +213,7 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
           child: child,
         );
       },
-      transitionDuration: const Duration(milliseconds: 300), // ✅ Mais rápido
+      transitionDuration: const Duration(milliseconds: 300),
     );
   }
 }

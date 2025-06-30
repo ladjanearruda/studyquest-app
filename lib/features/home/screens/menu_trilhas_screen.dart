@@ -102,7 +102,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                   icone: Icons.forest,
                   cor: Colors.green,
                   xpState: xpFloresta,
-                  onTap: () => context.go('/trilha-mapa'),
+                  onTap: () => context.go('/trilha-questao/0'),
                   onReset: () => _resetTrilhaFloresta(context, ref),
                 ),
 
@@ -118,7 +118,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                   icone: Icons.waves,
                   cor: Colors.blue,
                   xpState: xpOceano,
-                  onTap: () => context.go('/trilha-oceano-mapa'),
+                  onTap: () => context.go('/trilha-oceano-questao/0'),
                   onReset: () => _resetTrilhaOceano(context, ref),
                 ),
 
@@ -183,10 +183,8 @@ class MenuTrilhasScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             colors: [
-              Color.fromARGB(25, cor.value >> 16 & 0xFF, cor.value >> 8 & 0xFF,
-                  cor.value & 0xFF),
-              Color.fromARGB(51, cor.value >> 16 & 0xFF, cor.value >> 8 & 0xFF,
-                  cor.value & 0xFF),
+              cor.withAlpha(25),
+              cor.withAlpha(51),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -203,8 +201,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(204, cor.value >> 16 & 0xFF,
-                          cor.value >> 8 & 0xFF, cor.value & 0xFF),
+                      color: cor.withAlpha(204),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: Icon(icone, color: Colors.white, size: 30),
@@ -219,16 +216,14 @@ class MenuTrilhasScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Color.fromARGB(230, cor.value >> 16 & 0xFF,
-                                cor.value >> 8 & 0xFF, cor.value & 0xFF),
+                            color: cor.withAlpha(230),
                           ),
                         ),
                         Text(
                           subtitulo,
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color.fromARGB(179, cor.value >> 16 & 0xFF,
-                                cor.value >> 8 & 0xFF, cor.value & 0xFF),
+                            color: cor.withAlpha(179),
                           ),
                         ),
                       ],
@@ -266,8 +261,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color.fromARGB(204, cor.value >> 16 & 0xFF,
-                                cor.value >> 8 & 0xFF, cor.value & 0xFF),
+                            color: cor.withAlpha(204),
                           ),
                         ),
                         Text(
@@ -275,8 +269,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color.fromARGB(204, cor.value >> 16 & 0xFF,
-                                cor.value >> 8 & 0xFF, cor.value & 0xFF),
+                            color: cor.withAlpha(204),
                           ),
                         ),
                       ],
@@ -284,15 +277,9 @@ class MenuTrilhasScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: xpState.progressoNivel,
-                      backgroundColor: Color.fromARGB(
-                          51,
-                          cor.value >> 16 & 0xFF,
-                          cor.value >> 8 & 0xFF,
-                          cor.value & 0xFF),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color.fromARGB(179, cor.value >> 16 & 0xFF,
-                            cor.value >> 8 & 0xFF, cor.value & 0xFF),
-                      ),
+                      backgroundColor: cor.withAlpha(51),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(cor.withAlpha(179)),
                       minHeight: 8,
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -301,7 +288,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                       'Precisão: ${(xpState.porcentagemAcerto * 100).toInt()}%',
                       style: TextStyle(
                         fontSize: 12,
-                        color: cor,
+                        color: cor.withAlpha(179),
                       ),
                     ),
                   ],
@@ -319,11 +306,7 @@ class MenuTrilhasScreen extends ConsumerWidget {
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('Continuar'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color.fromARGB(
-                            204,
-                            cor.value >> 16 & 0xFF,
-                            cor.value >> 8 & 0xFF,
-                            cor.value & 0xFF),
+                        backgroundColor: cor.withAlpha(204),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -338,14 +321,8 @@ class MenuTrilhasScreen extends ConsumerWidget {
                     child: OutlinedButton(
                       onPressed: onReset,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Color.fromARGB(
-                            204,
-                            cor.value >> 16 & 0xFF,
-                            cor.value >> 8 & 0xFF,
-                            cor.value & 0xFF),
-                        side: BorderSide(
-                            color: Color.fromARGB(204, cor.value >> 16 & 0xFF,
-                                cor.value >> 8 & 0xFF, cor.value & 0xFF)),
+                        foregroundColor: cor.withAlpha(204),
+                        side: BorderSide(color: cor.withAlpha(204)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),

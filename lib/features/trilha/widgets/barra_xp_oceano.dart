@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/xp_floresta_provider.dart';
+import '../providers/xp_oceano_provider.dart';
 
-class BarraXpFloresta extends ConsumerWidget {
-  const BarraXpFloresta({super.key});
+class BarraXpOceano extends ConsumerWidget {
+  const BarraXpOceano({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final xpState = ref.watch(xpFlorestaProvider);
+    final xpState = ref.watch(xpOceanoProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.green.shade800,
+        color: Colors.blue.shade800,
         boxShadow: [
           BoxShadow(
             color: Colors.black26,
@@ -24,17 +24,17 @@ class BarraXpFloresta extends ConsumerWidget {
       child: SafeArea(
         child: Row(
           children: [
-            // ✅ ÍCONE DO EXPLORADOR + NÍVEL
+            // ✅ ÍCONE DO MERGULHADOR + NÍVEL
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green.shade600,
+                color: Colors.blue.shade600,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.eco, color: Colors.white, size: 16),
+                  Icon(Icons.scuba_diving, color: Colors.white, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     'Nível ${xpState.nivel}',
@@ -59,7 +59,7 @@ class BarraXpFloresta extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${xpState.xpTotal} XP',
+                        '${xpState.xpAtual}/${xpState.xpProximoNivel} XP',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
@@ -77,9 +77,9 @@ class BarraXpFloresta extends ConsumerWidget {
                   const SizedBox(height: 4),
                   LinearProgressIndicator(
                     value: xpState.progressoNivel,
-                    backgroundColor: Colors.green.shade900,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.lightGreen.shade300),
+                    backgroundColor: Colors.blue.shade900,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.cyan.shade300),
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -87,17 +87,17 @@ class BarraXpFloresta extends ConsumerWidget {
               ),
             ),
 
-            // ✅ ÍCONE FINAL (IGUAL AO OCEANO) - REPRESENTANDO NATUREZA
+            // ✅ ÍCONE FINAL (IGUAL À FLORESTA) - REPRESENTANDO PROFUNDIDADE
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.lightGreen.shade300,
+                color: Colors.cyan.shade300,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.nature,
-                color: Colors.green.shade800,
+                Icons.water_drop,
+                color: Colors.blue.shade800,
                 size: 16,
               ),
             ),
