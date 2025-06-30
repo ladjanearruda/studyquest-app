@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/themes/app_theme.dart';
 
+import 'features/home/screens/menu_trilhas_screen.dart';
+
 // ✅ IMPORTS BÁSICOS
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/trilha/screens/trilha_mapa_screen.dart';
@@ -49,8 +51,9 @@ final router = GoRouter(
         builder: (_, __) => const OnboardingComplete()),
 
     // ✅ ROTAS GERAIS
-    GoRoute(path: '/trail/forest', builder: (_, __) => const PlaceholderHome()),
-    GoRoute(path: '/home', builder: (_, __) => const PlaceholderHome()),
+    GoRoute(path: '/home', builder: (_, __) => const MenuTrilhasScreen()),
+    GoRoute(
+        path: '/trail/forest', builder: (_, __) => const MenuTrilhasScreen()),
 
     // ✅ ROTAS DA TRILHA FLORESTA (FUNCIONAIS!)
     GoRoute(path: '/trilha-mapa', builder: (_, __) => const TrilhaMapaScreen()),
@@ -93,22 +96,6 @@ final router = GoRouter(
       builder: (context, state) {
         final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
         return TrilhaOceanoQuestaoScreen(questaoId: id);
-      },
-    ),
-
-    GoRoute(
-      path: '/trilha-oceano-feedback',
-      builder: (context, state) {
-        final questaoId =
-            int.tryParse(state.uri.queryParameters['questao'] ?? '0') ?? 0;
-        final acertou = state.uri.queryParameters['acertou'] == 'true';
-        final escolha =
-            int.tryParse(state.uri.queryParameters['escolha'] ?? '0') ?? 0;
-        return TrilhaOceanoFeedbackScreen(
-          questaoId: questaoId,
-          acertou: acertou,
-          escolha: escolha,
-        );
       },
     ),
 

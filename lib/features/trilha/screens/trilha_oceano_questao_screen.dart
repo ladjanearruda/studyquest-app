@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../data/questoes_oceano.dart';
 import '../widgets/barra_recursos_oceano.dart';
 import '../providers/recursos_oceano_provider.dart';
-import 'trilha_oceano_feedback_screen.dart'; // ✅ IMPORT NECESSÁRIO PARA MODAL
+import '../providers/xp_oceano_provider.dart'; // ✅ NOVO: Provider de XP oceânico
+import '../models/recursos_vitais.dart'; // ✅ NECESSÁRIO: Para capturar estado antes/depois
+import 'trilha_oceano_feedback_screen.dart';
 
 class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
   final int questaoId;
@@ -14,6 +16,7 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final questao = QuestoesOceano.getQuestao(questaoId);
     final recursos = ref.watch(recursosOceanoProvider);
+    final xpState = ref.watch(xpOceanoProvider); // ✅ NOVO: Estado do XP
 
     if (questao == null) {
       return Scaffold(
@@ -40,6 +43,91 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
+            // ✅ NOVO: Barra de XP e Nível no Topo
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade800,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    // Nível
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.scuba_diving,
+                              color: Colors.white, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Nível ${xpState.nivel}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // Barra de XP
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${xpState.xpAtual}/${xpState.xpProximoNivel} XP',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              Text(
+                                '${xpState.porcentagemAcerto.isNaN ? 0 : (xpState.porcentagemAcerto * 100).toInt()}% precisão',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: xpState.progressoNivel,
+                            backgroundColor: Colors.blue.shade900,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.cyan.shade300),
+                            minHeight: 8,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             // Barras de Recursos Oceânicos
             const BarraRecursosOceano(),
 
@@ -139,36 +227,67 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
     );
   }
 
-  // ✅ FUNÇÃO COM MODAL LATERAL CORRETO - ERRO CORRIGIDO
+  // ✅ FUNÇÃO COMPLETA COM TODAS AS FUNCIONALIDADES DA FLORESTA
   void _responder(BuildContext context, WidgetRef ref, int escolha,
       int respostaCorreta, int questaoId) {
     final recursosNotifier = ref.read(recursosOceanoProvider.notifier);
+    final xpNotifier =
+        ref.read(xpOceanoProvider.notifier); // ✅ NOVO: XP notifier
+
     bool acertou = escolha == respostaCorreta;
 
-    // Atualizar recursos vitais
+    // ✅ CAPTURAR ESTADO DOS RECURSOS ANTES DA MUDANÇA
+    final recursosAntes = ref.read(recursosOceanoProvider);
+    final RecursosVitais energiaAntes = RecursosVitais(
+      energia: recursosAntes.oxigenio.toDouble(),
+      agua: recursosAntes.temperatura.toDouble(),
+      saude: recursosAntes.pressao.toDouble(),
+    );
+
+    // ✅ LÓGICA INTELIGENTE DE RECURSOS (igual à floresta)
+    bool todosRecursosEm100 = recursosAntes.oxigenio >= 100 &&
+        recursosAntes.temperatura >= 100 &&
+        recursosAntes.pressao >= 100;
+
+    // Atualizar recursos vitais APENAS se não estiverem todos em 100%
     if (acertou) {
-      recursosNotifier.acerto();
+      if (!todosRecursosEm100) {
+        recursosNotifier
+            .acerto(); // +5% nos recursos apenas se não estiver em 100%
+      }
+      xpNotifier.acerto(); // ✅ NOVO: XP sempre aumenta no acerto
     } else {
-      recursosNotifier.erro();
+      recursosNotifier.erro(); // -10% nos recursos
+      xpNotifier.erro(); // ✅ NOVO: Registra erro para precisão
     }
 
-    // MODAL LATERAL COM CONFIGURAÇÃO CORRETA
+    // ✅ CAPTURAR ESTADO DOS RECURSOS DEPOIS DA MUDANÇA
+    final recursosDepois = ref.read(recursosOceanoProvider);
+    final RecursosVitais energiaDepois = RecursosVitais(
+      energia: recursosDepois.oxigenio.toDouble(),
+      agua: recursosDepois.temperatura.toDouble(),
+      saude: recursosDepois.pressao.toDouble(),
+    );
+
+    // ✅ MODAL COM PARÂMETROS COMPLETOS (igual à floresta)
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Fechar feedback', // ✅ CORRIGIDO: barrierLabel obrigatório
-      barrierColor: Colors.black26, // ✅ CORRIGIDO: Background semi-transparente
+      barrierLabel: 'Fechar feedback',
+      barrierColor: Colors.black54, // ✅ CORRIGIDO: Fundo mais escuro
       pageBuilder: (context, animation, secondaryAnimation) {
         return TrilhaOceanoFeedbackScreen(
           questaoId: questaoId,
           acertou: acertou,
           escolha: escolha,
+          energiaAntes: energiaAntes, // ✅ NOVO: Estado antes
+          energiaDepois: energiaDepois, // ✅ NOVO: Estado depois
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0), // Entra da direita
+            begin: const Offset(1.0, 0.0),
             end: Offset.zero,
           ).animate(CurvedAnimation(
             parent: animation,
@@ -177,7 +296,7 @@ class TrilhaOceanoQuestaoScreen extends ConsumerWidget {
           child: child,
         );
       },
-      transitionDuration: const Duration(milliseconds: 400),
+      transitionDuration: const Duration(milliseconds: 300), // ✅ Mais rápido
     );
   }
 }
