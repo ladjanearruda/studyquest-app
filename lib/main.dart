@@ -48,7 +48,7 @@ final router = GoRouter(
         path: '/onboarding/7', builder: (_, __) => const Tela7EstiloEstudo()),
     GoRoute(
         path: '/onboarding/complete',
-        builder: (_, __) => const OnboardingComplete()),
+        builder: (_, __) => const Tela8FinalizacaoPremium()),
 
     // ✅ ROTAS PRINCIPAIS - MENU CENTRAL
     GoRoute(path: '/home', builder: (_, __) => const MenuTrilhasScreen()),
