@@ -4914,7 +4914,8 @@ class _ResourceBar extends StatelessWidget {
 
 // ===== TELA 8 - REDESIGN UX COMPLETO =====
 // ===== TELA 8 - REDESIGN UX COMPLETO =====
-// SUBSTITUA COMPLETAMENTE A CLASSE Tela8FinalizacaoPremium EXISTENTE
+// ===== TELA 8 - FINALIZAÇÃO RÁPIDA (SEM CONSTANTES) =====
+// RESOLVE: Cards balanceados, layout responsivo, CTA impactante
 
 class Tela8FinalizacaoPremium extends ConsumerStatefulWidget {
   const Tela8FinalizacaoPremium({super.key});
@@ -5028,25 +5029,28 @@ class _Tela8FinalizacaoPremiumState
                     children: [
                       IconButton(
                         onPressed: () => context.go('/onboarding/7'),
-                        icon: Icon(Icons.arrow_back_ios,
-                            color: Colors.green.shade700, size: 20),
+                        icon: Icon(
+                          Icons.arrow_back_ios,
+                          color: Colors.green[700]!,
+                          size: 20,
+                        ),
                       ),
                       Text(
                         'Passo 8 de 8',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.green.shade700,
+                          color: Colors.green[700]!,
                         ),
                       ),
-                      const SizedBox(width: 48),
+                      SizedBox(width: 48),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Container(
                     height: 8,
                     decoration: BoxDecoration(
-                      color: Colors.green.shade100,
+                      color: Colors.green[100]!,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: ClipRRect(
@@ -5054,12 +5058,13 @@ class _Tela8FinalizacaoPremiumState
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 600),
                         curve: Curves.easeInOut,
-                        width: MediaQuery.of(context).size.width * 0.86,
+                        width:
+                            MediaQuery.of(context).size.width * 0.86, // 100%!
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Colors.green.shade400,
-                              Colors.green.shade600
+                              Colors.green[400]!,
+                              Colors.green[600]!,
                             ],
                           ),
                         ),
@@ -5076,7 +5081,7 @@ class _Tela8FinalizacaoPremiumState
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
 
                     // CELEBRAÇÃO
                     AnimatedBuilder(
@@ -5101,7 +5106,7 @@ class _Tela8FinalizacaoPremiumState
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: const Color(0xFF00C851)
                                       .withValues(alpha: 0.3),
@@ -5123,31 +5128,30 @@ class _Tela8FinalizacaoPremiumState
                                     children: [
                                       Text('🎉',
                                           style: TextStyle(fontSize: 32)),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: 12),
                                       Flexible(
                                         child: Text(
                                           'Parabéns, ${onboarding.name}!',
                                           style: TextStyle(
-                                            fontSize: 28,
+                                            fontSize: 30,
                                             fontWeight: FontWeight.bold,
                                             color: const Color(0xFF00C851),
                                           ),
                                           textAlign: TextAlign.center,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: 12),
                                       Text('🎉',
                                           style: TextStyle(fontSize: 32)),
                                     ],
                                   ),
-                                  const SizedBox(height: 16),
+                                  SizedBox(height: 16),
                                   Text(
                                     'Seu perfil de estudos foi criado com sucesso!\nVocê está pronto para sua jornada de aprendizado! 🚀',
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: const Color(0xFF007BFF),
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.4,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -5159,9 +5163,9 @@ class _Tela8FinalizacaoPremiumState
                       },
                     ),
 
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32),
 
-                    // LAYOUT RESPONSIVO (PERFIL + AVATAR)
+                    // LAYOUT RESPONSIVO COM CARDS BALANCEADOS
                     AnimatedBuilder(
                       animation: _contentAnimation,
                       builder: (context, child) {
@@ -5171,24 +5175,30 @@ class _Tela8FinalizacaoPremiumState
                             opacity: _contentAnimation.value.clamp(0.0, 1.0),
                             child: LayoutBuilder(
                               builder: (context, constraints) {
-                                if (constraints.maxWidth > 600) {
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                          child: _buildProfileCard(onboarding)),
-                                      const SizedBox(width: 24),
-                                      Expanded(child: _buildAvatarCard()),
-                                    ],
-                                  );
-                                } else {
+                                if (constraints.maxWidth < 600) {
+                                  // MOBILE: Coluna única
                                   return Column(
                                     children: [
                                       _buildProfileCard(onboarding),
-                                      const SizedBox(height: 20),
+                                      SizedBox(height: 24),
                                       _buildAvatarCard(),
                                     ],
+                                  );
+                                } else {
+                                  // DESKTOP: Duas colunas BALANCEADAS
+                                  return IntrinsicHeight(
+                                    // 🔑 CHAVE PARA MESMA ALTURA!
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                            child:
+                                                _buildProfileCard(onboarding)),
+                                        SizedBox(width: 24),
+                                        Expanded(child: _buildAvatarCard()),
+                                      ],
+                                    ),
                                   );
                                 }
                               },
@@ -5198,7 +5208,7 @@ class _Tela8FinalizacaoPremiumState
                       },
                     ),
 
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32),
 
                     // TRILHAS EM DESTAQUE
                     AnimatedBuilder(
@@ -5206,10 +5216,9 @@ class _Tela8FinalizacaoPremiumState
                       builder: (context, child) {
                         return Transform.translate(
                           offset: Offset(
-                              0,
-                              30 *
-                                  (1 -
-                                      _contentAnimation.value.clamp(0.0, 1.0))),
+                            0,
+                            30 * (1 - _contentAnimation.value.clamp(0.0, 1.0)),
+                          ),
                           child: Opacity(
                             opacity: _contentAnimation.value.clamp(0.0, 1.0),
                             child: _buildTrailsSection(),
@@ -5218,13 +5227,13 @@ class _Tela8FinalizacaoPremiumState
                       },
                     ),
 
-                    const SizedBox(height: 40),
+                    SizedBox(height: 40),
                   ],
                 ),
               ),
             ),
 
-            // CTA PRIMÁRIO
+            // CTA PRIMÁRIO IMPACTANTE
             AnimatedBuilder(
               animation: _ctaAnimation,
               builder: (context, child) {
@@ -5247,6 +5256,7 @@ class _Tela8FinalizacaoPremiumState
                       ),
                       child: Column(
                         children: [
+                          // ÍCONES MOTIVACIONAIS
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
@@ -5256,17 +5266,19 @@ class _Tela8FinalizacaoPremiumState
                               _buildMotivationIcon('🎮', 'Diversão'),
                             ],
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: 20),
+
+                          // BOTÃO SUPER IMPACTANTE
                           SizedBox(
                             width: double.infinity,
-                            height: 56,
+                            height: 60,
                             child: ElevatedButton(
                               onPressed: () => _finalizarOnboarding(context),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF00C851),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
                                 elevation: 8,
                                 shadowColor: const Color(0xFF00C851)
@@ -5278,12 +5290,12 @@ class _Tela8FinalizacaoPremiumState
                                   Text(
                                     'Iniciar Minha Aventura!',
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Text('🌟', style: TextStyle(fontSize: 20)),
+                                  SizedBox(width: 12),
+                                  Text('🌟', style: TextStyle(fontSize: 24)),
                                 ],
                               ),
                             ),
@@ -5301,12 +5313,13 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
+  // PERFIL CARD BALANCEADO
   Widget _buildProfileCard(OnboardingData onboarding) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -5314,28 +5327,34 @@ class _Tela8FinalizacaoPremiumState
             offset: const Offset(0, 8),
           ),
         ],
-        border: Border.all(color: Colors.green.shade100, width: 1),
+        border: Border.all(
+            color: const Color(0xFF00C851).withValues(alpha: 0.1), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // IMPORTANTE PARA INTRINSIC HEIGHT
         children: [
+          // Header do card
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00C851).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(Icons.person_outline,
-                    color: const Color(0xFF00C851), size: 24),
+                child: Icon(
+                  Icons.person_outline,
+                  color: const Color(0xFF00C851),
+                  size: 28,
+                ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Text(
                   'Seu Perfil de Estudos',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF00C851),
                   ),
@@ -5343,7 +5362,9 @@ class _Tela8FinalizacaoPremiumState
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
+
+          // Conteúdo do perfil
           _buildProfileItem(
               '📚', 'Nível', _getEducationLevelText(onboarding.educationLevel)),
           _buildProfileItem(
@@ -5352,11 +5373,15 @@ class _Tela8FinalizacaoPremiumState
               '🧭', 'Interesse', _getInterestAreaText(onboarding.interestArea)),
           _buildProfileItem(
               '📖', 'Estilo', onboarding.studyStyle ?? 'Não informado'),
+
+          // Espaçador para igualar altura
+          SizedBox(height: 16),
         ],
       ),
     );
   }
 
+  // AVATAR CARD BALANCEADO
   Widget _buildAvatarCard() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -5369,29 +5394,33 @@ class _Tela8FinalizacaoPremiumState
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-            color: const Color(0xFF007BFF).withValues(alpha: 0.2), width: 1),
+          color: const Color(0xFF007BFF).withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // IMPORTANTE
         children: [
+          // Header
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF007BFF).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text('🎮', style: TextStyle(fontSize: 24)),
+                child: Text('🎮', style: TextStyle(fontSize: 28)),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Text(
                   'Seu Avatar Está Sendo Criado...',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF007BFF),
                   ),
@@ -5399,63 +5428,66 @@ class _Tela8FinalizacaoPremiumState
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
-          // Conteúdo principal que deve ter mesma altura do perfil
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF007BFF),
-                        const Color(0xFF6F42C1)
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF007BFF).withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+          // Conteúdo principal CENTRALIZADO
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF007BFF),
+                          const Color(0xFF6F42C1),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF007BFF).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Icon(Icons.person, size: 60, color: Colors.white),
                   ),
-                  child: Icon(Icons.person, size: 50, color: Colors.white),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Baseado no seu perfil, vamos personalizar sua experiência de aprendizado!',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: const Color(0xFF007BFF),
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
+                  SizedBox(height: 20),
+                  Text(
+                    'Baseado no seu perfil, vamos personalizar sua experiência de aprendizado!',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: const Color(0xFF007BFF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
-          // Spacer para igualar altura com perfil card (4 itens de perfil = ~160px)
-          const SizedBox(height: 60),
+          // Padding inferior para igualar altura
+          SizedBox(height: 16),
         ],
       ),
     );
   }
 
+  // TRILHAS SECTION
   Widget _buildTrailsSection() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -5469,13 +5501,13 @@ class _Tela8FinalizacaoPremiumState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('🗺️', style: TextStyle(fontSize: 28)),
-              const SizedBox(width: 12),
+              Text('🗺️', style: TextStyle(fontSize: 32)),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Trilhas de Aventura Disponíveis',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF00C851),
                   ),
@@ -5484,10 +5516,32 @@ class _Tela8FinalizacaoPremiumState
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
+
+          // Layout responsivo para trilhas
           LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth > 400) {
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  children: [
+                    _buildTrailCard(
+                      '🌲',
+                      'Floresta Amazônica',
+                      'Sobrevivência e Matemática',
+                      const Color(0xFF00C851),
+                      'Explore a maior floresta do mundo!',
+                    ),
+                    SizedBox(height: 16),
+                    _buildTrailCard(
+                      '🌊',
+                      'Oceano Profundo',
+                      'Exploração e Descobertas',
+                      const Color(0xFF007BFF),
+                      'Mergulhe nas profundezas marinhas!',
+                    ),
+                  ],
+                );
+              } else {
                 return Row(
                   children: [
                     Expanded(
@@ -5499,7 +5553,7 @@ class _Tela8FinalizacaoPremiumState
                         'Explore a maior floresta do mundo!',
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16),
                     Expanded(
                       child: _buildTrailCard(
                         '🌊',
@@ -5511,26 +5565,6 @@ class _Tela8FinalizacaoPremiumState
                     ),
                   ],
                 );
-              } else {
-                return Column(
-                  children: [
-                    _buildTrailCard(
-                      '🌲',
-                      'Floresta Amazônica',
-                      'Sobrevivência e Matemática',
-                      const Color(0xFF00C851),
-                      'Explore a maior floresta do mundo!',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTrailCard(
-                      '🌊',
-                      'Oceano Profundo',
-                      'Exploração e Descobertas',
-                      const Color(0xFF007BFF),
-                      'Mergulhe nas profundezas marinhas!',
-                    ),
-                  ],
-                );
               }
             },
           ),
@@ -5539,13 +5573,14 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
+  // TRAIL CARD
   Widget _buildTrailCard(String emoji, String title, String subtitle,
       Color color, String description) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
         boxShadow: [
           BoxShadow(
@@ -5558,38 +5593,42 @@ class _Tela8FinalizacaoPremiumState
       child: Column(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 70,
+            height: 70,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: Center(child: Text(emoji, style: TextStyle(fontSize: 32))),
+            child: Center(child: Text(emoji, style: TextStyle(fontSize: 36))),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             title,
             style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: color),
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             subtitle,
             style: TextStyle(
-                fontSize: 14,
-                color: color.withValues(alpha: 0.8),
-                fontWeight: FontWeight.w600),
+              fontSize: 15,
+              color: color.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             description,
             style: TextStyle(
-                fontSize: 13,
-                color: color.withValues(alpha: 0.7),
-                height: 1.3,
-                fontWeight: FontWeight.w500),
+              fontSize: 13,
+              color: color.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -5597,6 +5636,7 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
+  // PROFILE ITEM
   Widget _buildProfileItem(String emoji, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -5604,15 +5644,15 @@ class _Tela8FinalizacaoPremiumState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFF00C851).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(child: Text(emoji, style: TextStyle(fontSize: 16))),
+            child: Center(child: Text(emoji, style: TextStyle(fontSize: 18))),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5620,17 +5660,19 @@ class _Tela8FinalizacaoPremiumState
                 Text(
                   label,
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700]!,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   value,
                   style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey.shade800,
-                      fontWeight: FontWeight.w500),
+                    fontSize: 15,
+                    color: Colors.grey[800]!,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -5640,19 +5682,20 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
+  // MOTIVATION ICON
   Widget _buildMotivationIcon(String emoji, String label) {
     return Column(
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
             color: const Color(0xFF00C851).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: Center(child: Text(emoji, style: TextStyle(fontSize: 24))),
+          child: Center(child: Text(emoji, style: TextStyle(fontSize: 28))),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           label,
           style: TextStyle(
@@ -5666,6 +5709,7 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
+  // HELPER METHODS
   String _getEducationLevelText(EducationLevel? level) {
     switch (level) {
       case EducationLevel.fundamental6:
