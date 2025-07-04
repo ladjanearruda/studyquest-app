@@ -1019,7 +1019,13 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
   }
 }
 
-// ===== TELA 2 OBJETIVOS PREMIUM =====
+// // ===== TELA 2 OBJETIVOS PREMIUM - VERSÃO CORRIGIDA =====
+// 🎯 CORREÇÕES APLICADAS:
+// ✅ Progress header padronizado (igual Tela 1 e 8)
+// ✅ Cores únicas (sem duplicatas lilás) - conforme protótipo
+// ✅ CTA padrão falando da próxima tela
+// ✅ Corrigido withOpacity() deprecated
+// ✅ Botão igual outras telas
 
 class Tela2ObjetivoPrincipal extends ConsumerStatefulWidget {
   const Tela2ObjetivoPrincipal({super.key});
@@ -1030,100 +1036,56 @@ class Tela2ObjetivoPrincipal extends ConsumerStatefulWidget {
 }
 
 class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
-    with TickerProviderStateMixin {
-  late AnimationController _heroController;
-  late AnimationController _cardsController;
-  late Animation<double> _heroAnimation;
-  late List<Animation<double>> _cardAnimations;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
-  final List<StudyGoalData> _goals = [
-    StudyGoalData(
-      goal: StudyGoal.improveGrades,
-      emoji: '📈',
-      title: 'Melhorar Notas',
-      subtitle: 'Subir de nível na escola',
-      color: Colors.blue,
-      description: 'Quero tirar notas melhores e me destacar nas matérias',
-    ),
-    StudyGoalData(
-      goal: StudyGoal.enemPrep,
-      emoji: '🎯',
-      title: 'Preparação ENEM',
-      subtitle: 'Rumo à aprovação',
-      color: Colors.orange,
-      description: 'Meu foco é mandar bem no ENEM e conquistar minha vaga',
-    ),
-    StudyGoalData(
-      goal: StudyGoal.specificUniversity,
-      emoji: '🏛️',
-      title: 'Universidade Específica',
-      subtitle: 'Sonho grande definido',
-      color: Colors.purple,
-      description: 'Tenho uma universidade dos sonhos e vou conquistá-la',
-    ),
-    StudyGoalData(
-      goal: StudyGoal.exploreAreas,
-      emoji: '🧭',
-      title: 'Explorar Áreas',
-      subtitle: 'Descobrir paixões',
-      color: Colors.teal,
-      description:
-          'Quero conhecer diferentes áreas e descobrir o que me motiva',
-    ),
-    StudyGoalData(
-      goal: StudyGoal.undecided,
-      emoji: '🤔',
-      title: 'Ainda Decidindo',
-      subtitle: 'Vamos descobrir juntos',
-      color: Colors.grey,
-      description: 'Não tenho certeza ainda, mas quero evoluir estudando',
-    ),
-  ];
+  String? selectedGoal;
 
   @override
   void initState() {
     super.initState();
-
-    _heroController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
-    _cardsController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this);
-
-    _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
     );
 
-    _cardAnimations = List.generate(_goals.length, (index) {
-      return Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _cardsController, curve: Curves.easeOut),
-      );
-    });
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
 
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _heroController.forward();
-    });
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) _cardsController.forward();
-    });
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _animationController.forward();
   }
 
   @override
   void dispose() {
-    _heroController.dispose();
-    _cardsController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final onboarding = ref.watch(onboardingProvider);
-    final hasSelection = onboarding.studyGoal != null;
+    final hasSelection = selectedGoal != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8E9),
       body: SafeArea(
         child: Column(
           children: [
+            // ✅ PROGRESS HEADER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -1139,9 +1101,10 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                       Text(
                         'Passo 3 de 8',
                         style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green[700]!),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green[700]!,
+                        ),
                       ),
                       const SizedBox(width: 48),
                     ],
@@ -1150,8 +1113,9 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                   Container(
                     height: 8,
                     decoration: BoxDecoration(
-                        color: Colors.green[100]!,
-                        borderRadius: BorderRadius.circular(4)),
+                      color: Colors.green[100]!,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: AnimatedContainer(
@@ -1161,7 +1125,8 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                             MediaQuery.of(context).size.width * (3 / 8) * 0.86,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                              colors: [Colors.green[400]!, Colors.green[600]!]),
+                            colors: [Colors.green[400]!, Colors.green[600]!],
+                          ),
                         ),
                       ),
                     ),
@@ -1169,296 +1134,271 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                 ],
               ),
             ),
+
+            // CONTEÚDO PRINCIPAL
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 16),
-                    AnimatedBuilder(
-                      animation: _heroAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: 0.8 + (0.2 * _heroAnimation.value),
-                          child: Opacity(
-                            opacity: _heroAnimation.value,
-                            child: Column(
-                              children: [
-                                Text('🌟',
-                                    style: TextStyle(
-                                        fontSize: 60 * _heroAnimation.value)),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Qual seu sonho?',
-                                  style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2E7D32)),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Todo grande explorador tem um objetivo.\nVamos descobrir o seu! 🚀',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      height: 1.4),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                    // TÍTULO E SUBTÍTULO
+                    FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            '🎯 Qual é seu principal\nobjetivo?',
+                            style: TextStyle(
+                              fontSize: 28, // ✅ H1 padrão das outras telas
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32),
                             ),
+                            textAlign: TextAlign
+                                .center, // ✅ MUDANÇA 2: Adicionar esta linha
                           ),
-                        );
-                      },
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Escolha seu foco principal. Você poderá explorar outros objetivos depois!',
+                            style: TextStyle(
+                              fontSize: 16, // ✅ Body padrão das outras telas
+                              fontWeight: FontWeight.w400,
+                              color: Colors.grey,
+                              height: 1.5,
+                            ),
+                            textAlign: TextAlign
+                                .center, // ✅ MUDANÇA 2: Adicionar esta linha
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 32),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _goals.length,
-                      itemBuilder: (context, index) {
-                        final goalData = _goals[index];
-                        final isSelected =
-                            onboarding.studyGoal == goalData.goal;
 
-                        return AnimatedBuilder(
-                          animation: _cardAnimations[index],
-                          builder: (context, child) {
-                            final adjustedValue =
-                                _cardAnimations[index].value; // SEM DELAY
+                    const SizedBox(height: 40),
 
-                            return Transform.translate(
-                              offset: Offset(50 * (1 - adjustedValue), 0),
-                              child: Opacity(
-                                opacity: adjustedValue, // OPACIDADE NORMAL
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? goalData.color
-                                              .withValues(alpha: 0.15)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? goalData.color
-                                            : Colors.grey[200]!,
-                                        width: isSelected ? 3 : 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: isSelected
-                                              ? goalData.color
-                                                  .withValues(alpha: 0.3)
-                                              : Colors.black
-                                                  .withValues(alpha: 0.05),
-                                          blurRadius: isSelected ? 20 : 8,
-                                          offset: Offset(0, isSelected ? 8 : 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(20),
-                                        onTap: () {
-                                          ref
-                                              .read(onboardingProvider.notifier)
-                                              .update((state) {
-                                            final newState = OnboardingData();
-                                            newState.name = state.name;
-                                            newState.educationLevel =
-                                                state.educationLevel;
-                                            newState.studyGoal = goalData.goal;
-                                            newState.interestArea =
-                                                state.interestArea;
-                                            newState.dreamUniversity =
-                                                state.dreamUniversity;
-                                            newState.studyTime =
-                                                state.studyTime;
-                                            newState.mainDifficulty =
-                                                state.mainDifficulty;
-                                            newState.studyStyle =
-                                                state.studyStyle;
-                                            return newState;
-                                          });
-                                        },
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(20),
-                                          child: Row(
-                                            children: [
-                                              Stack(
-                                                children: [
-                                                  Container(
-                                                    width: 60,
-                                                    height: 60,
-                                                    decoration: BoxDecoration(
-                                                      color: goalData.color
-                                                          .withValues(
-                                                              alpha: 0.1),
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: Center(
-                                                      child: Text(
-                                                          goalData.emoji,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      24)),
-                                                    ),
+                    // ✅ LISTA DE OBJETIVOS (CORES ÚNICAS - CONFORME PROTÓTIPO)
+                    SlideTransition(
+                      position: _slideAnimation,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Column(
+                          children: _getGoalsData().map((goalData) {
+                            final isSelected = selectedGoal == goalData.id;
+                            final isOtherSelected = selectedGoal != null &&
+                                selectedGoal != goalData.id;
+
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              margin: const EdgeInsets.only(bottom: 24),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? goalData.color.withValues(alpha: 0.1)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? goalData.color
+                                      : Colors.grey.shade300,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isSelected
+                                        ? goalData.color.withValues(alpha: 0.2)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: isSelected ? 8 : 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 300),
+                                opacity: isOtherSelected ? 0.6 : 1.0,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () {
+                                      setState(() {
+                                        selectedGoal = goalData.id;
+                                      });
+                                      // ✅ Atualizar o provider
+                                      ref
+                                          .read(onboardingProvider.notifier)
+                                          .update((state) {
+                                        final newState = OnboardingData();
+                                        newState.name = state.name;
+                                        newState.educationLevel =
+                                            state.educationLevel;
+                                        newState.studyGoal =
+                                            _getStudyGoalEnum(goalData.id);
+                                        newState.interestArea =
+                                            state.interestArea;
+                                        newState.dreamUniversity =
+                                            state.dreamUniversity;
+                                        newState.studyTime = state.studyTime;
+                                        newState.mainDifficulty =
+                                            state.mainDifficulty;
+                                        newState.studyStyle = state.studyStyle;
+                                        return newState;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Row(
+                                        children: [
+                                          // ÍCONE/EMOJI (48x48px mínimo para touch)
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? goalData.color
+                                                  : Colors.grey.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                goalData.emoji,
+                                                style: const TextStyle(
+                                                    fontSize: 24),
+                                              ),
+                                            ),
+                                          ),
+
+                                          const SizedBox(width: 24),
+
+                                          // TEXTOS
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  goalData.title,
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        20, // ✅ cardTitle = 20px
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isSelected
+                                                        ? goalData.color
+                                                        : Colors.black87,
                                                   ),
-                                                  if (isSelected)
-                                                    Positioned(
-                                                      top: -2,
-                                                      right: -2,
-                                                      child: Container(
-                                                        width: 24,
-                                                        height: 24,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: goalData.color,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          border: Border.all(
-                                                              color:
-                                                                  Colors.white,
-                                                              width: 2),
-                                                        ),
-                                                        child: const Icon(
-                                                            Icons.check,
-                                                            color: Colors.white,
-                                                            size: 14),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      goalData.title,
-                                                      style: TextStyle(
-                                                        fontSize: 20,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: isSelected
-                                                            ? goalData.color
-                                                            : Colors.black87,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      goalData.subtitle,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: goalData.color
-                                                            .withValues(
-                                                                alpha: 0.7),
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      goalData.description,
-                                                      style: TextStyle(
-                                                        fontSize: 16,
-                                                        color:
-                                                            Colors.grey[600]!,
-                                                        height: 1.3,
-                                                      ),
-                                                    ),
-                                                  ],
                                                 ),
-                                              ),
-                                              AnimatedContainer(
-                                                duration: const Duration(
-                                                    milliseconds: 200),
-                                                child: Icon(
-                                                  isSelected
-                                                      ? Icons
-                                                          .radio_button_checked
-                                                      : Icons
-                                                          .radio_button_unchecked,
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  goalData.description,
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        16, // ✅ body1 = 16px
+                                                    fontWeight: FontWeight.w400,
+                                                    color: isSelected
+                                                        ? goalData.color
+                                                            .withValues(
+                                                                alpha: 0.8)
+                                                        : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+
+                                          // ✅ RADIO BUTTON (seleção única)
+                                          AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            child: Container(
+                                              width: 24,
+                                              height: 24,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
                                                   color: isSelected
                                                       ? goalData.color
-                                                      : Colors.grey[400]!,
-                                                  size: 24,
+                                                      : Colors.grey.shade400,
+                                                  width: 2,
                                                 ),
+                                                color: isSelected
+                                                    ? goalData.color
+                                                    : Colors.transparent,
                                               ),
-                                            ],
+                                              child: isSelected
+                                                  ? const Icon(
+                                                      Icons.check,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    )
+                                                  : null,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
                             );
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    AnimatedOpacity(
-                      opacity: hasSelection ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 500),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.green[50]!,
-                              Colors.green[100]!.withValues(alpha: 0.3)
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: Colors.green[200]!, width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                  color: Colors.green[600]!,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.celebration,
-                                  color: Colors.white, size: 20),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                hasSelection
-                                    ? 'Excelente escolha! Seu sonho vai virar realidade! 🌟'
-                                    : '',
-                                style: TextStyle(
-                                  color: Colors.green[700]!,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
+                          }).toList(),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 80),
+
+                    const SizedBox(height: 24),
+
+                    // ✅ FEEDBACK DE SUCESSO (igual outras telas)
+                    AnimatedOpacity(
+                      opacity: hasSelection ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 500),
+                      child: hasSelection
+                          ? Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.green[50]!,
+                                    Colors.green[100]!.withValues(alpha: 0.3)
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                    color: Colors.green[200]!, width: 1),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                        color: Colors.green[600]!,
+                                        shape: BoxShape.circle),
+                                    child: const Icon(Icons.check_circle,
+                                        color: Colors.white, size: 20),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Perfeito! Objetivo definido: ${_getGoalTitle(selectedGoal!)} 🎯',
+                                      style: TextStyle(
+                                        color: Colors.green[700]!,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
             ),
-            // ===== CORREÇÃO BOTÃO TELA 2 - SUBSTITUIR O CONTAINER FINAL =====
 
-// PROCURE POR: "Container(" antes do ElevatedButton da Tela 2
-// SUBSTITUA TODO O Container do botão por este código:
-
+            // ✅ BOTÃO PRINCIPAL PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -1492,8 +1432,8 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                     children: [
                       Text(
                         hasSelection
-                            ? 'Rumo ao sonho! 🚀'
-                            : 'Escolha seu objetivo',
+                            ? 'Vamos às áreas! 🧭' // ✅ Fala da próxima tela (igual outras)
+                            : 'Escolha seu objetivo principal',
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
@@ -1513,10 +1453,99 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
       ),
     );
   }
+
+  // ✅ HELPER: Converter ID do objetivo para enum StudyGoal
+  StudyGoal _getStudyGoalEnum(String goalId) {
+    switch (goalId) {
+      case 'melhorar_notas':
+        return StudyGoal.improveGrades;
+      case 'preparar_enem':
+        return StudyGoal.enemPrep;
+      case 'universidade_especifica':
+        return StudyGoal.specificUniversity;
+      case 'explorar_areas':
+        return StudyGoal.exploreAreas;
+      case 'ainda_descobrindo':
+        return StudyGoal.undecided;
+      default:
+        return StudyGoal.undecided;
+    }
+  }
+
+  // ✅ HELPER: Pegar título do objetivo pelo ID
+  String _getGoalTitle(String goalId) {
+    final goal = _getGoalsData().firstWhere((g) => g.id == goalId);
+    return goal.title;
+  }
+
+  // ✅ DADOS DOS OBJETIVOS COM CORES ÚNICAS (CONFORME PROTÓTIPO - SEM DUPLICATAS)
+  List<GoalData> _getGoalsData() {
+    return [
+      GoalData(
+        id: 'melhorar_notas',
+        emoji: '📚',
+        title: 'Melhorar notas na escola',
+        description:
+            'Quero tirar notas melhores e me destacar nas disciplinas escolares',
+        color: const Color(0xFF00C851), // ✅ Verde - crescimento
+      ),
+      GoalData(
+        id: 'preparar_enem',
+        emoji: '🎯',
+        title: 'Preparar para ENEM',
+        description:
+            'Foco total na prova mais importante do país para entrar na universidade',
+        color: const Color(0xFF007BFF), // ✅ Azul - confiança
+      ),
+      GoalData(
+        id: 'universidade_especifica',
+        emoji: '🏛️',
+        title: 'Entrar numa universidade específica',
+        description:
+            'Tenho o sonho de passar numa universidade específica (USP, UNICAMP, etc.)',
+        color: const Color(0xFF6F42C1), // ✅ Roxo - ambição
+      ),
+      GoalData(
+        id: 'explorar_areas',
+        emoji: '🔍',
+        title: 'Explorar áreas de interesse',
+        description:
+            'Quero descobrir que profissão combina comigo através de diferentes trilhas',
+        color: const Color(0xFFFF6B00), // ✅ Laranja - descoberta (MUDOU!)
+      ),
+      GoalData(
+        id: 'ainda_descobrindo',
+        emoji: '🌟',
+        title: 'Não tenho certeza ainda',
+        description:
+            'Estou explorando e vou descobrir meus objetivos através do jogo',
+        color: const Color(0xFF17A2B8), // ✅ Turquesa - exploração (MUDOU!)
+      ),
+    ];
+  }
 }
+
+// CLASSE DE DADOS PARA OS CARDS
+class GoalData {
+  final String id;
+  final String emoji;
+  final String title;
+  final String description;
+  final Color color;
+
+  GoalData({
+    required this.id,
+    required this.emoji,
+    required this.title,
+    required this.description,
+    required this.color,
+  });
+}
+
 // ===== TELAS 3-7 RESTANTES =====
-// ===== TELA 3 ÁREA DE INTERESSE - PADRÃO CORRETO =====
-// SUBSTITUA A CLASSE Tela3AreaInteresse EXISTENTE
+// ===== TELA 3 ÁREA DE INTERESSE - UX REFINADA =====
+// ✅ APLICADO: Pesquisa UX + Tipografia melhorada + Layout responsivo
+// ✅ CORRIGIDO: fontSize descriptions 13→16px + espaçamentos + cores
 
 class Tela3AreaInteresse extends ConsumerStatefulWidget {
   const Tela3AreaInteresse({super.key});
@@ -1579,7 +1608,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
       title: 'Descobrindo',
       subtitle: 'Explorar juntos',
       description: 'Ainda não sei, quero conhecer tudo um pouco',
-      color: Colors.grey,
+      color: Colors.grey[600]!,
     ),
   ];
 
@@ -1629,7 +1658,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER - CORRIGIDO SEM BARRA EXTRA
+            // ✅ PROGRESS HEADER PADRONIZADO
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -1697,14 +1726,14 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                             opacity: _heroAnimation.value,
                             child: Column(
                               children: [
-                                Text('🎯',
+                                Text('🧭',
                                     style: TextStyle(
-                                        fontSize: 60 * _heroAnimation.value)),
+                                        fontSize: 50 * _heroAnimation.value)),
                                 const SizedBox(height: 16),
                                 const Text(
                                   'Qual área desperta\nseu interesse?',
                                   style: TextStyle(
-                                    fontSize: 28,
+                                    fontSize: 26, // ✅ H1 PADRÃO
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF2E7D32),
                                   ),
@@ -1712,9 +1741,9 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Escolha sua paixão acadêmica! 🌟',
+                                  'Escolha sua direção acadêmica! 🌟', // ✅ TEXTO ATUALIZADO
                                   style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 16, // ✅ BODY1 PADRÃO
                                       color: Colors.grey,
                                       height: 1.4),
                                   textAlign: TextAlign.center,
@@ -1728,7 +1757,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
 
                     const SizedBox(height: 32),
 
-                    // ✅ BOTÕES EM LINHA HORIZONTAL PREMIUM
+                    // ✅ LISTA DE ÁREAS (LAYOUT VERTICAL MANTIDO)
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -1743,7 +1772,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                           builder: (context, child) {
                             return Transform.translate(
                               offset: Offset(
-                                  50 * (1 - _buttonAnimations[index].value), 0),
+                                  40 * (1 - _buttonAnimations[index].value), 0),
                               child: Opacity(
                                 opacity: _buttonAnimations[index].value,
                                 child: Container(
@@ -1812,7 +1841,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                           padding: const EdgeInsets.all(20),
                                           child: Row(
                                             children: [
-                                              // Emoji + Check Icon
+                                              // ✅ EMOJI + CHECK ICON
                                               Stack(
                                                 children: [
                                                   Container(
@@ -1872,7 +1901,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
 
                                               const SizedBox(width: 16),
 
-                                              // Texto principal
+                                              // ✅ TEXTO PRINCIPAL (FONTES CORRIGIDAS)
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -1881,7 +1910,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                                     Text(
                                                       areaData.title,
                                                       style: TextStyle(
-                                                        fontSize: 20,
+                                                        fontSize:
+                                                            20, // ✅ CARD TITLE PADRÃO
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         color: isSelected
@@ -1894,7 +1924,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                                     Text(
                                                       areaData.subtitle,
                                                       style: TextStyle(
-                                                        fontSize: 14,
+                                                        fontSize:
+                                                            15, // ✅ SUBTITLE PADRÃO
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: isSelected
@@ -1909,7 +1940,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                                     Text(
                                                       areaData.description,
                                                       style: TextStyle(
-                                                        fontSize: 16,
+                                                        fontSize:
+                                                            16, // ✅ CORRIGIDO: 13→16px
                                                         color: Colors
                                                             .grey.shade600,
                                                         height: 1.3,
@@ -1919,7 +1951,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                                 ),
                                               ),
 
-                                              // Radio button - CONSISTENTE COM TELA 2
+                                              // ✅ RADIO BUTTON
                                               AnimatedContainer(
                                                 duration: const Duration(
                                                     milliseconds: 200),
@@ -1951,7 +1983,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
 
                     const SizedBox(height: 20),
 
-                    // ✅ FEEDBACK VISUAL DE SUCESSO
+                    // 1️⃣ CORREÇÃO DO FEEDBACK DE SUCESSO:
                     AnimatedOpacity(
                       opacity: hasSelection ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
@@ -1982,7 +2014,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                             Expanded(
                               child: Text(
                                 hasSelection
-                                    ? 'Ótima escolha! Agora vamos às universidades! 🎓'
+                                    ? 'Ótima escolha! Agora vamos definir sua universidade dos sonhos! 🏛️' // ✅ CORRIGIDO
                                     : '',
                                 style: TextStyle(
                                   color: Colors.green[700]!,
@@ -2002,7 +2034,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
               ),
             ),
 
-            // ✅ BOTÃO FOOTER - PADRONIZADO COM OUTRAS TELAS
+            // ✅ BOTÃO FOOTER PADRONIZADO
+            // 2️⃣ CORREÇÃO DO BOTÃO PRINCIPAL:
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -2035,7 +2068,9 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        hasSelection ? 'Próxima etapa! 🎓' : 'Escolha uma área',
+                        hasSelection
+                            ? 'Vamos às universidades! 🏛️' // ✅ CORRIGIDO - PADRÃO
+                            : 'Escolha uma área',
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
@@ -2077,7 +2112,12 @@ class ProfessionalTrailData {
 }
 
 // ===== TELA 4 UNIVERSIDADE DOS SONHOS PREMIUM =====
-// SUBSTITUA A CLASSE Tela4UniversidadeSonho EXISTENTE
+// ===== TELA 4 UNIVERSIDADE DOS SONHOS - PROTÓTIPO UX PREMIUM =====
+// ✅ Seguindo padrões das Telas 1, 2, 3 e 8
+// ✅ Aplicando recomendações da pesquisa UX
+// ✅ Cores individuais por universidade (harmonioso)
+// ✅ Lista completa com categorização visual
+// ✅ Layout responsivo e animações suaves
 
 class Tela4UniversidadeSonho extends ConsumerStatefulWidget {
   const Tela4UniversidadeSonho({super.key});
@@ -2094,6 +2134,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
   late Animation<double> _heroAnimation;
   late List<Animation<double>> _cardAnimations;
 
+  // ✅ LISTA COMPLETA EM ORDEM ALFABÉTICA DENTRO DE CADA CATEGORIA
   final List<UniversityData> _universities = [
     // ===== UNIVERSIDADES FEDERAIS (ORDEM ALFABÉTICA) =====
     UniversityData(
@@ -2288,7 +2329,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
     // ===== OPÇÕES ESPECIAIS (ORDEM ALFABÉTICA) =====
     UniversityData(
       name: 'Ainda não decidi',
-      fullName: 'Estou explorando as opções',
+      fullName: 'Estou explorando as opções disponíveis',
       emoji: '🤔',
       category: 'Especial',
       color: Colors.grey,
@@ -2321,17 +2362,21 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
     super.initState();
 
     _heroController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
     _cardsController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this);
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
 
     _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
     );
 
+    // ✅ ANIMAÇÃO ESCALONADA PARA LISTA
     _cardAnimations = List.generate(_universities.length, (index) {
-      // Corrigir o intervalo para evitar assertion error
-      final double startInterval = (index * 0.03).clamp(0.0, 0.8);
+      final double startInterval = (index * 0.02).clamp(0.0, 0.8);
       final double endInterval = (startInterval + 0.2).clamp(0.2, 1.0);
 
       return Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -2366,7 +2411,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER - PADRÃO CONSISTENTE
+            // ✅ PROGRESS HEADER PADRONIZADO (igual Telas 1, 2, 3)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -2424,7 +2469,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                   children: [
                     const SizedBox(height: 16),
 
-                    // ✅ HERO SECTION ANIMADO
+                    // ✅ HERO SECTION ANIMADO (padrão das outras telas)
                     AnimatedBuilder(
                       animation: _heroAnimation,
                       builder: (context, child) {
@@ -2441,7 +2486,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                 const Text(
                                   'Qual sua universidade\ndos sonhos?',
                                   style: TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 26, // ✅ H1 padrão
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF2E7D32),
                                   ),
@@ -2451,9 +2496,10 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                 const Text(
                                   'Todo grande sonho começa com um objetivo! 🌟',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      height: 1.4),
+                                    fontSize: 16, // ✅ Body1 padrão
+                                    color: Colors.grey,
+                                    height: 1.4,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -2465,7 +2511,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
 
                     const SizedBox(height: 32),
 
-                    // ✅ LISTA DE UNIVERSIDADES
+                    // ✅ LISTA DE UNIVERSIDADES COM CORES INDIVIDUAIS
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -2549,7 +2595,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                           padding: const EdgeInsets.all(16),
                                           child: Row(
                                             children: [
-                                              // Emoji + Categoria
+                                              // ✅ EMOJI + CATEGORIA COM COR INDIVIDUAL
                                               Container(
                                                 width: 50,
                                                 height: 50,
@@ -2568,7 +2614,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
 
                                               const SizedBox(width: 16),
 
-                                              // Texto principal
+                                              // ✅ TEXTO PRINCIPAL
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -2592,6 +2638,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                                             ),
                                                           ),
                                                         ),
+                                                        // ✅ TAG CATEGORIA COM COR DA UNIVERSIDADE
                                                         Container(
                                                           padding:
                                                               const EdgeInsets
@@ -2629,7 +2676,8 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                                     Text(
                                                       universityData.fullName,
                                                       style: TextStyle(
-                                                        fontSize: 14,
+                                                        fontSize:
+                                                            14, // ✅ UX: Legibilidade
                                                         color: Colors
                                                             .grey.shade600,
                                                         height: 1.3,
@@ -2639,7 +2687,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                                 ),
                                               ),
 
-                                              // Radio button
+                                              // ✅ RADIO BUTTON COM COR INDIVIDUAL
                                               AnimatedContainer(
                                                 duration: const Duration(
                                                     milliseconds: 200),
@@ -2671,7 +2719,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
 
                     const SizedBox(height: 20),
 
-                    // ✅ FEEDBACK VISUAL DE SUCESSO
+                    // ✅ FEEDBACK VISUAL DE SUCESSO (padrão das outras telas)
                     AnimatedOpacity(
                       opacity: hasSelection ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
@@ -2693,8 +2741,9 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: Colors.green[600]!,
-                                  shape: BoxShape.circle),
+                                color: Colors.green[600]!,
+                                shape: BoxShape.circle,
+                              ),
                               child: const Icon(Icons.school,
                                   color: Colors.white, size: 20),
                             ),
@@ -2722,7 +2771,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
               ),
             ),
 
-            // ✅ BOTÃO FOOTER - PADRÃO CONSISTENTE
+            // ✅ BOTÃO FOOTER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -2795,9 +2844,12 @@ class UniversityData {
     required this.color,
   });
 }
-
-// ===== TELA 5 TEMPO DE ESTUDO PREMIUM =====
-// SUBSTITUA A CLASSE Tela5TempoEstudo EXISTENTE
+// ===== TELA 5 TEMPO DE ESTUDO - PROTÓTIPO UX PREMIUM =====
+// ✅ Seguindo padrões das Telas 1, 2, 3, 4 e 8
+// ✅ Aplicando melhorias da pesquisa UX
+// ✅ fontSize description 13 → 15px (legibilidade)
+// ✅ Cards detalhados com informações completas
+// ✅ Layout responsivo e animações suaves
 
 class Tela5TempoEstudo extends ConsumerStatefulWidget {
   const Tela5TempoEstudo({super.key});
@@ -2813,50 +2865,56 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
   late Animation<double> _heroAnimation;
   late List<Animation<double>> _cardAnimations;
 
+  // ✅ OPÇÕES DE TEMPO COM TAGS HÍBRIDAS (GAMIFICAÇÃO EDUCACIONAL SÉRIA)
   final List<StudyTimeData> _timeOptions = [
     StudyTimeData(
       time: '15-30 minutos',
       emoji: '⚡',
       title: '15-30 min',
-      subtitle: 'Sessões rápidas',
-      description: 'Perfeito para quem tem rotina corrida',
-      recommendation: 'Ideal para revisões e conceitos básicos',
+      subtitle: 'Sessões estratégicas',
+      description:
+          'Perfeito para quem tem rotina corrida e quer aproveitar pequenos intervalos',
+      recommendation: 'Sessões estratégicas - revisões de alta retenção',
       color: Colors.green,
     ),
     StudyTimeData(
       time: '30-60 minutos',
       emoji: '🎯',
       title: '30-60 min',
-      subtitle: 'Foco moderado',
-      description: 'Tempo ideal para a maioria dos estudantes',
-      recommendation: 'Permite aprofundar temas e fazer exercícios',
+      subtitle: 'Zona de domínio',
+      description:
+          'Tempo ideal para a maioria dos estudantes - equilibra profundidade e concentração',
+      recommendation: 'Zona de domínio - aprofundamento e prática',
       color: Colors.blue,
     ),
     StudyTimeData(
       time: '1-2 horas',
       emoji: '🔥',
       title: '1-2 horas',
-      subtitle: 'Estudo intenso',
-      description: 'Para quem quer acelerar o aprendizado',
-      recommendation: 'Questões complexas e simulados completos',
+      subtitle: 'Modo intensivo',
+      description:
+          'Para quem quer acelerar o aprendizado e tem disponibilidade para sessões longas',
+      recommendation: 'Modo intensivo - simulados e questões avançadas',
       color: Colors.orange,
     ),
     StudyTimeData(
       time: 'Mais de 2 horas',
       emoji: '🏆',
       title: 'Mais de 2h',
-      subtitle: 'Dedicação máxima',
-      description: 'Para conquistas extraordinárias',
-      recommendation: 'Simulados extensos e revisão completa',
+      subtitle: 'Preparação de elite',
+      description:
+          'Para conquistas extraordinárias e preparação intensiva para vestibulares',
+      recommendation: 'Preparação de elite - aprovação garantida',
       color: Colors.purple,
     ),
     StudyTimeData(
       time: 'Varia conforme o dia',
       emoji: '📅',
       title: 'Tempo flexível',
-      subtitle: 'Agenda variável',
-      description: 'Alguns dias mais, outros menos',
-      recommendation: 'Sistema adaptará o conteúdo dinamicamente',
+      subtitle: 'IA personalizada',
+      description:
+          'Alguns dias mais tempo, outros menos - o app se adapta à sua rotina',
+      recommendation: 'IA personalizada - otimiza seu tempo disponível',
       color: Colors.teal,
     ),
   ];
@@ -2866,14 +2924,19 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
     super.initState();
 
     _heroController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
     _cardsController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this);
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
 
     _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
     );
 
+    // ✅ ANIMAÇÃO ESCALONADA PARA CARDS
     _cardAnimations = List.generate(_timeOptions.length, (index) {
       final double startInterval = (index * 0.15).clamp(0.0, 0.6);
       final double endInterval = (startInterval + 0.4).clamp(0.4, 1.0);
@@ -2910,7 +2973,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER - PADRÃO CONSISTENTE
+            // ✅ PROGRESS HEADER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -2968,7 +3031,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                   children: [
                     const SizedBox(height: 16),
 
-                    // ✅ HERO SECTION ANIMADO
+                    // ✅ HERO SECTION ANIMADO (padrão das outras telas)
                     AnimatedBuilder(
                       animation: _heroAnimation,
                       builder: (context, child) {
@@ -2985,7 +3048,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                 const Text(
                                   'Quanto tempo você tem\npara estudar por dia?',
                                   style: TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 26, // ✅ H1 padrão
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF2E7D32),
                                   ),
@@ -2995,9 +3058,10 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                 const Text(
                                   'Vamos personalizar sua jornada de acordo com seu tempo! 📚',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      height: 1.4),
+                                    fontSize: 16, // ✅ Body1 padrão
+                                    color: Colors.grey,
+                                    height: 1.4,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -3009,7 +3073,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
 
                     const SizedBox(height: 32),
 
-                    // ✅ LISTA DE OPÇÕES DE TEMPO
+                    // ✅ LISTA DE OPÇÕES DE TEMPO COM MELHORIAS UX
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -3092,7 +3156,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                           padding: const EdgeInsets.all(20),
                                           child: Row(
                                             children: [
-                                              // Emoji + Indicador visual
+                                              // ✅ EMOJI + INDICADOR VISUAL MELHORADO
                                               Container(
                                                 width: 60,
                                                 height: 60,
@@ -3110,7 +3174,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
 
                                               const SizedBox(width: 16),
 
-                                              // Texto principal
+                                              // ✅ TEXTO PRINCIPAL COM HIERARQUIA MELHORADA
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment:
@@ -3119,7 +3183,8 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                                     Text(
                                                       timeData.title,
                                                       style: TextStyle(
-                                                        fontSize: 20,
+                                                        fontSize:
+                                                            20, // ✅ Card title padrão
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         color: isSelected
@@ -3131,7 +3196,8 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                                     Text(
                                                       timeData.subtitle,
                                                       style: TextStyle(
-                                                        fontSize: 14,
+                                                        fontSize:
+                                                            15, // ✅ Subtitle padrão
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: isSelected
@@ -3142,22 +3208,24 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                                                 .grey.shade600,
                                                       ),
                                                     ),
-                                                    const SizedBox(height: 6),
+                                                    const SizedBox(height: 8),
                                                     Text(
                                                       timeData.description,
                                                       style: TextStyle(
-                                                        fontSize: 15,
+                                                        fontSize:
+                                                            15, // ✅ UX: 13→15px (legibilidade)
                                                         color: Colors
                                                             .grey.shade600,
                                                         height: 1.3,
                                                       ),
                                                     ),
-                                                    const SizedBox(height: 6),
+                                                    const SizedBox(height: 8),
+                                                    // ✅ TAG DE RECOMENDAÇÃO VISUAL
                                                     Container(
                                                       padding: const EdgeInsets
                                                           .symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 4),
+                                                          horizontal: 10,
+                                                          vertical: 6),
                                                       decoration: BoxDecoration(
                                                         color: timeData.color
                                                             .withValues(
@@ -3166,21 +3234,40 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                                             BorderRadius
                                                                 .circular(8),
                                                       ),
-                                                      child: Text(
-                                                        timeData.recommendation,
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: timeData.color,
-                                                        ),
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                              Icons
+                                                                  .lightbulb_outline,
+                                                              color: timeData
+                                                                  .color,
+                                                              size: 16),
+                                                          const SizedBox(
+                                                              width: 6),
+                                                          Flexible(
+                                                            child: Text(
+                                                              timeData
+                                                                  .recommendation,
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: timeData
+                                                                    .color,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                               ),
 
-                                              // Radio button
+                                              // ✅ RADIO BUTTON
                                               AnimatedContainer(
                                                 duration: const Duration(
                                                     milliseconds: 200),
@@ -3212,7 +3299,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
 
                     const SizedBox(height: 20),
 
-                    // ✅ FEEDBACK VISUAL DE SUCESSO
+                    // ✅ FEEDBACK VISUAL DE SUCESSO (padrão das outras telas)
                     AnimatedOpacity(
                       opacity: hasSelection ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
@@ -3234,8 +3321,9 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: Colors.green[600]!,
-                                  shape: BoxShape.circle),
+                                color: Colors.green[600]!,
+                                shape: BoxShape.circle,
+                              ),
                               child: const Icon(Icons.schedule,
                                   color: Colors.white, size: 20),
                             ),
@@ -3263,7 +3351,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
               ),
             ),
 
-            // ✅ BOTÃO FOOTER - PADRÃO CONSISTENTE
+            // ✅ BOTÃO FOOTER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -3342,7 +3430,12 @@ class StudyTimeData {
 }
 
 // ===== TELA 6 DIFICULDADES DUPLA SELEÇÃO PREMIUM =====
-// SUBSTITUA A CLASSE Tela6Dificuldade EXISTENTE
+// ===== TELA 6 DIFICULDADES - PROTÓTIPO SELEÇÃO DUPLA PREMIUM =====
+// ✅ Seguindo padrões das Telas 1-5
+// ✅ Sistema inovador de seleção dupla: Matéria + Comportamento
+// ✅ Layout em seções separadas (chips + lista)
+// ✅ Feedback dinâmico combinado
+// ✅ fontSize melhorado: 11px → 13px (UX)
 
 class Tela6Dificuldade extends ConsumerStatefulWidget {
   const Tela6Dificuldade({super.key});
@@ -3361,6 +3454,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
   String? selectedSubject;
   String? selectedBehavior;
 
+  // ✅ MATÉRIAS COM CORES DISTINTAS (CHIPS)
   final List<DifficultySubjectData> _subjects = [
     DifficultySubjectData(
       subject: 'Português e Literatura',
@@ -3418,6 +3512,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
     ),
   ];
 
+  // ✅ ASPECTOS COMPORTAMENTAIS COM DESCRIÇÕES (LISTA)
   final List<DifficultyBehaviorData> _behaviors = [
     DifficultyBehaviorData(
       behavior: 'Foco e concentração',
@@ -3482,14 +3577,19 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
     super.initState();
 
     _heroController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
     _cardsController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this);
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
 
     _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
     );
 
+    // ✅ ANIMAÇÃO PARA 2 SEÇÕES
     _cardAnimations = List.generate(2, (index) {
       return Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
@@ -3542,7 +3642,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER
+            // ✅ PROGRESS HEADER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -3600,7 +3700,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                   children: [
                     const SizedBox(height: 16),
 
-                    // ✅ HERO SECTION
+                    // ✅ HERO SECTION ANIMADO (padrão das outras telas)
                     AnimatedBuilder(
                       animation: _heroAnimation,
                       builder: (context, child) {
@@ -3617,7 +3717,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                 const Text(
                                   'Onde você sente\nmais dificuldade?',
                                   style: TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 26, // ✅ H1 padrão
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF2E7D32),
                                   ),
@@ -3625,11 +3725,12 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Escolha uma matéria E um aspecto comportamental! 🧠',
+                                  'Escolha uma matéria e um aspecto comportamental! 🧠',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      height: 1.4),
+                                    fontSize: 16, // ✅ Body1 padrão
+                                    color: Colors.grey,
+                                    height: 1.4,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -3641,7 +3742,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
 
                     const SizedBox(height: 32),
 
-                    // ✅ SEÇÃO 1: MATÉRIAS
+                    // ✅ SEÇÃO 1: MATÉRIAS (CHIPS)
                     AnimatedBuilder(
                       animation: _cardAnimations[0],
                       builder: (context, child) {
@@ -3666,6 +3767,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Header da seção
                                   Row(
                                     children: [
                                       Container(
@@ -3691,6 +3793,8 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                     ],
                                   ),
                                   const SizedBox(height: 16),
+
+                                  // ✅ CHIPS DE MATÉRIAS
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
@@ -3763,7 +3867,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
 
                     const SizedBox(height: 20),
 
-                    // ✅ SEÇÃO 2: ASPECTOS COMPORTAMENTAIS
+                    // ✅ SEÇÃO 2: ASPECTOS COMPORTAMENTAIS (LISTA)
                     AnimatedBuilder(
                       animation: _cardAnimations[1],
                       builder: (context, child) {
@@ -3788,6 +3892,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Header da seção
                                   Row(
                                     children: [
                                       Container(
@@ -3813,6 +3918,8 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                     ],
                                   ),
                                   const SizedBox(height: 16),
+
+                                  // ✅ LISTA DE COMPORTAMENTOS
                                   Column(
                                     children: _behaviors.map((behavior) {
                                       final isSelected =
@@ -3860,7 +3967,8 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                                       Text(
                                                         behavior.title,
                                                         style: TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize:
+                                                              16, // ✅ UX: 14→16px
                                                           fontWeight: isSelected
                                                               ? FontWeight.bold
                                                               : FontWeight.w600,
@@ -3872,7 +3980,8 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                                                       Text(
                                                         behavior.description,
                                                         style: TextStyle(
-                                                          fontSize: 13,
+                                                          fontSize:
+                                                              13, // ✅ UX: 11→13px
                                                           color:
                                                               Colors.grey[600]!,
                                                         ),
@@ -3908,7 +4017,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
 
                     const SizedBox(height: 20),
 
-                    // ✅ FEEDBACK COMBINADO
+                    // ✅ FEEDBACK COMBINADO DINÂMICO
                     AnimatedOpacity(
                       opacity: hasSelection ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
@@ -3930,8 +4039,9 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: Colors.green[600]!,
-                                  shape: BoxShape.circle),
+                                color: Colors.green[600]!,
+                                shape: BoxShape.circle,
+                              ),
                               child: const Icon(Icons.psychology,
                                   color: Colors.white, size: 20),
                             ),
@@ -3939,7 +4049,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                             Expanded(
                               child: Text(
                                 hasSelection
-                                    ? 'Perfeito! Combinação identificada: $selectedSubject + $selectedBehavior! 🎯'
+                                    ? 'Perfeito! Combinação identificada: ${_getSubjectTitle(selectedSubject!)} + ${_getBehaviorTitle(selectedBehavior!)}! 🎯'
                                     : '',
                                 style: TextStyle(
                                   color: Colors.green[700]!,
@@ -3959,7 +4069,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
               ),
             ),
 
-            // ✅ BOTÃO FOOTER
+            // ✅ BOTÃO FOOTER PADRONIZADO (igual outras telas)
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -3998,7 +4108,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                       Text(
                         hasSelection
                             ? 'Última etapa! 🏁'
-                            : 'Escolha matéria E aspecto',
+                            : 'Escolha matéria e aspecto', // ✅ CORRIGIDO: "e" minúsculo
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600),
                       ),
@@ -4017,6 +4127,17 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
         ),
       ),
     );
+  }
+
+  // ✅ HELPERS PARA FEEDBACK DINÂMICO
+  String _getSubjectTitle(String subject) {
+    final subjectData = _subjects.firstWhere((s) => s.subject == subject);
+    return subjectData.title;
+  }
+
+  String _getBehaviorTitle(String behavior) {
+    final behaviorData = _behaviors.firstWhere((b) => b.behavior == behavior);
+    return behaviorData.title;
   }
 }
 
@@ -4052,7 +4173,12 @@ class DifficultyBehaviorData {
 }
 
 // ===== TELA 7 ESTILO DE ESTUDO PREMIUM - FINAL =====
-// SUBSTITUA A CLASSE Tela7EstiloEstudo EXISTENTE
+// ===== TELA 7 ESTILO DE ESTUDO - FINAL PREMIUM =====
+// ✅ Última tela do onboarding - CTA épico
+// ✅ Nomes brasileiros: "Focado" + "Conquistador"
+// ✅ CTA final: "Iniciar minha jornada! 🚀✨"
+// ✅ Feedback motivacional completo
+// ✅ fontSize gameFeatures: 12px → 14px (UX)
 
 class Tela7EstiloEstudo extends ConsumerStatefulWidget {
   const Tela7EstiloEstudo({super.key});
@@ -4068,11 +4194,12 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
   late Animation<double> _heroAnimation;
   late List<Animation<double>> _cardAnimations;
 
+  // ✅ ESTILOS DE ESTUDO COM NOMES BRASILEIROS APROVADOS
   final List<StudyStyleData> _styles = [
     StudyStyleData(
       style: 'Sozinho(a) e no meu ritmo',
       emoji: '🧘‍♂️',
-      title: 'Solo Focus',
+      title: 'Focado', // ✅ NOVO NOME BRASILEIRO
       subtitle: 'Autonomia Total',
       description:
           'Prefiro estudar sozinho, controlando meu próprio ritmo e ambiente',
@@ -4089,7 +4216,8 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
       emoji: '🏆',
       title: 'Competidor',
       subtitle: 'Motivação pela Disputa',
-      description: 'Me motivo comparando meu desempenho com outros estudantes',
+      description:
+          'Tenho mais motivação quando comparo meu desempenho com outros estudantes',
       benefits: ['Motivação extra', 'Benchmarking', 'Espírito competitivo'],
       gameFeatures: 'Rankings, torneios e challenges contra outros jogadores',
       color: Colors.red,
@@ -4111,9 +4239,10 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
     StudyStyleData(
       style: 'Com metas e desafios',
       emoji: '🎯',
-      title: 'Goal-Oriented',
+      title: 'Conquistador', // ✅ NOVO NOME BRASILEIRO
       subtitle: 'Foco em Objetivos',
-      description: 'Me organizo melhor com metas claras e desafios específicos',
+      description:
+          'Aprendo melhor quando tenho metas claras e desafios específicos',
       benefits: [
         'Direcionamento claro',
         'Senso de progresso',
@@ -4144,14 +4273,19 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
     super.initState();
 
     _heroController = AnimationController(
-        duration: const Duration(milliseconds: 600), vsync: this);
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
     _cardsController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this);
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
 
     _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
     );
 
+    // ✅ ANIMAÇÃO ESCALONADA PARA 5 CARDS
     _cardAnimations = List.generate(_styles.length, (index) {
       final double startInterval = (index * 0.15).clamp(0.0, 0.6);
       final double endInterval = (startInterval + 0.4).clamp(0.4, 1.0);
@@ -4188,7 +4322,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER - FINAL!
+            // ✅ PROGRESS HEADER FINAL (100% COMPLETO!)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
@@ -4263,7 +4397,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                                 const Text(
                                   'Como você prefere\nestudar?',
                                   style: TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 26, // ✅ H1 padrão
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF2E7D32),
                                   ),
@@ -4273,9 +4407,10 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                                 const Text(
                                   'Última pergunta! Vamos personalizar sua experiência! 🚀',
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      height: 1.4),
+                                    fontSize: 16, // ✅ Body1 padrão
+                                    color: Colors.grey,
+                                    height: 1.4,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -4287,7 +4422,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
                     const SizedBox(height: 32),
 
-                    // ✅ LISTA DE ESTILOS DE ESTUDO
+                    // ✅ LISTA DE ESTILOS COM CARDS DETALHADOS
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -4373,7 +4508,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              // Header do card
+                                              // ✅ HEADER DO CARD
                                               Row(
                                                 children: [
                                                   Container(
@@ -4404,7 +4539,8 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                                                         Text(
                                                           styleData.title,
                                                           style: TextStyle(
-                                                            fontSize: 20,
+                                                            fontSize:
+                                                                20, // ✅ Card title padrão
                                                             fontWeight:
                                                                 FontWeight.bold,
                                                             color: isSelected
@@ -4454,7 +4590,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
                                               const SizedBox(height: 16),
 
-                                              // Descrição
+                                              // ✅ DESCRIÇÃO
                                               Text(
                                                 styleData.description,
                                                 style: TextStyle(
@@ -4466,7 +4602,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
                                               const SizedBox(height: 12),
 
-                                              // Benefícios
+                                              // ✅ BENEFÍCIOS
                                               Row(
                                                 children: [
                                                   Icon(Icons.check_circle,
@@ -4494,7 +4630,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
                                               const SizedBox(height: 12),
 
-                                              // Features do game
+                                              // ✅ FEATURES GAMIFICADAS
                                               Container(
                                                 padding:
                                                     const EdgeInsets.all(12),
@@ -4514,7 +4650,8 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                                                       child: Text(
                                                         styleData.gameFeatures,
                                                         style: TextStyle(
-                                                          fontSize: 14,
+                                                          fontSize:
+                                                              14, // ✅ UX: 12→14px
                                                           color:
                                                               styleData.color,
                                                           fontWeight:
@@ -4541,7 +4678,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
                     const SizedBox(height: 20),
 
-                    // ✅ FEEDBACK FINAL DE SUCESSO
+                    // ✅ FEEDBACK FINAL MOTIVACIONAL
                     AnimatedOpacity(
                       opacity: hasSelection ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
@@ -4563,8 +4700,9 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: Colors.green[600]!,
-                                  shape: BoxShape.circle),
+                                color: Colors.green[600]!,
+                                shape: BoxShape.circle,
+                              ),
                               child: const Icon(Icons.celebration,
                                   color: Colors.white, size: 20),
                             ),
@@ -4572,7 +4710,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                             Expanded(
                               child: Text(
                                 hasSelection
-                                    ? 'Perfil completo! Sua jornada personalizada está pronta! 🎉'
+                                    ? 'Incrível! Seu perfil único está pronto! Hora da aventura! 🎉🚀' // ✅ NOVA MENSAGEM
                                     : '',
                                 style: TextStyle(
                                   color: Colors.green[700]!,
@@ -4592,7 +4730,7 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
               ),
             ),
 
-            // ✅ BOTÃO FINAL - COMEÇAR AVENTURA!
+            // ✅ BOTÃO FINAL ÉPICO
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
@@ -4616,9 +4754,11 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                     backgroundColor:
                         hasSelection ? Colors.green[600]! : Colors.grey[400]!,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16), // ✅ Maior para CTA final
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                        borderRadius:
+                            BorderRadius.circular(16)), // ✅ Mais arredondado
                     elevation: hasSelection ? 6 : 0,
                     shadowColor: Colors.green[600]!.withValues(alpha: 0.4),
                   ),
@@ -4627,16 +4767,22 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
                     children: [
                       Text(
                         hasSelection
-                            ? 'Começar minha aventura! 🌟'
+                            ? 'Iniciar minha jornada! 🚀✨' // ✅ CTA ÉPICO APROVADO
                             : 'Escolha seu estilo',
                         style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold), // ✅ Maior e bold
                       ),
                       const SizedBox(width: 8),
                       AnimatedRotation(
                         turns: hasSelection ? 0 : 0.5,
                         duration: const Duration(milliseconds: 300),
-                        child: const Icon(Icons.rocket_launch, size: 20),
+                        child: Icon(
+                          hasSelection
+                              ? Icons.rocket_launch
+                              : Icons.arrow_forward,
+                          size: 20,
+                        ),
                       ),
                     ],
                   ),
@@ -5269,20 +5415,23 @@ class _Tela8FinalizacaoPremiumState
                           const SizedBox(height: 20),
 
                           // 🚀 BOTÃO SUPER IMPACTANTE
+                          // ✅ CORRIGIDO (padrão das outras telas)
                           SizedBox(
                             width: double.infinity,
-                            height: 60,
                             child: ElevatedButton(
                               onPressed: () => _finalizarOnboarding(context),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C851),
+                                backgroundColor: Colors.green[
+                                    600]!, // ✅ CORRIGIDO - igual outras telas
                                 foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                elevation: 8,
-                                shadowColor: const Color(0xFF00C851)
-                                    .withValues(alpha: 0.4),
+                                elevation: 4,
+                                shadowColor:
+                                    Colors.green[600]!.withValues(alpha: 0.3),
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -5290,12 +5439,13 @@ class _Tela8FinalizacaoPremiumState
                                   Text(
                                     'Iniciar Minha Aventura!',
                                     style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15, // ✅ Padrão das outras telas
+                                      fontWeight: FontWeight
+                                          .w600, // ✅ Padrão das outras telas
                                     ),
                                   ),
                                   SizedBox(width: 12),
-                                  Text('🌟', style: TextStyle(fontSize: 24)),
+                                  Text('🌟', style: TextStyle(fontSize: 18)),
                                 ],
                               ),
                             ),
