@@ -45,6 +45,21 @@ class OnboardingData {
   String? studyStyle;
 }
 
+// ===== ENUMS PARA MODO DESCOBERTA (ADICIONAR NO TOPO DO ARQUIVO) =====
+
+enum MetodoNivelamento { manual, descoberta }
+
+enum NivelHabilidade {
+  iniciante('Iniciante', '🌱', 'Aprendendo o básico'),
+  intermediario('Intermediário', '🌿', 'Já domino algumas coisas'),
+  avancado('Avançado', '🌳', 'Estou bem preparado(a)');
+
+  const NivelHabilidade(this.nome, this.emoji, this.descricao);
+  final String nome;
+  final String emoji;
+  final String descricao;
+}
+
 final onboardingProvider =
     StateProvider<OnboardingData>((ref) => OnboardingData());
 
@@ -263,7 +278,7 @@ class _Tela0NomeState extends ConsumerState<Tela0Nome>
                     children: [
                       const SizedBox(width: 48),
                       Text(
-                        'Passo 1 de 8',
+                        'Passo 1 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -676,7 +691,7 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 2 de 8',
+                        'Passo 2 de 9',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1099,7 +1114,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 3 de 8',
+                        'Passo 3 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1672,7 +1687,7 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 4 de 8',
+                        'Passo 4 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -2425,7 +2440,7 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 5 de 8',
+                        'Passo 5 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -2987,7 +3002,7 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 6 de 8',
+                        'Passo 6 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -3656,7 +3671,7 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
                             color: Colors.green[700]!, size: 20),
                       ),
                       Text(
-                        'Passo 7 de 8',
+                        'Passo 7 de 9',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -4172,13 +4187,57 @@ class DifficultyBehaviorData {
   });
 }
 
-// ===== TELA 7 ESTILO DE ESTUDO PREMIUM - FINAL =====
-// ===== TELA 7 ESTILO DE ESTUDO - FINAL PREMIUM =====
-// ✅ Última tela do onboarding - CTA épico
-// ✅ Nomes brasileiros: "Focado" + "Conquistador"
-// ✅ CTA final: "Iniciar minha jornada! 🚀✨"
-// ✅ Feedback motivacional completo
-// ✅ fontSize gameFeatures: 12px → 14px (UX)
+@immutable
+class DescobertaNivelState {
+  const DescobertaNivelState({
+    this.metodoEscolhido,
+    this.nivelManual,
+    this.completado = false,
+  });
+
+  final MetodoNivelamento? metodoEscolhido;
+  final NivelHabilidade? nivelManual;
+  final bool completado;
+
+  DescobertaNivelState copyWith({
+    MetodoNivelamento? metodoEscolhido,
+    NivelHabilidade? nivelManual,
+    bool? completado,
+  }) {
+    return DescobertaNivelState(
+      metodoEscolhido: metodoEscolhido ?? this.metodoEscolhido,
+      nivelManual: nivelManual ?? this.nivelManual,
+      completado: completado ?? this.completado,
+    );
+  }
+}
+
+final descobertaNivelProvider =
+    StateNotifierProvider<DescobertaNivelNotifier, DescobertaNivelState>(
+  (ref) => DescobertaNivelNotifier(),
+);
+
+class DescobertaNivelNotifier extends StateNotifier<DescobertaNivelState> {
+  DescobertaNivelNotifier() : super(const DescobertaNivelState());
+
+  void selecionarMetodo(MetodoNivelamento metodo) {
+    state = state.copyWith(
+      metodoEscolhido: metodo,
+      nivelManual:
+          metodo == MetodoNivelamento.descoberta ? null : state.nivelManual,
+    );
+  }
+
+  void selecionarNivelManual(NivelHabilidade nivel) {
+    state = state.copyWith(nivelManual: nivel);
+  }
+
+  void resetar() {
+    state = const DescobertaNivelState();
+  }
+}
+
+// TELA 7
 
 class Tela7EstiloEstudo extends ConsumerStatefulWidget {
   const Tela7EstiloEstudo({super.key});
@@ -4191,15 +4250,23 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
     with TickerProviderStateMixin {
   late AnimationController _heroController;
   late AnimationController _cardsController;
+  late AnimationController _transitionController;
   late Animation<double> _heroAnimation;
   late List<Animation<double>> _cardAnimations;
+  late Animation<Offset> _slideAnimation;
 
-  // ✅ ESTILOS DE ESTUDO COM NOMES BRASILEIROS APROVADOS
+  // ✅ CONTROLE DE ETAPAS
+  int etapaAtual = 1; // 1 = Estilo de Estudo, 2 = Modo Descoberta
+
+  // ✅ ESTADO LOCAL PARA ESTILO DE ESTUDO
+  String? estiloSelecionado;
+
+  // ✅ DADOS DOS ESTILOS
   final List<StudyStyleData> _styles = [
     StudyStyleData(
       style: 'Sozinho(a) e no meu ritmo',
       emoji: '🧘‍♂️',
-      title: 'Focado', // ✅ NOVO NOME BRASILEIRO
+      title: 'Focado',
       subtitle: 'Autonomia Total',
       description:
           'Prefiro estudar sozinho, controlando meu próprio ritmo e ambiente',
@@ -4217,91 +4284,111 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
       title: 'Competidor',
       subtitle: 'Motivação pela Disputa',
       description:
-          'Tenho mais motivação quando comparo meu desempenho com outros estudantes',
-      benefits: ['Motivação extra', 'Benchmarking', 'Espírito competitivo'],
-      gameFeatures: 'Rankings, torneios e challenges contra outros jogadores',
-      color: Colors.red,
+          'Tenho mais motivação quando comparo meu desempenho com outros',
+      benefits: [
+        'Estímulo da competição',
+        'Networking',
+        'Reconhecimento público'
+      ],
+      gameFeatures: 'Ranking global, desafios multiplayer, torneios',
+      color: Colors.orange,
     ),
     StudyStyleData(
       style: 'Em grupos de estudo',
       emoji: '👥',
       title: 'Colaborativo',
-      subtitle: 'Aprendizado Social',
-      description: 'Aprendo melhor discutindo e trocando ideias com colegas',
+      subtitle: 'Aprender Junto',
+      description:
+          'Aprendo melhor compartilhando conhecimento e tirando dúvidas em grupo',
       benefits: [
         'Troca de experiências',
-        'Motivação mútua',
+        'Apoio mútuo',
         'Diferentes perspectivas'
       ],
-      gameFeatures: 'Grupos cooperativos e chat de estudos',
+      gameFeatures: 'Grupos de estudo, chat, projetos colaborativos',
       color: Colors.green,
     ),
     StudyStyleData(
       style: 'Com metas e desafios',
       emoji: '🎯',
-      title: 'Conquistador', // ✅ NOVO NOME BRASILEIRO
-      subtitle: 'Foco em Objetivos',
+      title: 'Desafiador',
+      subtitle: 'Objetivos Claros',
       description:
-          'Aprendo melhor quando tenho metas claras e desafios específicos',
-      benefits: [
-        'Direcionamento claro',
-        'Senso de progresso',
-        'Motivação por conquistas'
-      ],
-      gameFeatures: 'Sistema de missões, badges e objetivos diários',
+          'Preciso de objetivos bem definidos e desafios para me manter motivado',
+      benefits: ['Propósito claro', 'Senso de conquista', 'Evolução constante'],
+      gameFeatures: 'Sistema de conquistas, badges, missões especiais',
       color: Colors.purple,
-    ),
-    StudyStyleData(
-      style: 'Explorador curioso',
-      emoji: '🔍',
-      title: 'Explorer',
-      subtitle: 'Descoberta Livre',
-      description:
-          'Gosto de explorar temas livremente e seguir minha curiosidade',
-      benefits: [
-        'Aprendizado natural',
-        'Conexões criativas',
-        'Motivação intrínseca'
-      ],
-      gameFeatures: 'Modo exploração com trilhas abertas e descobertas',
-      color: Colors.orange,
     ),
   ];
 
   @override
   void initState() {
     super.initState();
+    _setupAnimations();
+    _startAnimations();
+  }
 
+  void _setupAnimations() {
     _heroController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+
     _cardsController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _transitionController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
+    _heroAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _heroController,
+      curve: Curves.easeOut,
+    ));
+
+    // ✅ CORRIGIDO: Intervalos válidos para animações
+    _cardAnimations = List.generate(
+      _styles.length,
+      (index) {
+        final start = (index * 0.1).clamp(0.0, 0.6);
+        final end = (0.4 + index * 0.1).clamp(start + 0.1, 1.0);
+
+        return Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: _cardsController,
+          curve: Interval(start, end, curve: Curves.easeOut),
+        ));
+      },
     );
 
-    // ✅ ANIMAÇÃO ESCALONADA PARA 5 CARDS
-    _cardAnimations = List.generate(_styles.length, (index) {
-      final double startInterval = (index * 0.15).clamp(0.0, 0.6);
-      final double endInterval = (startInterval + 0.4).clamp(0.4, 1.0);
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _transitionController,
+      curve: Curves.easeInOut,
+    ));
+  }
 
-      return Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(
-          parent: _cardsController,
-          curve: Interval(startInterval, endInterval, curve: Curves.easeOut),
-        ),
-      );
+  void _startAnimations() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _heroController.forward();
+      }
     });
 
-    // Iniciar animações
-    _heroController.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _cardsController.forward();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _cardsController.forward();
+      }
     });
   }
 
@@ -4309,483 +4396,686 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
   void dispose() {
     _heroController.dispose();
     _cardsController.dispose();
+    _transitionController.dispose();
     super.dispose();
+  }
+
+  void _irParaProximaEtapa() {
+    setState(() {
+      etapaAtual = 2;
+    });
+    _transitionController.forward();
+  }
+
+  void _voltarEtapaAnterior() {
+    if (etapaAtual == 2) {
+      setState(() {
+        etapaAtual = 1;
+      });
+      _transitionController.reverse();
+    } else {
+      context.go('/onboarding/6');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final onboarding = ref.watch(onboardingProvider);
-    final hasSelection = onboarding.studyStyle != null;
+    final descobertaState = ref.watch(descobertaNivelProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F8E9),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ PROGRESS HEADER FINAL (100% COMPLETO!)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: () => context.go('/onboarding/6'),
-                        icon: Icon(Icons.arrow_back_ios,
-                            color: Colors.green[700]!, size: 20),
-                      ),
-                      Text(
-                        'Passo 8 de 8',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green[700]!,
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.green[100]!,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeInOut,
-                        width:
-                            MediaQuery.of(context).size.width * 0.86, // 100%!
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.green[400]!, Colors.green[600]!],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // ✅ PROGRESS HEADER
+            _buildProgressHeader(),
+
+            // ✅ CONTEÚDO PRINCIPAL (TROCA ENTRE ETAPAS)
+            Expanded(
+              child: etapaAtual == 1
+                  ? _buildEstiloEstudoPage()
+                  : _buildModoDescobertaPage(descobertaState),
             ),
 
-            // ✅ CONTEÚDO PRINCIPAL
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
+            // ✅ BOTÃO DINÂMICO
+            _buildBottomCTA(_getBotaoHabilitado(descobertaState)),
+          ],
+        ),
+      ),
+    );
+  }
 
-                    // ✅ HERO SECTION FINAL
-                    AnimatedBuilder(
-                      animation: _heroAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: 0.8 + (0.2 * _heroAnimation.value),
-                          child: Opacity(
-                            opacity: _heroAnimation.value,
-                            child: Column(
-                              children: [
-                                Text('🎨',
-                                    style: TextStyle(
-                                        fontSize: 50 * _heroAnimation.value)),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Como você prefere\nestudar?',
-                                  style: TextStyle(
-                                    fontSize: 26, // ✅ H1 padrão
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF2E7D32),
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Última pergunta! Vamos personalizar sua experiência! 🚀',
-                                  style: TextStyle(
-                                    fontSize: 16, // ✅ Body1 padrão
-                                    color: Colors.grey,
-                                    height: 1.4,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+  // ===== PROGRESS HEADER CORRIGIDO =====
+  Widget _buildProgressHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: _voltarEtapaAnterior,
+                icon: Icon(Icons.arrow_back_ios,
+                    color: Colors.green[700]!, size: 20),
+              ),
+              Text(
+                etapaAtual == 1
+                    ? 'Passo 8 de 9'
+                    : 'Passo 9 de 9', // ✅ CORRIGIDO
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green[700]!,
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.green[100]!,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                width: MediaQuery.of(context).size.width *
+                    (etapaAtual == 1 ? (7 / 9) : (8 / 9)) *
+                    0.86, // ✅ CORRIGIDO
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green[400]!, Colors.green[600]!],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                    const SizedBox(height: 32),
+  // ===== ETAPA 1: ESTILO DE ESTUDO =====
+  Widget _buildEstiloEstudoPage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
 
-                    // ✅ LISTA DE ESTILOS COM CARDS DETALHADOS
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _styles.length,
-                      itemBuilder: (context, index) {
-                        final styleData = _styles[index];
-                        final isSelected =
-                            onboarding.studyStyle == styleData.style;
-
-                        return AnimatedBuilder(
-                          animation: _cardAnimations[index],
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(
-                                  40 * (1 - _cardAnimations[index].value), 0),
-                              child: Opacity(
-                                opacity: _cardAnimations[index].value,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    decoration: BoxDecoration(
-                                      gradient: isSelected
-                                          ? LinearGradient(
-                                              colors: [
-                                                styleData.color
-                                                    .withValues(alpha: 0.1),
-                                                styleData.color
-                                                    .withValues(alpha: 0.05),
-                                              ],
-                                            )
-                                          : null,
-                                      color: isSelected ? null : Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? styleData.color
-                                            : Colors.grey.shade200,
-                                        width: isSelected ? 3 : 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: isSelected
-                                              ? styleData.color
-                                                  .withValues(alpha: 0.25)
-                                              : Colors.black
-                                                  .withValues(alpha: 0.03),
-                                          blurRadius: isSelected ? 12 : 6,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          ref
-                                              .read(onboardingProvider.notifier)
-                                              .update((state) {
-                                            final newState = OnboardingData();
-                                            newState.name = state.name;
-                                            newState.educationLevel =
-                                                state.educationLevel;
-                                            newState.studyGoal =
-                                                state.studyGoal;
-                                            newState.interestArea =
-                                                state.interestArea;
-                                            newState.dreamUniversity =
-                                                state.dreamUniversity;
-                                            newState.studyTime =
-                                                state.studyTime;
-                                            newState.mainDifficulty =
-                                                state.mainDifficulty;
-                                            newState.studyStyle =
-                                                styleData.style;
-                                            return newState;
-                                          });
-                                        },
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(20),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              // ✅ HEADER DO CARD
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    width: 60,
-                                                    height: 60,
-                                                    decoration: BoxDecoration(
-                                                      color: styleData.color
-                                                          .withValues(
-                                                              alpha: 0.15),
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: Center(
-                                                      child: Text(
-                                                          styleData.emoji,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      26)),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 16),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          styleData.title,
-                                                          style: TextStyle(
-                                                            fontSize:
-                                                                20, // ✅ Card title padrão
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: isSelected
-                                                                ? styleData
-                                                                    .color
-                                                                : Colors
-                                                                    .black87,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          styleData.subtitle,
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: isSelected
-                                                                ? styleData
-                                                                    .color
-                                                                    .withValues(
-                                                                        alpha:
-                                                                            0.8)
-                                                                : Colors.grey
-                                                                    .shade600,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  AnimatedContainer(
-                                                    duration: const Duration(
-                                                        milliseconds: 200),
-                                                    child: Icon(
-                                                      isSelected
-                                                          ? Icons
-                                                              .radio_button_checked
-                                                          : Icons
-                                                              .radio_button_unchecked,
-                                                      color: isSelected
-                                                          ? styleData.color
-                                                          : Colors
-                                                              .grey.shade400,
-                                                      size: 24,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-
-                                              const SizedBox(height: 16),
-
-                                              // ✅ DESCRIÇÃO
-                                              Text(
-                                                styleData.description,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey.shade700,
-                                                  height: 1.4,
-                                                ),
-                                              ),
-
-                                              const SizedBox(height: 12),
-
-                                              // ✅ BENEFÍCIOS
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.check_circle,
-                                                      color: styleData.color
-                                                          .withValues(
-                                                              alpha: 0.7),
-                                                      size: 16),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      styleData.benefits
-                                                          .join(' • '),
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: styleData.color
-                                                            .withValues(
-                                                                alpha: 0.8),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-
-                                              const SizedBox(height: 12),
-
-                                              // ✅ FEATURES GAMIFICADAS
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: styleData.color
-                                                      .withValues(alpha: 0.08),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.videogame_asset,
-                                                        color: styleData.color,
-                                                        size: 16),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        styleData.gameFeatures,
-                                                        style: TextStyle(
-                                                          fontSize:
-                                                              14, // ✅ UX: 12→14px
-                                                          color:
-                                                              styleData.color,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ✅ FEEDBACK FINAL MOTIVACIONAL
-                    AnimatedOpacity(
-                      opacity: hasSelection ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 500),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.green[50]!,
-                              Colors.green[100]!.withValues(alpha: 0.3)
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: Colors.green[200]!, width: 1),
+          // ✅ HERO SECTION
+          AnimatedBuilder(
+            animation: _heroAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _heroAnimation.value,
+                child: Opacity(
+                  opacity: _heroAnimation.value,
+                  child: const Column(
+                    children: [
+                      Text('🎓', style: TextStyle(fontSize: 50)),
+                      SizedBox(height: 16),
+                      Text(
+                        'Qual seu estilo\nde estudo?',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E7D32),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.green[600]!,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.celebration,
-                                  color: Colors.white, size: 20),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Vamos personalizar sua experiência! 🚀',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 32),
+
+          // ✅ LISTA DE ESTILOS
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _styles.length,
+            itemBuilder: (context, index) {
+              final styleData = _styles[index];
+              final isSelected = estiloSelecionado == styleData.style;
+
+              return AnimatedBuilder(
+                animation: _cardAnimations[index],
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(40 * (1 - _cardAnimations[index].value), 0),
+                    child: Opacity(
+                      opacity: _cardAnimations[index].value,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: _buildEstiloCard(styleData, isSelected),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  // ===== ETAPA 2: MODO DESCOBERTA =====
+  Widget _buildModoDescobertaPage(DescobertaNivelState descobertaState) {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+
+            // ✅ HERO SECTION MODO DESCOBERTA
+            const Column(
+              children: [
+                Text('🧭', style: TextStyle(fontSize: 50)),
+                SizedBox(height: 16),
+                Text(
+                  'Como quer descobrir\nseu nível?',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E7D32),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Para personalizar as questões das suas trilhas!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+
+            // ✅ OPÇÃO MODO DESCOBERTA (RECOMENDADA)
+            _buildModoDescobertaCard(
+              metodo: MetodoNivelamento.descoberta,
+              emoji: '🎮',
+              titulo: 'Descobrir jogando!',
+              subtitulo: 'Nivelamento automático',
+              descricao: '5 questões rápidas do seu nível escolar',
+              features: [
+                '⚡ 2 minutos',
+                '🎯 Súper preciso',
+                '🏆 Badge especial'
+              ],
+              cor: Colors.orange[600]!,
+              isRecomendado: true,
+              isSelected: descobertaState.metodoEscolhido ==
+                  MetodoNivelamento.descoberta,
+              state: descobertaState,
+            ),
+
+            const SizedBox(height: 16),
+
+            // ✅ OPÇÃO MANUAL
+            _buildModoDescobertaCard(
+              metodo: MetodoNivelamento.manual,
+              emoji: '✋',
+              titulo: 'Escolher manualmente',
+              subtitulo: 'Autoavaliação simples',
+              descricao: 'Você escolhe baseado no que sente',
+              features: ['🤔 Reflexivo', '⚡ Rápido', '🔄 Pode mudar depois'],
+              cor: Colors.blue[600]!,
+              isRecomendado: false,
+              isSelected:
+                  descobertaState.metodoEscolhido == MetodoNivelamento.manual,
+              state: descobertaState,
+            ),
+
+            const SizedBox(height: 24),
+
+            // ✅ INTERFACE MANUAL (SE SELECIONADA)
+            _buildInterfaceManual(descobertaState),
+
+            // ✅ FEEDBACK DE SELEÇÃO
+            _buildFeedbackSelecao(descobertaState),
+
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== BUILD CARD ESTILO =====
+  Widget _buildEstiloCard(StudyStyleData styleData, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          estiloSelecionado = styleData.style;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? styleData.color.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? styleData.color : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (isSelected ? styleData.color : Colors.black)
+                  .withOpacity(0.1),
+              blurRadius: isSelected ? 10 : 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: styleData.color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(styleData.emoji,
+                      style: const TextStyle(fontSize: 24)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        styleData.title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isSelected ? styleData.color : Colors.grey[800],
+                        ),
+                      ),
+                      Text(
+                        styleData.subtitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Icon(Icons.check_circle, color: styleData.color, size: 24),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              styleData.description,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: styleData.benefits
+                  .map((benefit) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: styleData.color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          benefit,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: styleData.color.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== BUILD CARD MODO DESCOBERTA =====
+  Widget _buildModoDescobertaCard({
+    required MetodoNivelamento metodo,
+    required String emoji,
+    required String titulo,
+    required String subtitulo,
+    required String descricao,
+    required List<String> features,
+    required Color cor,
+    required bool isRecomendado,
+    required bool isSelected,
+    required DescobertaNivelState state,
+  }) {
+    return GestureDetector(
+      onTap: () =>
+          ref.read(descobertaNivelProvider.notifier).selecionarMetodo(metodo),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? cor.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? cor : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (isSelected ? cor : Colors.black).withOpacity(0.1),
+              blurRadius: isSelected ? 10 : 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            titulo,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? cor : Colors.grey[800],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                hasSelection
-                                    ? 'Incrível! Seu perfil único está pronto! Hora da aventura! 🎉🚀' // ✅ NOVA MENSAGEM
-                                    : '',
+                          ),
+                          if (isRecomendado) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green[600],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Recomendado',
                                 style: TextStyle(
-                                  color: Colors.green[700]!,
-                                  fontSize: 14,
+                                  color: Colors.white,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(height: 80),
-                  ],
-                ),
-              ),
-            ),
-
-            // ✅ BOTÃO FINAL ÉPICO
-            Container(
-              padding: const EdgeInsets.all(24.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F8E9),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: hasSelection
-                      ? () => context.go('/onboarding/complete')
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        hasSelection ? Colors.green[600]! : Colors.grey[400]!,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16), // ✅ Maior para CTA final
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(16)), // ✅ Mais arredondado
-                    elevation: hasSelection ? 6 : 0,
-                    shadowColor: Colors.green[600]!.withValues(alpha: 0.4),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
                       Text(
-                        hasSelection
-                            ? 'Iniciar minha jornada! 🚀✨' // ✅ CTA ÉPICO APROVADO
-                            : 'Escolha seu estilo',
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold), // ✅ Maior e bold
-                      ),
-                      const SizedBox(width: 8),
-                      AnimatedRotation(
-                        turns: hasSelection ? 0 : 0.5,
-                        duration: const Duration(milliseconds: 300),
-                        child: Icon(
-                          hasSelection
-                              ? Icons.rocket_launch
-                              : Icons.arrow_forward,
-                          size: 20,
+                        subtitulo,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
+                ),
+                if (isSelected) Icon(Icons.check_circle, color: cor, size: 24),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              descricao,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: features
+                  .map((feature) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: cor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          feature,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cor.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== INTERFACE MANUAL =====
+  Widget _buildInterfaceManual(DescobertaNivelState state) {
+    if (state.metodoEscolhido != MetodoNivelamento.manual) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Escolha o nível que melhor representa onde você está agora:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...NivelHabilidade.values.map((nivel) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildCardNivelManual(nivel, state.nivelManual == nivel),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardNivelManual(NivelHabilidade nivel, bool isSelected) {
+    return GestureDetector(
+      onTap: () => ref
+          .read(descobertaNivelProvider.notifier)
+          .selecionarNivelManual(nivel),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[50] : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue[600]! : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(nivel.emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nivel.nome,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.blue[800] : Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    nivel.descricao,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue[600] : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? Colors.blue[600]! : Colors.grey[400]!,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 12)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== FEEDBACK DE SELEÇÃO =====
+  Widget _buildFeedbackSelecao(DescobertaNivelState state) {
+    final hasSelection = state.metodoEscolhido != null &&
+        (state.metodoEscolhido == MetodoNivelamento.descoberta ||
+            state.nivelManual != null);
+
+    if (!hasSelection) return const SizedBox.shrink();
+
+    String feedbackText;
+    if (state.metodoEscolhido == MetodoNivelamento.manual &&
+        state.nivelManual != null) {
+      feedbackText =
+          'Nível ${state.nivelManual!.nome} selecionado! Vamos personalizar suas questões! 🎯';
+    } else if (state.metodoEscolhido == MetodoNivelamento.descoberta) {
+      feedbackText =
+          'Excelente escolha! O modo descoberta vai identificar seu nível com precisão! 🎮';
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedOpacity(
+      opacity: hasSelection ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 500),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.green[50]!,
+              Colors.green[100]!.withOpacity(0.3),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.green[200]!, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green[600],
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                feedbackText,
+                style: TextStyle(
+                  color: Colors.green[700],
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -4794,9 +5084,111 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
       ),
     );
   }
+
+  // ===== VERIFICAR SE BOTÃO ESTÁ HABILITADO =====
+  bool _getBotaoHabilitado(DescobertaNivelState descobertaState) {
+    if (etapaAtual == 1) {
+      // Etapa 1: Estilo de estudo deve estar selecionado
+      return estiloSelecionado != null;
+    } else {
+      // Etapa 2: Método deve estar escolhido E se for manual, nível deve estar selecionado
+      return descobertaState.metodoEscolhido != null &&
+          (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta ||
+              descobertaState.nivelManual != null);
+    }
+  }
+
+  // ===== BOTÃO BOTTOM CTA =====
+  Widget _buildBottomCTA(bool botaoHabilitado) {
+    String textoEtapa1 =
+        botaoHabilitado ? 'Descobrir meu nível! 🧭' : 'Escolha seu estilo';
+    String textoEtapa2 =
+        botaoHabilitado ? 'Finalizar perfil! ✅' : 'Escolha um método';
+
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F8E9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: botaoHabilitado ? _handleBotaoPrincipal : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  botaoHabilitado ? Colors.green[600]! : Colors.grey[400]!,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              elevation: botaoHabilitado ? 4 : 0,
+              shadowColor: Colors.green[600]!.withOpacity(0.3),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  etapaAtual == 1 ? textoEtapa1 : textoEtapa2,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 8),
+                AnimatedRotation(
+                  turns: botaoHabilitado ? 0 : 0.5,
+                  duration: const Duration(milliseconds: 300),
+                  child: const Icon(Icons.arrow_forward, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleBotaoPrincipal() {
+    if (etapaAtual == 1) {
+      // Ir para etapa 2 (Modo Descoberta)
+      _irParaProximaEtapa();
+    } else {
+      // Finalizar e ir para Tela 8
+      final descobertaState = ref.read(descobertaNivelProvider);
+
+      if (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta) {
+        // TODO: Implementar na Sprint futura - Mini-trilha de 5 questões
+        // Por enquanto, só simula e vai para tela 8
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                '🎮 Modo Descoberta será implementado na próxima sprint!'),
+            backgroundColor: Colors.orange[600],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Salva que o usuário escolheu modo descoberta e continua
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            context.go('/onboarding/8'); // ✅ CORRIGIDO: vai para /onboarding/8
+          }
+        });
+      } else {
+        // Modo manual - salva nível escolhido e continua
+        context.go('/onboarding/8'); // ✅ CORRIGIDO: vai para /onboarding/8
+      }
+    }
+  }
 }
 
-// ===== CLASSE DE DADOS PARA ESTILOS DE ESTUDO =====
+// ===== CLASSE DE DADOS PARA ESTILO =====
 class StudyStyleData {
   final String style;
   final String emoji;
@@ -4807,7 +5199,7 @@ class StudyStyleData {
   final String gameFeatures;
   final Color color;
 
-  StudyStyleData({
+  const StudyStyleData({
     required this.style,
     required this.emoji,
     required this.title,
@@ -4818,6 +5210,7 @@ class StudyStyleData {
     required this.color,
   });
 }
+
 // ===== TELAS FINAIS =====
 
 class OnboardingComplete extends ConsumerWidget {
@@ -5182,7 +5575,7 @@ class _Tela8FinalizacaoPremiumState
                         ),
                       ),
                       Text(
-                        'Passo 8 de 8',
+                        'Resumo para a Jornada',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
