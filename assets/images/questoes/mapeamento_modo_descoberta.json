@@ -1,0 +1,29 @@
+{
+  "modo_descoberta": {
+    "questao_1": {
+      "imagem": "assets/images/questoes/modo_descoberta/principal.jpg",
+      "descricao": "Laboratório floresta - matemática geral",
+      "tipo": "ambiente_estudo"
+    },
+    "questao_2": {
+      "imagem": "assets/images/questoes/modo_descoberta/tech.jpg", 
+      "descricao": "Monitor gráficos - funções e dados",
+      "tipo": "tecnologia"
+    },
+    "questao_3": {
+      "imagem": "assets/images/questoes/modo_descoberta/geo.jpg",
+      "descricao": "Geometria avançada - trigonometria", 
+      "tipo": "geometria"
+    },
+    "questao_4": {
+      "imagem": "assets/images/questoes/modo_descoberta/patterns.jpg",
+      "descricao": "Padrões matemáticos - sequências",
+      "tipo": "padroes"
+    },
+    "questao_5": {
+      "imagem": "assets/images/questoes/modo_descoberta/lab.jpg",
+      "descricao": "Laboratório completo - cálculos práticos",
+      "tipo": "laboratorio"
+    }
+  }
+}
