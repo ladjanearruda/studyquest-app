@@ -1,5 +1,3 @@
-// studyquest_onboarding.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5156,33 +5154,36 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
 
   void _handleBotaoPrincipal() {
     if (etapaAtual == 1) {
+      // Salvar estilo de estudo selecionado no provider de onboarding
+      ref.read(onboardingProvider.notifier).update((state) {
+        final newState = OnboardingData();
+        newState.name = state.name;
+        newState.educationLevel = state.educationLevel;
+        newState.studyGoal = state.studyGoal;
+        newState.interestArea = state.interestArea;
+        newState.dreamUniversity = state.dreamUniversity;
+        newState.studyTime = state.studyTime;
+        newState.mainDifficulty = state.mainDifficulty;
+        newState.studyStyle = estiloSelecionado;
+        return newState;
+      });
+
       // Ir para etapa 2 (Modo Descoberta)
       _irParaProximaEtapa();
     } else {
-      // Finalizar e ir para Tela 8
+      // Etapa 2: Finalizar baseado na escolha do método
       final descobertaState = ref.read(descobertaNivelProvider);
+      final onboarding = ref.read(onboardingProvider);
 
       if (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta) {
-        // TODO: Implementar na Sprint futura - Mini-trilha de 5 questões
-        // Por enquanto, só simula e vai para tela 8
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-                '🎮 Modo Descoberta será implementado na próxima sprint!'),
-            backgroundColor: Colors.orange[600],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-
-        // Salva que o usuário escolheu modo descoberta e continua
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) {
-            context.go('/onboarding/8'); // ✅ CORRIGIDO: vai para /onboarding/8
-          }
+        // ✅ NAVEGAR PARA MODO DESCOBERTA INTRO
+        context.push('/modo-descoberta/intro', extra: {
+          'nivelEscolar': onboarding.educationLevel,
+          'nomeUsuario': onboarding.name,
         });
       } else {
-        // Modo manual - salva nível escolhido e continua
-        context.go('/onboarding/8'); // ✅ CORRIGIDO: vai para /onboarding/8
+        // Modo manual - salva nível escolhido e vai para tela 8
+        context.go('/onboarding/8');
       }
     }
   }

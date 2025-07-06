@@ -20,6 +20,11 @@ import 'features/trilha/screens/trilha_oceano_feedback_screen.dart';
 import 'features/trilha/screens/trilha_oceano_resultados_screen.dart';
 import 'features/trilha/screens/trilha_oceano_gameover_screen.dart';
 
+// ✅ IMPORTS CORRETOS:
+import 'features/modo_descoberta/screens/modo_descoberta_intro_screen.dart';
+import 'features/modo_descoberta/screens/modo_descoberta_questao_screen.dart';
+import 'features/modo_descoberta/screens/modo_descoberta_resultado_screen.dart';
+
 // ✅ MODELS
 import 'features/trilha/models/recursos_vitais.dart';
 
@@ -53,6 +58,32 @@ final router = GoRouter(
         path: '/onboarding/complete',
         builder: (_, __) =>
             const Tela8FinalizacaoPremium()), // ✅ MANTIDO PARA COMPATIBILIDADE
+
+    // 🧭 ROTAS DO MODO DESCOBERTA
+    GoRoute(
+      path: '/modo-descoberta/intro',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final nivelEscolar = extra?['nivelEscolar'] as EducationLevel?;
+
+        if (nivelEscolar == null) {
+          return const Scaffold(
+            body: Center(child: Text('Erro: Nível escolar não informado')),
+          );
+        }
+
+        return ModoDescobertaIntroScreen(nivelEscolar: nivelEscolar);
+      },
+    ),
+    GoRoute(
+      path: '/modo-descoberta/questao',
+      builder: (context, state) => const ModoDescobertaQuestaoScreen(),
+    ),
+
+    GoRoute(
+      path: '/modo-descoberta/resultado',
+      builder: (context, state) => const ModoDescobertaResultadoScreen(),
+    ),
 
     // ✅ ROTAS PRINCIPAIS - MENU CENTRAL
     GoRoute(path: '/home', builder: (_, __) => const MenuTrilhasScreen()),

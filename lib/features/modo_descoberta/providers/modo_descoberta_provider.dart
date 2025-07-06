@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/questao_descoberta.dart';
 import '../models/modo_descoberta_result.dart';
 import '../data/questoes_nivelamento.dart';
-import '../../onboarding/screens/studyquest_onboarding.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 
 /// Estados possíveis do Modo Descoberta
 enum ModoDescobertaStatus {
