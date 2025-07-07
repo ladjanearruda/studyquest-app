@@ -143,6 +143,52 @@ class _ModoDescobertaQuestaoScreenState
     _startTimer();
   }
 
+  String _getImagemParaQuestao(questao) {
+    final assunto = questao.assunto.toLowerCase();
+    final enunciado = questao.enunciado.toLowerCase();
+
+    // GEO - Geometria, áreas, medidas, formas
+    if (assunto.contains('geometria') ||
+        assunto.contains('área') ||
+        assunto.contains('perímetro') ||
+        assunto.contains('triângulo') ||
+        assunto.contains('retângulo') ||
+        assunto.contains('teorema') ||
+        enunciado.contains('altura') ||
+        enunciado.contains('lado') ||
+        enunciado.contains('metro')) {
+      return 'assets/images/questoes/modo_descoberta/geo.jpg';
+    }
+
+    // LAB - Equações, álgebra, sistemas
+    if (assunto.contains('equação') ||
+        assunto.contains('sistema') ||
+        assunto.contains('álgebra') ||
+        enunciado.contains('resolva') ||
+        enunciado.contains('x =')) {
+      return 'assets/images/questoes/modo_descoberta/lab.jpg';
+    }
+
+    // PATTERNS - Funções, sequências
+    if (assunto.contains('função') ||
+        assunto.contains('sequência') ||
+        enunciado.contains('f(x)')) {
+      return 'assets/images/questoes/modo_descoberta/patterns.jpg';
+    }
+
+    // TECH - Probabilidade, estatística, porcentagem
+    if (assunto.contains('probabilidade') ||
+        assunto.contains('%') ||
+        enunciado.contains('chance')) {
+      return 'assets/images/questoes/modo_descoberta/tech.jpg';
+    }
+
+    // PRINCIPAL - Padrão
+    return 'assets/images/questoes/modo_descoberta/principal.jpg';
+  }
+
+  // SUBSTITUIR toda a seção do build() por esta versão corrigida:
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(modoDescobertaProvider);
@@ -270,7 +316,7 @@ class _ModoDescobertaQuestaoScreenState
                   children: [
                     const SizedBox(height: 20),
 
-                    // Questão
+                    // 🎯 QUESTÃO COM IMAGEM - CORRIGIDA
                     AnimatedBuilder(
                       animation: _questionController,
                       builder: (context, child) {
@@ -287,7 +333,8 @@ class _ModoDescobertaQuestaoScreenState
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
+                                    color: Colors.black.withValues(
+                                        alpha: 0.08), // 🎯 CORRIGIDO
                                     blurRadius: 20,
                                     offset: const Offset(0, 8),
                                   ),
@@ -295,6 +342,70 @@ class _ModoDescobertaQuestaoScreenState
                               ),
                               child: Column(
                                 children: [
+                                  // 🎯 IMAGEM CONTEXTUAL
+                                  Container(
+                                    height: 180,
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                              alpha: 0.05), // 🎯 CORRIGIDO
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.asset(
+                                        _getImagemParaQuestao(questao),
+                                        fit: BoxFit.contain,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                          return Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.orange[400]!,
+                                                  Colors.orange[600]!
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: const Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text('🧭',
+                                                      style: TextStyle(
+                                                          fontSize: 24)),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    'Modo Descoberta',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+
+                                  // QUESTÃO
                                   Text(
                                     questao.enunciado,
                                     style: const TextStyle(
@@ -332,7 +443,7 @@ class _ModoDescobertaQuestaoScreenState
 
                     const SizedBox(height: 32),
 
-                    // Alternativas
+                    // 🎯 ALTERNATIVAS - CORRIGIDAS
                     AnimatedBuilder(
                       animation: _optionsController,
                       builder: (context, child) {
@@ -379,6 +490,7 @@ class _ModoDescobertaQuestaoScreenState
     );
   }
 
+// 🎯 MÉTODO _buildAlternativaCard CORRIGIDO:
   Widget _buildAlternativaCard(int indice, String alternativa, questao) {
     final bool isSelected = _alternativaSelecionada == indice;
     final bool isCorrect = questao.isRespostaCorreta(indice);
@@ -423,7 +535,7 @@ class _ModoDescobertaQuestaoScreenState
           border: Border.all(color: borderColor, width: 2),
           boxShadow: [
             BoxShadow(
-              color: borderColor.withOpacity(0.2),
+              color: borderColor.withValues(alpha: 0.2), // 🎯 CORRIGIDO
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -435,7 +547,7 @@ class _ModoDescobertaQuestaoScreenState
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: borderColor.withOpacity(0.2),
+                color: borderColor.withValues(alpha: 0.2), // 🎯 CORRIGIDO
                 shape: BoxShape.circle,
               ),
               child: Center(
