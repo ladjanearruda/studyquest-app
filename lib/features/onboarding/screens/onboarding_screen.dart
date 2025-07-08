@@ -1034,7 +1034,6 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
 
 // // ===== TELA 2 OBJETIVOS PREMIUM - VERSÃO CORRIGIDA =====
 // 🎯 CORREÇÕES APLICADAS:
-// ✅ Progress header padronizado (igual Tela 1 e 8)
 // ✅ Cores únicas (sem duplicatas lilás) - conforme protótipo
 // ✅ CTA padrão falando da próxima tela
 // ✅ Corrigido withOpacity() deprecated
@@ -1054,13 +1053,22 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // ✅ CORREÇÃO: Variável agora sincroniza com provider
   String? selectedGoal;
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ CORREÇÃO 1: Sincronizar com provider ao inicializar
+    final onboardingState = ref.read(onboardingProvider);
+    if (onboardingState.studyGoal != null) {
+      selectedGoal = onboardingState.studyGoal.toString().split('.').last;
+    }
+
+    // Inicializar animações
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
@@ -1073,13 +1081,14 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
     ));
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOutCubic,
     ));
 
+    // Iniciar animação
     _animationController.forward();
   }
 
@@ -1089,12 +1098,34 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
     super.dispose();
   }
 
+  // ✅ CORREÇÃO 2: Método de seleção atualizado
+  void _selectGoal(StudyGoal goal) {
+    setState(() {
+      selectedGoal = goal.toString().split('.').last;
+    });
+
+    // ✅ CORREÇÃO: Salvar no provider imediatamente
+    ref.read(onboardingProvider.notifier).update((state) {
+      final newState = OnboardingData();
+      newState.name = state.name;
+      newState.educationLevel = state.educationLevel;
+      newState.studyGoal = goal; // ✅ Salvar seleção
+      newState.interestArea = state.interestArea;
+      newState.dreamUniversity = state.dreamUniversity;
+      newState.studyTime = state.studyTime;
+      newState.mainDifficulty = state.mainDifficulty;
+      newState.studyStyle = state.studyStyle;
+      return newState;
+    });
+  }
+
+  // ✅ CORREÇÃO 3: Verificação de seleção corrigida
+  bool get hasSelection => selectedGoal != null;
+
   @override
   Widget build(BuildContext context) {
-    final hasSelection = selectedGoal != null;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F8E9),
+      backgroundColor: const Color(0xFFE8F5E9),
       body: SafeArea(
         child: Column(
           children: [
@@ -1135,7 +1166,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                         duration: const Duration(milliseconds: 600),
                         curve: Curves.easeInOut,
                         width:
-                            MediaQuery.of(context).size.width * (3 / 8) * 0.86,
+                            MediaQuery.of(context).size.width * (3 / 9) * 0.86,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Colors.green[400]!, Colors.green[600]!],
@@ -1151,10 +1182,11 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
             // CONTEÚDO PRINCIPAL
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    const SizedBox(height: 16),
+
                     // TÍTULO E SUBTÍTULO
                     FadeTransition(
                       opacity: _fadeAnimation,
@@ -1168,8 +1200,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF2E7D32),
                             ),
-                            textAlign: TextAlign
-                                .center, // ✅ MUDANÇA 2: Adicionar esta linha
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
                           const Text(
@@ -1180,8 +1211,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                               color: Colors.grey,
                               height: 1.5,
                             ),
-                            textAlign: TextAlign
-                                .center, // ✅ MUDANÇA 2: Adicionar esta linha
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
@@ -1195,10 +1225,9 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                       child: FadeTransition(
                         opacity: _fadeAnimation,
                         child: Column(
-                          children: _getGoalsData().map((goalData) {
-                            final isSelected = selectedGoal == goalData.id;
-                            final isOtherSelected = selectedGoal != null &&
-                                selectedGoal != goalData.id;
+                          children: _goals.map((goal) {
+                            final isSelected = selectedGoal ==
+                                goal.goal.toString().split('.').last;
 
                             return AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
@@ -1206,149 +1235,125 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                               margin: const EdgeInsets.only(bottom: 24),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? goalData.color.withValues(alpha: 0.1)
+                                    ? goal.color.withValues(alpha: 0.1)
                                     : Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: isSelected
-                                      ? goalData.color
+                                      ? goal.color
                                       : Colors.grey.shade300,
                                   width: isSelected ? 2 : 1,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: isSelected
-                                        ? goalData.color.withValues(alpha: 0.2)
+                                        ? goal.color.withValues(alpha: 0.2)
                                         : Colors.black.withValues(alpha: 0.05),
                                     blurRadius: isSelected ? 8 : 4,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 300),
-                                opacity: isOtherSelected ? 0.6 : 1.0,
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () {
-                                      setState(() {
-                                        selectedGoal = goalData.id;
-                                      });
-                                      // ✅ Atualizar o provider
-                                      ref
-                                          .read(onboardingProvider.notifier)
-                                          .update((state) {
-                                        final newState = OnboardingData();
-                                        newState.name = state.name;
-                                        newState.educationLevel =
-                                            state.educationLevel;
-                                        newState.studyGoal =
-                                            _getStudyGoalEnum(goalData.id);
-                                        newState.interestArea =
-                                            state.interestArea;
-                                        newState.dreamUniversity =
-                                            state.dreamUniversity;
-                                        newState.studyTime = state.studyTime;
-                                        newState.mainDifficulty =
-                                            state.mainDifficulty;
-                                        newState.studyStyle = state.studyStyle;
-                                        return newState;
-                                      });
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Row(
-                                        children: [
-                                          // ÍCONE/EMOJI (48x48px mínimo para touch)
-                                          Container(
-                                            width: 48,
-                                            height: 48,
-                                            decoration: BoxDecoration(
-                                              color: isSelected
-                                                  ? goalData.color
-                                                  : Colors.grey.shade100,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                goalData.emoji,
-                                                style: const TextStyle(
-                                                    fontSize: 24),
-                                              ),
-                                            ),
+                              child: InkWell(
+                                onTap: () => _selectGoal(goal.goal),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Row(
+                                    children: [
+                                      // ÍCONE/EMOJI (48x48px mínimo para touch)
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? goal.color
+                                              : Colors.grey.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            goal.emoji,
+                                            style:
+                                                const TextStyle(fontSize: 24),
                                           ),
-
-                                          const SizedBox(width: 24),
-
-                                          // TEXTOS
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  goalData.title,
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        20, // ✅ cardTitle = 20px
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isSelected
-                                                        ? goalData.color
-                                                        : Colors.black87,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  goalData.description,
-                                                  style: TextStyle(
-                                                    fontSize:
-                                                        16, // ✅ body1 = 16px
-                                                    fontWeight: FontWeight.w400,
-                                                    color: isSelected
-                                                        ? goalData.color
-                                                            .withValues(
-                                                                alpha: 0.8)
-                                                        : Colors.grey[600],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-
-                                          // ✅ RADIO BUTTON (seleção única)
-                                          AnimatedContainer(
-                                            duration: const Duration(
-                                                milliseconds: 200),
-                                            child: Container(
-                                              width: 24,
-                                              height: 24,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: isSelected
-                                                      ? goalData.color
-                                                      : Colors.grey.shade400,
-                                                  width: 2,
-                                                ),
-                                                color: isSelected
-                                                    ? goalData.color
-                                                    : Colors.transparent,
-                                              ),
-                                              child: isSelected
-                                                  ? const Icon(
-                                                      Icons.check,
-                                                      color: Colors.white,
-                                                      size: 16,
-                                                    )
-                                                  : null,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+
+                                      const SizedBox(width: 24),
+
+                                      // TEXTOS
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              goal.title,
+                                              style: TextStyle(
+                                                fontSize:
+                                                    20, // ✅ cardTitle = 20px
+                                                fontWeight: FontWeight.w600,
+                                                color: isSelected
+                                                    ? goal.color
+                                                    : Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              goal.subtitle,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              goal.description,
+                                              style: TextStyle(
+                                                fontSize: 16, // ✅ body1 = 16px
+                                                fontWeight: FontWeight.w400,
+                                                color: isSelected
+                                                    ? goal.color
+                                                        .withValues(alpha: 0.8)
+                                                    : Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // ✅ RADIO BUTTON (seleção única)
+                                      AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? goal.color
+                                                  : Colors.grey.shade400,
+                                              width: 2,
+                                            ),
+                                            color: isSelected
+                                                ? goal.color
+                                                : Colors.transparent,
+                                          ),
+                                          child: isSelected
+                                              ? const Icon(
+                                                  Icons.check,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                )
+                                              : null,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1391,7 +1396,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Perfeito! Objetivo definido: ${_getGoalTitle(selectedGoal!)} 🎯',
+                                      'Perfeito! Objetivo definido! 🎯',
                                       style: TextStyle(
                                         color: Colors.green[700]!,
                                         fontSize: 16,
@@ -1415,7 +1420,7 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F8E9),
+                color: const Color(0xFFE8F5E9),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -1467,75 +1472,50 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
     );
   }
 
-  // ✅ HELPER: Converter ID do objetivo para enum StudyGoal
-  StudyGoal _getStudyGoalEnum(String goalId) {
-    switch (goalId) {
-      case 'melhorar_notas':
-        return StudyGoal.improveGrades;
-      case 'preparar_enem':
-        return StudyGoal.enemPrep;
-      case 'universidade_especifica':
-        return StudyGoal.specificUniversity;
-      case 'explorar_areas':
-        return StudyGoal.exploreAreas;
-      case 'ainda_descobrindo':
-        return StudyGoal.undecided;
-      default:
-        return StudyGoal.undecided;
-    }
-  }
-
-  // ✅ HELPER: Pegar título do objetivo pelo ID
-  String _getGoalTitle(String goalId) {
-    final goal = _getGoalsData().firstWhere((g) => g.id == goalId);
-    return goal.title;
-  }
-
-  // ✅ DADOS DOS OBJETIVOS COM CORES ÚNICAS (CONFORME PROTÓTIPO - SEM DUPLICATAS)
-  List<GoalData> _getGoalsData() {
-    return [
-      GoalData(
-        id: 'melhorar_notas',
-        emoji: '📚',
-        title: 'Melhorar notas na escola',
-        description:
-            'Quero tirar notas melhores e me destacar nas disciplinas escolares',
-        color: const Color(0xFF00C851), // ✅ Verde - crescimento
-      ),
-      GoalData(
-        id: 'preparar_enem',
-        emoji: '🎯',
-        title: 'Preparar para ENEM',
-        description:
-            'Foco total na prova mais importante do país para entrar na universidade',
-        color: const Color(0xFF007BFF), // ✅ Azul - confiança
-      ),
-      GoalData(
-        id: 'universidade_especifica',
-        emoji: '🏛️',
-        title: 'Entrar numa universidade específica',
-        description:
-            'Tenho o sonho de passar numa universidade específica (USP, UNICAMP, etc.)',
-        color: const Color(0xFF6F42C1), // ✅ Roxo - ambição
-      ),
-      GoalData(
-        id: 'explorar_areas',
-        emoji: '🔍',
-        title: 'Explorar áreas de interesse',
-        description:
-            'Quero descobrir que profissão combina comigo através de diferentes trilhas',
-        color: const Color(0xFFFF6B00), // ✅ Laranja - descoberta (MUDOU!)
-      ),
-      GoalData(
-        id: 'ainda_descobrindo',
-        emoji: '🌟',
-        title: 'Não tenho certeza ainda',
-        description:
-            'Estou explorando e vou descobrir meus objetivos através do jogo',
-        color: const Color(0xFF17A2B8), // ✅ Turquesa - exploração (MUDOU!)
-      ),
-    ];
-  }
+  // ✅ DADOS DOS OBJETIVOS (mantém como estava)
+  final List<StudyGoalData> _goals = [
+    StudyGoalData(
+      goal: StudyGoal.improveGrades,
+      emoji: '📈',
+      title: 'Melhorar Notas',
+      subtitle: 'Subir de nível na escola',
+      color: Colors.blue,
+      description: 'Quero tirar notas melhores e me destacar nas matérias',
+    ),
+    StudyGoalData(
+      goal: StudyGoal.enemPrep,
+      emoji: '🎯',
+      title: 'Preparação ENEM',
+      subtitle: 'Rumo à aprovação',
+      color: Colors.orange,
+      description: 'Meu foco é mandar bem no ENEM e conquistar minha vaga',
+    ),
+    StudyGoalData(
+      goal: StudyGoal.specificUniversity,
+      emoji: '🏛️',
+      title: 'Universidade Específica',
+      subtitle: 'Foco no vestibular',
+      color: Colors.purple,
+      description: 'Tenho uma universidade dos sonhos e vou conquistar!',
+    ),
+    StudyGoalData(
+      goal: StudyGoal.exploreAreas,
+      emoji: '🔍',
+      title: 'Explorar Áreas',
+      subtitle: 'Descobrir vocações',
+      color: Colors.green,
+      description:
+          'Quero conhecer diferentes áreas para descobrir minha paixão',
+    ),
+    StudyGoalData(
+      goal: StudyGoal.undecided,
+      emoji: '🤔',
+      title: 'Ainda não sei',
+      subtitle: 'Vou descobrindo',
+      color: Colors.grey,
+      description: 'Ainda estou explorando minhas opções e interesses',
+    ),
+  ];
 }
 
 // CLASSE DE DADOS PARA OS CARDS
@@ -1573,6 +1553,9 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
   late AnimationController _buttonsController;
   late Animation<double> _heroAnimation;
   late List<Animation<double>> _buttonAnimations;
+
+  // ✅ CORREÇÃO: Adicionar estado local (padrão Tela 2)
+  ProfessionalTrail? _selectedArea;
 
   final List<ProfessionalTrailData> _areas = [
     ProfessionalTrailData(
@@ -1652,6 +1635,16 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
     Future.delayed(const Duration(milliseconds: 300), () {
       _buttonsController.forward();
     });
+
+    // ✅ CORREÇÃO: Inicializar estado local com provider (padrão Tela 2)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final onboarding = ref.read(onboardingProvider);
+      if (onboarding.interestArea != null && mounted) {
+        setState(() {
+          _selectedArea = onboarding.interestArea;
+        });
+      }
+    });
   }
 
   @override
@@ -1664,7 +1657,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
   @override
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
-    final hasSelection = onboarding.interestArea != null;
+    // ✅ CORREÇÃO: Usar estado local (padrão Tela 2)
+    final hasSelection = _selectedArea != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8E9),
@@ -1777,8 +1771,8 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                       itemCount: _areas.length,
                       itemBuilder: (context, index) {
                         final areaData = _areas[index];
-                        final isSelected =
-                            onboarding.interestArea == areaData.trail;
+                        // ✅ CORREÇÃO: Usar estado local (padrão Tela 2)
+                        final isSelected = _selectedArea == areaData.trail;
 
                         return AnimatedBuilder(
                           animation: _buttonAnimations[index],
@@ -1827,6 +1821,11 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: () {
+                                          // ✅ CORREÇÃO: Aplicar padrão exato da Tela 2
+                                          setState(() {
+                                            _selectedArea = areaData.trail;
+                                          });
+
                                           ref
                                               .read(onboardingProvider.notifier)
                                               .update((state) {
