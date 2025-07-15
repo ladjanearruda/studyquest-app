@@ -1,13 +1,12 @@
 // lib/features/modo_descoberta/screens/modo_descoberta_questao_screen.dart
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
+
 import '../providers/modo_descoberta_provider.dart';
 
-/// Tela de questões do Modo Descoberta
-/// Apresenta 5 questões com timer de 25 segundos cada
 class ModoDescobertaQuestaoScreen extends ConsumerStatefulWidget {
   const ModoDescobertaQuestaoScreen({super.key});
 
@@ -17,130 +16,164 @@ class ModoDescobertaQuestaoScreen extends ConsumerStatefulWidget {
 }
 
 class _ModoDescobertaQuestaoScreenState
-    extends ConsumerState<ModoDescobertaQuestaoScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _questionController;
-  late AnimationController _optionsController;
-  late AnimationController _timerController;
-
-  Timer? _questionTimer;
-  int _tempoRestante = 25; // 25 segundos por questão
-  int? _alternativaSelecionada;
-  bool _respondida = false;
+    extends ConsumerState<ModoDescobertaQuestaoScreen> {
+  int? _respostaSelecionada;
+  Timer? _timer;
+  int _tempoRestante = 25;
+  bool _processandoResposta = false;
 
   @override
   void initState() {
     super.initState();
-    _setupAnimations();
-    _startAnimations();
-    _startTimer();
+    _iniciarTimer();
   }
 
-  void _setupAnimations() {
-    _questionController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _optionsController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _timerController = AnimationController(
-      duration: const Duration(seconds: 25),
-      vsync: this,
-    );
-  }
-
-  void _startAnimations() {
-    _questionController.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _optionsController.forward();
-    });
-    _timerController.forward();
-  }
-
-  void _startTimer() {
-    _questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_tempoRestante > 0 && !_respondida) {
+  void _iniciarTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_tempoRestante > 0) {
         setState(() {
           _tempoRestante--;
         });
       } else {
-        timer.cancel();
-        if (!_respondida) {
-          _responderQuestao(-1); // Timeout
-        }
+        _proximaQuestao();
       }
     });
   }
 
   @override
   void dispose() {
-    _questionTimer?.cancel();
-    _questionController.dispose();
-    _optionsController.dispose();
-    _timerController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  void _responderQuestao(int indice) {
-    if (_respondida) return;
-
+  void _selecionarResposta(int index) {
+    if (_processandoResposta) return;
     setState(() {
-      _alternativaSelecionada = indice;
-      _respondida = true;
+      _respostaSelecionada = index;
     });
+  }
 
-    _questionTimer?.cancel();
+  void _proximaQuestao() {
+    _timer?.cancel();
 
-    // Salva resposta no provider usando método correto
-    if (indice >= 0) {
-      ref.read(modoDescobertaProvider.notifier).responderQuestao(indice);
-    } else {
-      // Timeout - registra como resposta inválida
-      ref.read(modoDescobertaProvider.notifier).pularQuestao();
+    final resposta = _respostaSelecionada ?? -1;
+
+    // Captura dados para feedback ANTES de enviar resposta
+    final state = ref.read(modoDescobertaProvider);
+    final questao = state.questaoAtualObj;
+
+    // Envia para provider
+    ref.read(modoDescobertaProvider.notifier).responderQuestao(resposta);
+
+    // Feedback completo com resposta correta
+    if (_respostaSelecionada != null && questao != null) {
+      final isCorreto = questao.isRespostaCorreta(_respostaSelecionada!);
+      final respostaCorreta = questao.alternativas[questao.respostaCorreta];
+      final minhaResposta = questao.alternativas[_respostaSelecionada!];
+
+      String mensagem;
+      if (isCorreto) {
+        mensagem = "✅ Correto! Resposta: $respostaCorreta";
+      } else {
+        mensagem =
+            "❌ Incorreto. Sua resposta: $minhaResposta\n✅ Correto: $respostaCorreta";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            mensagem,
+            style: const TextStyle(fontSize: 14),
+          ),
+          backgroundColor: isCorreto ? Colors.green[600] : Colors.red[600],
+          duration: const Duration(milliseconds: 2000), // 2 segundos para ler
+        ),
+      );
     }
 
-    // Aguarda feedback visual e avança
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        _avancarOuFinalizar();
+    // Reset simples
+    if (mounted) {
+      setState(() {
+        _respostaSelecionada = null;
+        _tempoRestante = 25;
+        _processandoResposta = false;
+      });
+    }
+
+    // Verificar status após delay
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+
+      final newState = ref.read(modoDescobertaProvider);
+
+      if (newState.status == ModoDescobertaStatus.finalizado) {
+        context.go('/modo-descoberta/resultado');
+      } else if (newState.status == ModoDescobertaStatus.emAndamento) {
+        _iniciarTimer();
       }
     });
   }
 
-  void _avancarOuFinalizar() {
-    final state = ref.read(modoDescobertaProvider);
+  // 🔥 ÚLTIMA CHANCE - MÁXIMO CONTROLE POSSÍVEL
+  Widget _buildImagemQuestao() {
+    final state = ref.watch(modoDescobertaProvider);
+    final questao = state.questaoAtualObj;
 
-    // Avança para próxima questão usando método correto
-    ref.read(modoDescobertaProvider.notifier).avancarQuestao();
-
-    // Verifica se finalizou
-    final newState = ref.read(modoDescobertaProvider);
-    if (newState.status == ModoDescobertaStatus.finalizado) {
-      // Vai para tela de resultado
-      context.pushReplacement('/modo-descoberta/resultado');
-    } else {
-      // Reinicia animações para próxima questão
-      _reiniciarAnimacoes();
+    if (questao == null) {
+      return const SizedBox.shrink();
     }
-  }
 
-  void _reiniciarAnimacoes() {
-    setState(() {
-      _tempoRestante = 25;
-      _alternativaSelecionada = null;
-      _respondida = false;
-    });
+    // Sistema híbrido
+    final imagemPath = questao.imagemEspecifica != null
+        ? questao.imagemEspecifica!
+        : _getImagemParaQuestao(questao);
 
-    _questionController.reset();
-    _optionsController.reset();
-    _timerController.reset();
-
-    _startAnimations();
-    _startTimer();
+    return Container(
+      height: 300, // AUMENTEI PARA 300PX (era 250)
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            height: 300, // AUMENTEI PARA 300PX
+            constraints: const BoxConstraints(
+              maxHeight: 300, // AUMENTEI CONSTRAINTS
+              minHeight: 300,
+              maxWidth: 600, // AUMENTEI LARGURA MÁX TAMBÉM
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                imagemPath,
+                height: 300, // AUMENTEI ALTURA DA IMAGEM TAMBÉM
+                fit: BoxFit.fitHeight, // SÓ AJUSTA LARGURA
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 300, // ALTURA DO ERRO TAMBÉM
+                    width: 300,
+                    color: Colors.green[50],
+                    child: const Center(
+                      child: Icon(Icons.image, color: Colors.grey, size: 40),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getImagemParaQuestao(questao) {
@@ -186,8 +219,6 @@ class _ModoDescobertaQuestaoScreenState
     // PRINCIPAL - Padrão
     return 'assets/images/questoes/modo_descoberta/principal.jpg';
   }
-
-  // SUBSTITUIR toda a seção do build() por esta versão corrigida:
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +295,6 @@ class _ModoDescobertaQuestaoScreenState
                     ],
                   ),
                   const SizedBox(height: 16),
-
                   // Barra de progresso
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +325,7 @@ class _ModoDescobertaQuestaoScreenState
                               gradient: LinearGradient(
                                 colors: [
                                   Colors.orange[400]!,
-                                  Colors.orange[600]!
+                                  Colors.orange[600]!,
                                 ],
                               ),
                             ),
@@ -316,167 +346,143 @@ class _ModoDescobertaQuestaoScreenState
                   children: [
                     const SizedBox(height: 20),
 
-                    // 🎯 QUESTÃO COM IMAGEM - CORRIGIDA
-                    AnimatedBuilder(
-                      animation: _questionController,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset:
-                              Offset(0, 20 * (1 - _questionController.value)),
-                          child: Opacity(
-                            opacity: _questionController.value,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(
-                                        alpha: 0.08), // 🎯 CORRIGIDO
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  // 🎯 IMAGEM CONTEXTUAL
-                                  Container(
-                                    height: 180,
-                                    width: double.infinity,
-                                    margin: const EdgeInsets.only(bottom: 20),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                              alpha: 0.05), // 🎯 CORRIGIDO
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.asset(
-                                        _getImagemParaQuestao(questao),
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  Colors.orange[400]!,
-                                                  Colors.orange[600]!
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: const Center(
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Text('🧭',
-                                                      style: TextStyle(
-                                                          fontSize: 24)),
-                                                  SizedBox(height: 4),
-                                                  Text(
-                                                    'Modo Descoberta',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
+                    // 🎯 IMAGEM DA QUESTÃO - EXATAMENTE COMO A VERSÃO QUE FUNCIONAVA
+                    _buildImagemQuestao(),
 
-                                  // QUESTÃO
-                                  Text(
-                                    questao.enunciado,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF2E7D32),
-                                      height: 1.4,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      '${questao.assunto} • ${questao.emojiDificuldade}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange[600],
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                    // Container da questão
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withValues(alpha: 0.08), // ✅ CORRIGIDO
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Enunciado
+                          Text(
+                            questao.enunciado,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                              height: 1.4,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                          const SizedBox(height: 24),
 
-                    const SizedBox(height: 32),
+                          // Alternativas
+                          ...List.generate(questao.alternativas.length,
+                              (index) {
+                            final letra = String.fromCharCode(65 + index);
+                            final isSelected = _respostaSelecionada == index;
 
-                    // 🎯 ALTERNATIVAS - CORRIGIDAS
-                    AnimatedBuilder(
-                      animation: _optionsController,
-                      builder: (context, child) {
-                        return Column(
-                          children:
-                              questao.alternativas.asMap().entries.map((entry) {
-                            final indice = entry.key;
-                            final alternativa = entry.value;
-                            final delay = indice * 0.1;
-
-                            return Transform.translate(
-                              offset: Offset(
-                                30 *
-                                    (1 -
-                                        Curves.easeOut.transform(
-                                            (_optionsController.value - delay)
-                                                .clamp(0.0, 1.0))),
-                                0,
-                              ),
-                              child: Opacity(
-                                opacity: Curves.easeOut.transform(
-                                    (_optionsController.value - delay)
-                                        .clamp(0.0, 1.0)),
+                            return Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () => _selecionarResposta(index),
+                                borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  child: _buildAlternativaCard(
-                                      indice, alternativa, questao),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.orange[100]
+                                        : Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Colors.orange[400]!
+                                          : Colors.grey[200]!,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? Colors.orange[400]
+                                              : Colors.grey[300],
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            letra,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : Colors.grey[600],
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Text(
+                                          questao.alternativas[index],
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: isSelected
+                                                ? Colors.orange[700]
+                                                : Colors.black87,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
-                          }).toList(),
-                        );
-                      },
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Botão Confirmar
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _respostaSelecionada != null
+                            ? _proximaQuestao
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange[500],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                        ),
+                        child: Text(
+                          _respostaSelecionada != null
+                              ? 'Confirmar Resposta'
+                              : 'Selecione uma alternativa',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 40),
@@ -484,98 +490,6 @@ class _ModoDescobertaQuestaoScreenState
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-// 🎯 MÉTODO _buildAlternativaCard CORRIGIDO:
-  Widget _buildAlternativaCard(int indice, String alternativa, questao) {
-    final bool isSelected = _alternativaSelecionada == indice;
-    final bool isCorrect = questao.isRespostaCorreta(indice);
-    final bool showResult = _respondida;
-
-    Color cardColor = Colors.white;
-    Color borderColor = Colors.grey[300]!;
-    Color textColor = Colors.black87;
-    IconData? icon;
-
-    if (showResult) {
-      if (isSelected && isCorrect) {
-        cardColor = Colors.green[50]!;
-        borderColor = Colors.green[500]!;
-        textColor = Colors.green[700]!;
-        icon = Icons.check_circle;
-      } else if (isSelected && !isCorrect) {
-        cardColor = Colors.red[50]!;
-        borderColor = Colors.red[500]!;
-        textColor = Colors.red[700]!;
-        icon = Icons.cancel;
-      } else if (!isSelected && isCorrect) {
-        cardColor = Colors.green[50]!;
-        borderColor = Colors.green[300]!;
-        textColor = Colors.green[600]!;
-        icon = Icons.check_circle_outline;
-      }
-    } else if (isSelected) {
-      cardColor = Colors.orange[50]!;
-      borderColor = Colors.orange[500]!;
-      textColor = Colors.orange[700]!;
-    }
-
-    return GestureDetector(
-      onTap: _respondida ? null : () => _responderQuestao(indice),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: borderColor.withValues(alpha: 0.2), // 🎯 CORRIGIDO
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: borderColor.withValues(alpha: 0.2), // 🎯 CORRIGIDO
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  String.fromCharCode(65 + indice), // A, B, C, D
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                alternativa,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-            ),
-            if (icon != null) ...[
-              const SizedBox(width: 12),
-              Icon(icon, color: textColor, size: 24),
-            ],
           ],
         ),
       ),

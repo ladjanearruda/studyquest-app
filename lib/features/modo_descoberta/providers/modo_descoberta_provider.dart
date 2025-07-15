@@ -188,7 +188,7 @@ class ModoDescobertaNotifier extends StateNotifier<ModoDescobertaState> {
     }
   }
 
-  /// Registra a resposta de uma questão
+  /// Registra a resposta de uma questão e avança automaticamente
   void responderQuestao(int indiceResposta) {
     if (state.status != ModoDescobertaStatus.emAndamento) return;
     if (state.questaoAtual >= state.questoes.length) return;
@@ -207,6 +207,16 @@ class ModoDescobertaNotifier extends StateNotifier<ModoDescobertaState> {
       respostas: novasRespostas,
       acertos: novosAcertos,
     );
+
+    // Avança automaticamente para próxima questão
+    final proximaQuestao = state.questaoAtual + 1;
+
+    // Se chegou na última questão, finaliza o teste
+    if (proximaQuestao >= state.questoes.length) {
+      finalizarTeste();
+    } else {
+      state = state.copyWith(questaoAtual: proximaQuestao);
+    }
   }
 
   /// Avança para a próxima questão
@@ -300,7 +310,6 @@ class ModoDescobertaNotifier extends StateNotifier<ModoDescobertaState> {
 
     // Registra resposta inválida (-1) que será considerada erro
     responderQuestao(-1);
-    avancarQuestao();
   }
 
   /// Método para debug - força um resultado específico

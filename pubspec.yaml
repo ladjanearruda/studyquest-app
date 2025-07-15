@@ -31,5 +31,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # Assets para imagens do projeto
   assets:
+    - assets/images/
+    - assets/images/questoes/
+    - assets/images/questoes/6ano/
+    - assets/images/questoes/7ano/
+    - assets/images/questoes/8ano/
+    - assets/images/questoes/9ano/
+    - assets/images/questoes/ensino-medio/
     - assets/images/questoes/modo_descoberta/
+    

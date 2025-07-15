@@ -1,30 +1,17 @@
 // lib/features/modo_descoberta/models/questao_descoberta.dart
 
-/// Modelo simplificado de questão para o Modo Descoberta
-/// Otimizado para nivelamento rápido (5 questões em 2 minutos)
 class QuestaoDescoberta {
-  /// ID único da questão (ex: "6ano_001")
   final String id;
-
-  /// Texto da questão contextualizada
   final String enunciado;
-
-  /// Lista com exatamente 4 alternativas
   final List<String> alternativas;
-
-  /// Índice da resposta correta (0-3)
   final int respostaCorreta;
-
-  /// Explicação didática da resposta
   final String explicacao;
-
-  /// Assunto/tópico da questão (ex: "Frações", "Equações")
   final String assunto;
+  final int dificuldade; // 1-3
+  final String?
+      imagemEspecifica; // NOVO: Caminho para imagem específica da questão
 
-  /// Nível de dificuldade (1=Fácil, 2=Médio, 3=Difícil)
-  final int dificuldade;
-
-  const QuestaoDescoberta({
+  QuestaoDescoberta({
     required this.id,
     required this.enunciado,
     required this.alternativas,
@@ -32,106 +19,72 @@ class QuestaoDescoberta {
     required this.explicacao,
     required this.assunto,
     required this.dificuldade,
+    this.imagemEspecifica, // Opcional - se null, usa imagem contextual
   });
 
-  /// Factory para criar a partir de JSON (futuro backend)
-  factory QuestaoDescoberta.fromJson(Map<String, dynamic> json) {
-    return QuestaoDescoberta(
-      id: json['id'] as String,
-      enunciado: json['enunciado'] as String,
-      alternativas: List<String>.from(json['alternativas']),
-      respostaCorreta: json['resposta_correta'] as int,
-      explicacao: json['explicacao'] as String,
-      assunto: json['assunto'] as String,
-      dificuldade: json['dificuldade'] as int,
-    );
-  }
-
-  /// Converte para JSON (futuro analytics)
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'enunciado': enunciado,
-      'alternativas': alternativas,
-      'resposta_correta': respostaCorreta,
-      'explicacao': explicacao,
-      'assunto': assunto,
-      'dificuldade': dificuldade,
-    };
-  }
+  /// Verifica se a questão tem imagem específica
+  bool get temImagemEspecifica => imagemEspecifica != null;
 
   /// Verifica se uma resposta está correta
-  bool isRespostaCorreta(int indiceEscolhido) {
-    return indiceEscolhido == respostaCorreta;
+  bool isRespostaCorreta(int indiceResposta) {
+    return indiceResposta == respostaCorreta;
   }
 
-  /// Retorna o texto da alternativa correta
-  String get alternativaCorreta => alternativas[respostaCorreta];
-
-  /// Retorna o texto da alternativa escolhida
-  String getAlternativaEscolhida(int indice) {
-    if (indice < 0 || indice >= alternativas.length) {
-      return 'Alternativa inválida';
+  /// Retorna o caminho da imagem a ser usado (específica ou contextual)
+  String getImagemPath() {
+    if (imagemEspecifica != null) {
+      return imagemEspecifica!;
     }
-    return alternativas[indice];
+
+    // Se não tem imagem específica, usa lógica contextual baseada no assunto
+    return _getImagemContextual();
   }
 
-  /// Validação básica da questão
-  bool get isValida {
-    return id.isNotEmpty &&
-        enunciado.isNotEmpty &&
-        alternativas.length == 4 &&
-        respostaCorreta >= 0 &&
-        respostaCorreta < 4 &&
-        explicacao.isNotEmpty &&
-        assunto.isNotEmpty &&
-        dificuldade >= 1 &&
-        dificuldade <= 3;
-  }
+  /// Lógica para determinar imagem contextual baseada no assunto/conteúdo
+  String _getImagemContextual() {
+    final assunto = this.assunto.toLowerCase();
+    final enunciado = this.enunciado.toLowerCase();
 
-  /// Retorna emoji baseado na dificuldade
-  String get emojiDificuldade {
-    switch (dificuldade) {
-      case 1:
-        return '🟢'; // Fácil
-      case 2:
-        return '🟡'; // Médio
-      case 3:
-        return '🔴'; // Difícil
-      default:
-        return '⚪'; // Desconhecido
+    // GEO - Geometria, área, perímetro, formas
+    if (assunto.contains('área') ||
+        assunto.contains('geometria') ||
+        assunto.contains('perímetro') ||
+        assunto.contains('quadrado') ||
+        assunto.contains('triângulo') ||
+        enunciado.contains('figura') ||
+        enunciado.contains('forma')) {
+      return 'assets/images/questoes/modo_descoberta/geo.jpg';
     }
-  }
 
-  /// Retorna texto da dificuldade
-  String get textoDificuldade {
-    switch (dificuldade) {
-      case 1:
-        return 'Fácil';
-      case 2:
-        return 'Médio';
-      case 3:
-        return 'Difícil';
-      default:
-        return 'Desconhecido';
+    // LAB - Álgebra, equações, sistemas
+    if (assunto.contains('equação') ||
+        assunto.contains('álgebra') ||
+        enunciado.contains('resolva') ||
+        enunciado.contains('x =')) {
+      return 'assets/images/questoes/modo_descoberta/lab.jpg';
     }
+
+    // PATTERNS - Funções, sequências, gráficos
+    if (assunto.contains('função') ||
+        assunto.contains('sequência') ||
+        assunto.contains('gráfico') ||
+        enunciado.contains('f(x)')) {
+      return 'assets/images/questoes/modo_descoberta/patterns.jpg';
+    }
+
+    // TECH - Probabilidade, estatística, porcentagem
+    if (assunto.contains('probabilidade') ||
+        assunto.contains('porcentagem') ||
+        enunciado.contains('%') ||
+        enunciado.contains('chance')) {
+      return 'assets/images/questoes/modo_descoberta/tech.jpg';
+    }
+
+    // PRINCIPAL - Padrão para outros casos
+    return 'assets/images/questoes/modo_descoberta/principal.jpg';
   }
 
-  @override
-  String toString() {
-    return 'QuestaoDescoberta(id: $id, assunto: $assunto, dificuldade: $dificuldade)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is QuestaoDescoberta && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
-
-  /// Copia a questão com modificações opcionais
+  /// Cria uma cópia da questão com novos valores
   QuestaoDescoberta copyWith({
     String? id,
     String? enunciado,
@@ -140,6 +93,7 @@ class QuestaoDescoberta {
     String? explicacao,
     String? assunto,
     int? dificuldade,
+    String? imagemEspecifica,
   }) {
     return QuestaoDescoberta(
       id: id ?? this.id,
@@ -149,6 +103,51 @@ class QuestaoDescoberta {
       explicacao: explicacao ?? this.explicacao,
       assunto: assunto ?? this.assunto,
       dificuldade: dificuldade ?? this.dificuldade,
+      imagemEspecifica: imagemEspecifica ?? this.imagemEspecifica,
     );
   }
+
+  /// Converte para JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'enunciado': enunciado,
+      'alternativas': alternativas,
+      'respostaCorreta': respostaCorreta,
+      'explicacao': explicacao,
+      'assunto': assunto,
+      'dificuldade': dificuldade,
+      'imagemEspecifica': imagemEspecifica,
+    };
+  }
+
+  /// Cria instância a partir de JSON
+  factory QuestaoDescoberta.fromJson(Map<String, dynamic> json) {
+    return QuestaoDescoberta(
+      id: json['id'],
+      enunciado: json['enunciado'],
+      alternativas: List<String>.from(json['alternativas']),
+      respostaCorreta: json['respostaCorreta'],
+      explicacao: json['explicacao'],
+      assunto: json['assunto'],
+      dificuldade: json['dificuldade'],
+      imagemEspecifica: json['imagemEspecifica'],
+    );
+  }
+
+  /// Para debug - representação em string
+  @override
+  String toString() {
+    return 'QuestaoDescoberta{id: $id, assunto: $assunto, dificuldade: $dificuldade, temImagem: $temImagemEspecifica}';
+  }
+
+  /// Igualdade baseada no ID
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is QuestaoDescoberta && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
