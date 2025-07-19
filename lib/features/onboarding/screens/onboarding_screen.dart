@@ -562,8 +562,7 @@ class _Tela0NomeState extends ConsumerState<Tela0Nome>
   }
 }
 // ===== TELA 1 NÍVEL EDUCACIONAL PREMIUM 4x2 =====
-// ===== TELA 1 NÍVEL EDUCACIONAL - VERSÃO LIMPA SEM ERROS =====
-// ===== TELA 1 NÍVEL EDUCACIONAL - VERSÃO LIMPA SEM ERROS =====
+// ===== TELA 1 NÍVEL EDUCACIONAL - VERSÃO CORRIGIDA SEM OVERFLOW =====
 
 class Tela1NivelEducacional extends ConsumerStatefulWidget {
   const Tela1NivelEducacional({super.key});
@@ -695,10 +694,10 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                             fontWeight: FontWeight.w600,
                             color: Colors.green[700]!),
                       ),
-                      SizedBox(width: 48),
+                      const SizedBox(width: 48),
                     ],
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Container(
                     height: 8,
                     decoration: BoxDecoration(
@@ -727,7 +726,7 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
                     // HERO SECTION
                     AnimatedBuilder(
@@ -742,8 +741,8 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                                 Text('🎓',
                                     style: TextStyle(
                                         fontSize: 50 * _heroAnimation.value)),
-                                SizedBox(height: 12),
-                                Text(
+                                const SizedBox(height: 12),
+                                const Text(
                                   'Em que ano você está?',
                                   style: TextStyle(
                                       fontSize: 24,
@@ -751,8 +750,8 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                                       color: Color(0xFF2E7D32)),
                                   textAlign: TextAlign.center,
                                 ),
-                                SizedBox(height: 8),
-                                Text(
+                                const SizedBox(height: 8),
+                                const Text(
                                   'Vamos personalizar sua jornada! 📚',
                                   style: TextStyle(
                                       fontSize: 16,
@@ -767,181 +766,258 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                       },
                     ),
 
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                    // GRID 4x2 SEM LIMITAÇÃO DE ALTURA
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        childAspectRatio: 1.2, // Cards proporcionais
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 8,
-                      ),
-                      itemCount: _levels.length,
-                      itemBuilder: (context, index) {
-                        final levelData = _levels[index];
-                        final isSelected =
-                            onboarding.educationLevel == levelData.level;
+                    // ✅ GRID 4x2 MANTIDO + PROTEÇÃO OVERFLOW
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: MediaQuery.of(context).size.width - 48,
+                        ),
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width > 600
+                              ? MediaQuery.of(context).size.width -
+                                  48 // Desktop: largura total
+                              : 600, // Mobile: largura mínima para grid
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4, // ✅ MANTÉM 4 COLUNAS
+                              childAspectRatio:
+                                  1.15, // ✅ REDUZIDO DE 1.2 → 1.15 (cards mais baixos)
+                              mainAxisSpacing: 10, // ✅ REDUZIDO DE 12 → 10
+                              crossAxisSpacing: 8,
+                            ),
+                            itemCount: _levels.length,
+                            itemBuilder: (context, index) {
+                              final levelData = _levels[index];
+                              final isSelected =
+                                  onboarding.educationLevel == levelData.level;
 
-                        return AnimatedBuilder(
-                          animation: _cardAnimations[index],
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(
-                                  0, 20 * (1 - _cardAnimations[index].value)),
-                              child: Opacity(
-                                opacity: _cardAnimations[index].value,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? levelData.color.withValues(alpha: 0.1)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? levelData.color
-                                          : Colors.grey[200]!,
-                                      width: isSelected ? 2 : 1,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: isSelected
-                                            ? levelData.color
-                                                .withValues(alpha: 0.2)
-                                            : Colors.black
-                                                .withValues(alpha: 0.03),
-                                        blurRadius: isSelected ? 8 : 4,
-                                        offset: Offset(0, isSelected ? 3 : 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: () {
-                                        ref
-                                            .read(onboardingProvider.notifier)
-                                            .update((state) {
-                                          final newState = OnboardingData();
-                                          newState.name = state.name;
-                                          newState.educationLevel =
-                                              levelData.level;
-                                          newState.studyGoal = state.studyGoal;
-                                          newState.interestArea =
-                                              state.interestArea;
-                                          newState.dreamUniversity =
-                                              state.dreamUniversity;
-                                          newState.studyTime = state.studyTime;
-                                          newState.mainDifficulty =
-                                              state.mainDifficulty;
-                                          newState.studyStyle =
-                                              state.studyStyle;
-                                          return newState;
-                                        });
-                                      },
-                                      child: Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Stack(
-                                              children: [
-                                                AnimatedContainer(
-                                                  duration: const Duration(
-                                                      milliseconds: 200),
-                                                  width: isSelected ? 42 : 38,
-                                                  height: isSelected ? 42 : 38,
-                                                  decoration: BoxDecoration(
-                                                    color: levelData.color
-                                                        .withValues(
-                                                            alpha: 0.15),
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                  child: Center(
-                                                    child:
-                                                        AnimatedDefaultTextStyle(
-                                                      duration: const Duration(
-                                                          milliseconds: 200),
-                                                      style: TextStyle(
-                                                          fontSize: isSelected
-                                                              ? 20
-                                                              : 18),
-                                                      child:
-                                                          Text(levelData.emoji),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (isSelected)
-                                                  Positioned(
-                                                    top: -2,
-                                                    right: -2,
-                                                    child: AnimatedContainer(
-                                                      duration: const Duration(
-                                                          milliseconds: 200),
-                                                      width: 18,
-                                                      height: 18,
-                                                      decoration: BoxDecoration(
-                                                        color: levelData.color,
-                                                        shape: BoxShape.circle,
-                                                        border: Border.all(
-                                                            color: Colors.white,
-                                                            width: 2),
-                                                      ),
-                                                      child: Icon(Icons.check,
-                                                          color: Colors.white,
-                                                          size: 12),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            SizedBox(height: 8),
-                                            Text(
-                                              levelData.title,
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: isSelected
-                                                    ? levelData.color
-                                                    : Colors.black87,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            SizedBox(height: 2),
-                                            Text(
-                                              levelData.subtitle,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isSelected
-                                                    ? levelData.color
-                                                        .withValues(alpha: 0.8)
-                                                    : Colors.grey[600]!,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                              return AnimatedBuilder(
+                                animation: _cardAnimations[index],
+                                builder: (context, child) {
+                                  return Transform.translate(
+                                    offset: Offset(
+                                        0,
+                                        20 *
+                                            (1 - _cardAnimations[index].value)),
+                                    child: Opacity(
+                                      opacity: _cardAnimations[index].value,
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? levelData.color
+                                                  .withValues(alpha: 0.1)
+                                              : Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? levelData.color
+                                                : Colors.grey[200]!,
+                                            width: isSelected ? 2 : 1,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: isSelected
+                                                  ? levelData.color
+                                                      .withValues(alpha: 0.2)
+                                                  : Colors.black
+                                                      .withValues(alpha: 0.03),
+                                              blurRadius: isSelected
+                                                  ? 6
+                                                  : 4, // ✅ REDUZIDO DE 8 → 6
+                                              offset: Offset(
+                                                  0,
+                                                  isSelected
+                                                      ? 2
+                                                      : 1), // ✅ REDUZIDO DE 3 → 2
                                             ),
                                           ],
                                         ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            onTap: () {
+                                              ref
+                                                  .read(onboardingProvider
+                                                      .notifier)
+                                                  .update((state) {
+                                                final newState =
+                                                    OnboardingData();
+                                                newState.name = state.name;
+                                                newState.educationLevel =
+                                                    levelData.level;
+                                                newState.studyGoal =
+                                                    state.studyGoal;
+                                                newState.interestArea =
+                                                    state.interestArea;
+                                                newState.dreamUniversity =
+                                                    state.dreamUniversity;
+                                                newState.studyTime =
+                                                    state.studyTime;
+                                                newState.mainDifficulty =
+                                                    state.mainDifficulty;
+                                                newState.studyStyle =
+                                                    state.studyStyle;
+                                                return newState;
+                                              });
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(
+                                                  10), // ✅ REDUZIDO DE 12 → 10
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                mainAxisSize: MainAxisSize
+                                                    .min, // ✅ FORÇA TAMANHO MÍNIMO
+                                                children: [
+                                                  Stack(
+                                                    children: [
+                                                      AnimatedContainer(
+                                                        duration:
+                                                            const Duration(
+                                                                milliseconds:
+                                                                    200),
+                                                        width: isSelected
+                                                            ? 38
+                                                            : 34, // ✅ REDUZIDO
+                                                        height: isSelected
+                                                            ? 38
+                                                            : 34, // ✅ REDUZIDO
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: levelData.color
+                                                              .withValues(
+                                                                  alpha: 0.15),
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                        child: Center(
+                                                          child:
+                                                              AnimatedDefaultTextStyle(
+                                                            duration:
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        200),
+                                                            style: TextStyle(
+                                                                fontSize: isSelected
+                                                                    ? 18
+                                                                    : 16), // ✅ REDUZIDO
+                                                            child: Text(
+                                                                levelData
+                                                                    .emoji),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (isSelected)
+                                                        Positioned(
+                                                          top: -2,
+                                                          right: -2,
+                                                          child:
+                                                              AnimatedContainer(
+                                                            duration:
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        200),
+                                                            width:
+                                                                16, // ✅ REDUZIDO DE 18
+                                                            height:
+                                                                16, // ✅ REDUZIDO DE 18
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: levelData
+                                                                  .color,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  width: 2),
+                                                            ),
+                                                            child: const Icon(
+                                                                Icons.check,
+                                                                color: Colors
+                                                                    .white,
+                                                                size:
+                                                                    10), // ✅ REDUZIDO DE 12
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(
+                                                      height:
+                                                          6), // ✅ REDUZIDO DE 8
+                                                  Flexible(
+                                                    // ✅ ADICIONA FLEXIBLE
+                                                    child: Text(
+                                                      levelData.title,
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            14, // ✅ REDUZIDO DE 16
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: isSelected
+                                                            ? levelData.color
+                                                            : Colors.black87,
+                                                      ),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(
+                                                      height:
+                                                          1), // ✅ REDUZIDO DE 2
+                                                  Flexible(
+                                                    // ✅ ADICIONA FLEXIBLE
+                                                    child: Text(
+                                                      levelData.subtitle,
+                                                      style: TextStyle(
+                                                        fontSize:
+                                                            11, // ✅ REDUZIDO DE 13
+                                                        color: isSelected
+                                                            ? levelData.color
+                                                                .withValues(
+                                                                    alpha: 0.8)
+                                                            : Colors.grey[600]!,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 12), // ✅ REDUZIDO DE 16
 
                     // FEEDBACK VISUAL
                     AnimatedOpacity(
@@ -967,10 +1043,10 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                               decoration: BoxDecoration(
                                   color: Colors.green[600]!,
                                   shape: BoxShape.circle),
-                              child: Icon(Icons.school,
+                              child: const Icon(Icons.school,
                                   color: Colors.white, size: 20),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 hasSelection
@@ -988,7 +1064,7 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                       ),
                     ),
 
-                    SizedBox(height: 20),
+                    const SizedBox(height: 16), // ✅ REDUZIDO DE 20
                   ],
                 ),
               ),
@@ -996,7 +1072,7 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
 
             // BOTÃO
             Container(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(20.0), // ✅ REDUZIDO DE 24
               child: ElevatedButton(
                 onPressed:
                     hasSelection ? () => context.go('/onboarding/2') : null,
@@ -1016,11 +1092,11 @@ class _Tela1NivelEducacionalState extends ConsumerState<Tela1NivelEducacional>
                       hasSelection
                           ? 'Vamos aos objetivos! 🎯'
                           : 'Selecione seu nível',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward, size: 16),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_forward, size: 16),
                   ],
                 ),
               ),
