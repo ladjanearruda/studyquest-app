@@ -114,7 +114,11 @@ class _ModoDescobertaQuestaoScreenState
     });
   }
 
-  // 🔥 ÚLTIMA CHANCE - MÁXIMO CONTROLE POSSÍVEL
+// 🔧 CORREÇÃO ESPECÍFICA DO OVERFLOW HORIZONTAL
+// 🔧 APENAS substitua o método _buildImagemQuestao() atual por este:
+
+  // 🔧 APENAS substitua o método _buildImagemQuestao() atual por este:
+
   Widget _buildImagemQuestao() {
     final state = ref.watch(modoDescobertaProvider);
     final questao = state.questaoAtualObj;
@@ -123,55 +127,59 @@ class _ModoDescobertaQuestaoScreenState
       return const SizedBox.shrink();
     }
 
-    // Sistema híbrido
-    final imagemPath = questao.imagemEspecifica != null
-        ? questao.imagemEspecifica!
-        : _getImagemParaQuestao(questao);
+    // Usa o método getImagemPath() que decide entre específica ou contextual
+    final imagemPath = questao.getImagemPath();
 
     return Container(
-      height: 300, // AUMENTEI PARA 300PX (era 250)
+      height: 280, // ✅ AUMENTADO de 200 para 280
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            height: 300, // AUMENTEI PARA 300PX
-            constraints: const BoxConstraints(
-              maxHeight: 300, // AUMENTEI CONSTRAINTS
-              minHeight: 300,
-              maxWidth: 600, // AUMENTEI LARGURA MÁX TAMBÉM
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                imagemPath,
-                height: 300, // AUMENTEI ALTURA DA IMAGEM TAMBÉM
-                fit: BoxFit.fitHeight, // SÓ AJUSTA LARGURA
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 300, // ALTURA DO ERRO TAMBÉM
-                    width: 300,
-                    color: Colors.green[50],
-                    child: const Center(
-                      child: Icon(Icons.image, color: Colors.grey, size: 40),
-                    ),
-                  );
-                },
-              ),
-            ),
+      margin: const EdgeInsets.symmetric(
+          horizontal: 16, vertical: 12), // ✅ REDUZIDO margem lateral
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08), // ✅ REDUZIDO sombra
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.asset(
+          imagemPath,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain, // ✅ MUDADO para contain (mostra imagem completa)
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey[50], // ✅ CLAREADO de green[50] para grey[50]
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.image,
+                      size: 48,
+                      color: Colors
+                          .grey[300], // ✅ CLAREADO de green[300] para grey[300]
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Imagem da questão',
+                      style: TextStyle(
+                        color: Colors.grey[
+                            500], // ✅ CLAREADO de green[600] para grey[500]
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -243,56 +251,66 @@ class _ModoDescobertaQuestaoScreenState
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '🧭 Descobrindo seu nível',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green[700],
-                        ),
+                  // ✅ WRAPPER COM SCROLL HORIZONTAL PARA EVITAR OVERFLOW
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: MediaQuery.of(context).size.width - 48,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _tempoRestante <= 5
-                              ? Colors.red[50]
-                              : Colors.orange[50],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _tempoRestante <= 5
-                                ? Colors.red[300]!
-                                : Colors.orange[300]!,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.timer,
-                              size: 16,
-                              color: _tempoRestante <= 5
-                                  ? Colors.red[600]
-                                  : Colors.orange[600],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '🧭 Descobrindo seu nível',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[700],
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${_tempoRestante}s',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                          ),
+                          const SizedBox(width: 16), // ✅ ESPAÇO FIXO
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _tempoRestante <= 5
+                                  ? Colors.red[50]
+                                  : Colors.orange[50],
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
                                 color: _tempoRestante <= 5
-                                    ? Colors.red[600]
-                                    : Colors.orange[600],
+                                    ? Colors.red[300]!
+                                    : Colors.orange[300]!,
                               ),
                             ),
-                          ],
-                        ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.timer,
+                                  size: 14,
+                                  color: _tempoRestante <= 5
+                                      ? Colors.red[600]
+                                      : Colors.orange[600],
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_tempoRestante}s',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: _tempoRestante <= 5
+                                        ? Colors.red[600]
+                                        : Colors.orange[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   // Barra de progresso
