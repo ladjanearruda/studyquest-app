@@ -5906,7 +5906,7 @@ class _Tela8FinalizacaoPremiumState
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'Iniciar Minha Aventura!',
+                                    '🎭 Escolha seu Avatar!', // ✅ NOVO LABEL
                                     style: TextStyle(
                                       fontSize: 15, // ✅ Padrão das outras telas
                                       fontWeight: FontWeight
@@ -6002,7 +6002,7 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
-  // 🎨 AVATAR CARD BALANCEADO + PREPARADO PARA LEONARDO AI
+  // 🎯 _buildAvatarCard() FINAL: Todas as melhorias SEM botão
   Widget _buildAvatarCard() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -6023,9 +6023,9 @@ class _Tela8FinalizacaoPremiumState
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // ✅ IMPORTANTE
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
+          // 📝 1. HEADER COM COPY CORRIGIDA
           Row(
             children: [
               Container(
@@ -6039,7 +6039,7 @@ class _Tela8FinalizacaoPremiumState
               const SizedBox(width: 16),
               const Expanded(
                 child: Text(
-                  'Seu Avatar Está Sendo Criado...',
+                  'Preparando Seus Avatares...', // ✅ COPY CORRIGIDA
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -6051,13 +6051,14 @@ class _Tela8FinalizacaoPremiumState
           ),
           const SizedBox(height: 24),
 
-          // 🎨 CONTEÚDO PRINCIPAL CENTRALIZADO - PREPARADO PARA LEONARDO AI
-          Expanded(
+          // 🎨 CONTEÚDO PRINCIPAL COM TODAS AS MELHORIAS
+          Container(
+            height: 280, // ✅ Altura adequada sem botão
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ✅ CONTAINER PARA FUTURO AVATAR LEONARDO AI
+                  // 🎮 2. FIGURA CENTRAL DINÂMICA
                   Container(
                     width: 120,
                     height: 120,
@@ -6079,24 +6080,45 @@ class _Tela8FinalizacaoPremiumState
                         ),
                       ],
                     ),
-                    child:
-                        // 🔮 FUTURO: Substituir por Image.network(leonardoAvatarUrl)
-                        const Icon(Icons.person, size: 60, color: Colors.white),
-
-                    // 🎨 QUANDO IMPLEMENTAR LEONARDO AI:
-                    // ClipOval(
-                    //   child: Image.network(
-                    //     userProfile.leonardoAvatarUrl ?? defaultAvatarUrl,
-                    //     fit: BoxFit.cover,
-                    //     loadingBuilder: (context, child, progress) {
-                    //       return progress == null ? child : CircularProgressIndicator();
-                    //     },
-                    //   ),
-                    // ),
+                    child: Stack(
+                      children: [
+                        // ✅ EMOJI GAMING no centro
+                        const Center(
+                          child: Text(
+                            '🎮', // ✅ EMOJI em vez de Icons.person
+                            style: TextStyle(fontSize: 48),
+                          ),
+                        ),
+                        // ✅ LOADING INDICATOR NO CANTO
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF007BFF)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+
                   const SizedBox(height: 20),
+
+                  // Copy motivacional
                   const Text(
-                    'Baseado no seu perfil, vamos personalizar sua experiência de aprendizado!',
+                    'Baseado no seu perfil, vamos personalizar sua experiência!',
                     style: TextStyle(
                       fontSize: 16,
                       color: Color(0xFF007BFF),
@@ -6104,12 +6126,152 @@ class _Tela8FinalizacaoPremiumState
                     ),
                     textAlign: TextAlign.center,
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // 🏷️ 3. TAGS GAMING EM ROW
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Tag 1: Determinado
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF007BFF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          '🎯 Determinado',
+                          style: TextStyle(
+                            color: Color(0xFF007BFF),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 6),
+
+                      // Tag 2: Corajoso
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF007BFF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          '🔥 Corajoso',
+                          style: TextStyle(
+                            color: Color(0xFF007BFF),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 6),
+
+                      // Tag 3: Ativo
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF007BFF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          '⚡ Ativo',
+                          style: TextStyle(
+                            color: Color(0xFF007BFF),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ 4. LOADING DOTS ANIMADOS (complexidade extra)
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 1500),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Color.lerp(
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                                const Color(0xFF007BFF),
+                                (value + 0.0) % 1.0,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Color.lerp(
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                                const Color(0xFF007BFF),
+                                (value + 0.3) % 1.0,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Color.lerp(
+                                const Color(0xFF007BFF).withValues(alpha: 0.3),
+                                const Color(0xFF007BFF),
+                                (value + 0.6) % 1.0,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    onEnd: () {
+                      // Loop automático
+                    },
+                  ),
                 ],
               ),
             ),
           ),
 
-          // ✅ Padding inferior para igualar altura
+          // ✅ Espaçador para igualar altura com o perfil card
           const SizedBox(height: 16),
         ],
       ),
@@ -6417,7 +6579,7 @@ class _Tela8FinalizacaoPremiumState
   }
 
   void _finalizarOnboarding(BuildContext context) {
-    // 🚀 NAVEGAR PARA HOME/TRILHAS
-    context.go('/home');
+    // 🚀 NAVEGAR PARA SELEÇÃO DE AVATAR
+    context.go('/avatar-selection'); // ✅ Vai para Avatar
   }
 }

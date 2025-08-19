@@ -28,6 +28,9 @@ import 'features/modo_descoberta/screens/modo_descoberta_resultado_screen.dart';
 // ✅ MODELS
 import 'features/trilha/models/recursos_vitais.dart';
 
+// ✅ Avatars
+import 'features/avatar/screens/avatar_selection_screen.dart';
+
 // Router configurado
 final router = GoRouter(
   initialLocation: '/onboarding/0',
@@ -58,6 +61,12 @@ final router = GoRouter(
         path: '/onboarding/complete',
         builder: (_, __) =>
             const Tela8FinalizacaoPremium()), // ✅ MANTIDO PARA COMPATIBILIDADE
+
+    // ✅ NOVA ROTA DO AVATAR
+    GoRoute(
+      path: '/avatar-selection',
+      builder: (_, __) => const AvatarSelectionScreen(),
+    ),
 
     // 🧭 ROTAS DO MODO DESCOBERTA
     GoRoute(

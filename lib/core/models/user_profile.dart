@@ -1,26 +1,7 @@
-enum EducationLevel {
-  fundamental6,
-  fundamental7,
-  fundamental8,
-  fundamental9,
-  medio1,
-  medio2,
-  medio3,
-}
+// lib/core/models/user_profile.dart
 
-enum StudyGoal {
-  improveGrades,
-  enemPrep,
-  specificUniversity,
-}
-
-enum ProfessionalTrail {
-  cienciasNatureza,
-  exatas,
-  humanas,
-  linguagens,
-  tecnologia,
-}
+import 'avatar.dart';
+import '../../features/onboarding/screens/onboarding_screen.dart';
 
 class UserProfile {
   final String id;
@@ -39,6 +20,9 @@ class UserProfile {
   final int currentLevel;
   final Map<String, double> subjectProgress;
 
+  // ✅ Campo do avatar
+  final AvatarType? selectedAvatar;
+
   UserProfile({
     required this.id,
     required this.name,
@@ -52,6 +36,7 @@ class UserProfile {
     required this.totalXP,
     required this.currentLevel,
     required this.subjectProgress,
+    this.selectedAvatar,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -68,6 +53,9 @@ class UserProfile {
       totalXP: json['totalXP'],
       currentLevel: json['currentLevel'],
       subjectProgress: Map<String, double>.from(json['subjectProgress']),
+      selectedAvatar: json['selectedAvatar'] != null
+          ? AvatarType.values.byName(json['selectedAvatar'])
+          : null,
     );
   }
 
@@ -85,6 +73,7 @@ class UserProfile {
       'totalXP': totalXP,
       'currentLevel': currentLevel,
       'subjectProgress': subjectProgress,
+      'selectedAvatar': selectedAvatar?.name,
     };
   }
 
@@ -101,6 +90,7 @@ class UserProfile {
     int? totalXP,
     int? currentLevel,
     Map<String, double>? subjectProgress,
+    AvatarType? selectedAvatar,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -115,6 +105,7 @@ class UserProfile {
       totalXP: totalXP ?? this.totalXP,
       currentLevel: currentLevel ?? this.currentLevel,
       subjectProgress: subjectProgress ?? this.subjectProgress,
+      selectedAvatar: selectedAvatar ?? this.selectedAvatar,
     );
   }
 }

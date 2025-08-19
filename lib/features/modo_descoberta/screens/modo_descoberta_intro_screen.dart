@@ -502,12 +502,46 @@ class _ModoDescobertaIntroScreenState
     );
   }
 
-  void _iniciarModoDescoberta() {
-    // Iniciar o teste usando o provider
-    ref.read(modoDescobertaProvider.notifier).iniciarTeste(widget.nivelEscolar);
+  void _iniciarModoDescoberta() async {
+    try {
+      // ✅ 1. Iniciar o teste e aguardar processamento
+      ref
+          .read(modoDescobertaProvider.notifier)
+          .iniciarTeste(widget.nivelEscolar);
 
-    // Navegar para a primeira questão
-    // TODO: Implementar navegação para tela de questões
-    context.go('/modo-descoberta/questao');
+      // ✅ 2. Aguardar um momento para o estado atualizar
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      // ✅ 3. Verificar se realmente carregou as questões
+      final state = ref.read(modoDescobertaProvider);
+
+      if (state.questoes.isNotEmpty &&
+          state.status == ModoDescobertaStatus.emAndamento) {
+        // ✅ Sucesso - pode navegar
+        if (mounted) {
+          context.go('/modo-descoberta/questao');
+        }
+      } else {
+        // ❌ Erro - mostrar feedback
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao carregar questões. Tente novamente.'),
+              backgroundColor: Colors.red[600],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // ❌ Erro inesperado
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro inesperado: $e'),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    }
   }
 }
