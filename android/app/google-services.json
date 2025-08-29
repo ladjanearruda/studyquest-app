@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "802055983068",
+    "project_id": "studyquest-app-banco",
+    "storage_bucket": "studyquest-app-banco.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802055983068:android:377f0582f611d1541e8919",
+        "android_client_info": {
+          "package_name": "com.studyquest.studyquest_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArAMpBnqLLjAdyaFGgkN4N3H_EilFJ7ss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

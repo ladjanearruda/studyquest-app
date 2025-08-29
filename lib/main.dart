@@ -5,7 +5,7 @@ import 'core/themes/app_theme.dart';
 
 import 'features/home/screens/menu_trilhas_screen.dart';
 
-// ✅ IMPORTS BÁSICOS
+// IMPORTS BÁSICOS
 import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/trilha/screens/trilha_mapa_screen.dart';
 import 'features/trilha/screens/trilha_questao_screen.dart';
@@ -13,29 +13,33 @@ import 'features/trilha/screens/trilha_feedback_screen.dart';
 import 'features/trilha/screens/trilha_resultados_screen.dart';
 import 'features/trilha/screens/trilha_gameover_screen.dart';
 
-// ✅ IMPORTS OCEÂNICOS
+// IMPORTS OCEÂNICOS
 import 'features/trilha/screens/trilha_oceano_mapa_screen.dart';
 import 'features/trilha/screens/trilha_oceano_questao_screen.dart';
 import 'features/trilha/screens/trilha_oceano_feedback_screen.dart';
 import 'features/trilha/screens/trilha_oceano_resultados_screen.dart';
 import 'features/trilha/screens/trilha_oceano_gameover_screen.dart';
 
-// ✅ IMPORTS CORRETOS:
+// IMPORTS CORRETOS:
 import 'features/modo_descoberta/screens/modo_descoberta_intro_screen.dart';
 import 'features/modo_descoberta/screens/modo_descoberta_questao_screen.dart';
 import 'features/modo_descoberta/screens/modo_descoberta_resultado_screen.dart';
 
-// ✅ MODELS
+// MODELS
 import 'features/trilha/models/recursos_vitais.dart';
 
-// ✅ Avatars
+// Avatars
 import 'features/avatar/screens/avatar_selection_screen.dart';
+
+// Firebase
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // Router configurado
 final router = GoRouter(
   initialLocation: '/onboarding/0',
   routes: [
-    // ✅ ROTAS DE ONBOARDING
+    // ROTAS DE ONBOARDING
     GoRoute(path: '/onboarding/0', builder: (_, __) => const Tela0Nome()),
     GoRoute(
         path: '/onboarding/1',
@@ -56,19 +60,18 @@ final router = GoRouter(
         path: '/onboarding/7', builder: (_, __) => const Tela7EstiloEstudo()),
     GoRoute(
         path: '/onboarding/8',
-        builder: (_, __) => const Tela8FinalizacaoPremium()), // ✅ CORRIGIDO
+        builder: (_, __) => const Tela8FinalizacaoPremium()),
     GoRoute(
         path: '/onboarding/complete',
-        builder: (_, __) =>
-            const Tela8FinalizacaoPremium()), // ✅ MANTIDO PARA COMPATIBILIDADE
+        builder: (_, __) => const Tela8FinalizacaoPremium()),
 
-    // ✅ NOVA ROTA DO AVATAR
+    // NOVA ROTA DO AVATAR
     GoRoute(
       path: '/avatar-selection',
       builder: (_, __) => const AvatarSelectionScreen(),
     ),
 
-    // 🧭 ROTAS DO MODO DESCOBERTA
+    // ROTAS DO MODO DESCOBERTA
     GoRoute(
       path: '/modo-descoberta/intro',
       builder: (context, state) {
@@ -94,14 +97,14 @@ final router = GoRouter(
       builder: (context, state) => const ModoDescobertaResultadoScreen(),
     ),
 
-    // ✅ ROTAS PRINCIPAIS - MENU CENTRAL
+    // ROTAS PRINCIPAIS - MENU CENTRAL
     GoRoute(path: '/home', builder: (_, __) => const MenuTrilhasScreen()),
     GoRoute(
         path: '/trilha-mapa', builder: (_, __) => const MenuTrilhasScreen()),
     GoRoute(
         path: '/trail/forest', builder: (_, __) => const MenuTrilhasScreen()),
 
-    // ✅ ROTAS ESPECÍFICAS DA TRILHA FLORESTA
+    // ROTAS ESPECÍFICAS DA TRILHA FLORESTA
     GoRoute(
         path: '/trilha-floresta-mapa',
         builder: (_, __) => const TrilhaMapaScreen()),
@@ -114,7 +117,7 @@ final router = GoRouter(
       },
     ),
 
-    // ✅ ROTA FEEDBACK FLORESTA (MANTIDA PARA COMPATIBILIDADE)
+    // ROTA FEEDBACK FLORESTA
     GoRoute(
       path: '/trilha-feedback',
       builder: (context, state) {
@@ -135,7 +138,7 @@ final router = GoRouter(
         path: '/trilha-gameover',
         builder: (_, __) => const TrilhaGameOverScreen()),
 
-    // ✅ ROTAS ESPECÍFICAS DA TRILHA OCEANO
+    // ROTAS ESPECÍFICAS DA TRILHA OCEANO
     GoRoute(
         path: '/trilha-oceano-mapa',
         builder: (_, __) => const TrilhaOceanoMapaScreen()),
@@ -157,7 +160,18 @@ final router = GoRouter(
   ],
 );
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase inicializado com sucesso!');
+  } catch (e) {
+    print('Erro na inicialização Firebase: $e');
+  }
+
   runApp(
     const ProviderScope(
       child: StudyQuestApp(),
@@ -179,7 +193,7 @@ class StudyQuestApp extends StatelessWidget {
   }
 }
 
-// ✅ MANTIDA PARA COMPATIBILIDADE (mas não mais usada)
+// MANTIDA PARA COMPATIBILIDADE
 class PlaceholderHome extends StatelessWidget {
   const PlaceholderHome({super.key});
 
@@ -199,7 +213,7 @@ class PlaceholderHome extends StatelessWidget {
             ),
             SizedBox(height: 10),
             Text(
-              'Transformando estudos em aventura 🌳',
+              'Transformando estudos em aventura',
               style: TextStyle(fontSize: 16),
             ),
           ],

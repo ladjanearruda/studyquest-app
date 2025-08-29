@@ -10,22 +10,30 @@ dependencies:
   flutter:
     sdk: flutter
   
+  # State Management & Navigation
   flutter_riverpod: ^2.4.0
-  go_router: ^12.1.3 
+  go_router: ^10.1.0  # Compatível com Flutter 3.19.6
+  
+  # UI & Design
   google_fonts: ^6.1.0
   flutter_animate: ^4.2.0
   percent_indicator: ^4.2.1
   flutter_svg: ^2.0.7
   confetti: ^0.7.0
   cached_network_image: ^3.2.3
+  
+  # Data & Storage
   shared_preferences: ^2.2.2
   http: ^1.1.0
   json_annotation: ^4.8.1
   
-  # Firebase - SEM AUTH SDK
-  firebase_core: ^2.13.0
+  # Firebase - VERSÕES PARA FLUTTER 3.19.6
+  firebase_core: ^2.15.0
+  firebase_auth: ^4.7.0
   cloud_firestore: ^4.8.0
+  firebase_analytics: ^10.4.0
   
+  # Audio & Utils
   audioplayers: ^5.1.0
   uuid: ^4.2.1
 

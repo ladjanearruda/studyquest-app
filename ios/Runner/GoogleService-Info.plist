@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCWoNbAOt2XwHDH6OwYgEIgc7F3DyQQtWc</string>
+	<key>GCM_SENDER_ID</key>
+	<string>802055983068</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.studyquest.studyquestApp</string>
+	<key>PROJECT_ID</key>
+	<string>studyquest-app-banco</string>
+	<key>STORAGE_BUCKET</key>
+	<string>studyquest-app-banco.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:802055983068:ios:4d69a24860b26cb21e8919</string>
+</dict>
+</plist>
