@@ -1,14 +1,13 @@
-// lib/shared/services/firebase_service.dart - CORRIGIDO SEM firebase_auth
+// lib/shared/services/firebase_service.dart - CORRIGIDO COM NÍVEL DE CONHECIMENTO
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
-// REMOVIDO: import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/models/user_model.dart';
 import '../../core/models/question_model.dart';
-import '../../core/data/questions_database.dart'; // ADICIONADO para questões locais
+import '../../core/data/questions_database.dart';
+import '../../features/onboarding/screens/onboarding_screen.dart'; // Para acessar NivelHabilidade
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  // REMOVIDO: static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Cache para questões (performance)
   static final Map<String, List<QuestionModel>> _questionsCache = {};
@@ -48,16 +47,20 @@ class FirebaseService {
     }
   }
 
-  // ===== QUESTÕES PERSONALIZADAS =====
+  // ===== QUESTÕES PERSONALIZADAS ATUALIZADO =====
 
-  /// Buscar questões personalizadas usando QuestionsDatabase local
+  /// Buscar questões personalizadas considerando NÍVEL DE CONHECIMENTO
   static Future<List<QuestionModel>> getPersonalizedQuestions(
     UserModel user, {
     int limit = 10,
     String? specificSubject,
+    NivelHabilidade? nivelConhecimento, // NOVO PARÂMETRO
   }) async {
     try {
-      print('Buscando questões personalizadas para ${user.name}...');
+      print('🎯 Buscando questões personalizadas para ${user.name}...');
+      if (nivelConhecimento != null) {
+        print('📊 Nível de conhecimento: ${nivelConhecimento.nome}');
+      }
 
       // Usar questões locais do QuestionsDatabase
       List<QuestionModel> allQuestions = QuestionsDatabase.getQuestionsByLevel(
@@ -69,31 +72,44 @@ class FirebaseService {
         return [];
       }
 
-      // Aplicar personalização baseada no usuário
-      final personalizedQuestions =
-          _personalizeQuestions(allQuestions, user, limit);
+      // ALGORITMO ATUALIZADO: considera nível de conhecimento
+      final personalizedQuestions = _personalizeQuestionsComNivel(
+        allQuestions,
+        user,
+        limit,
+        nivelConhecimento, // NOVO PARÂMETRO
+      );
 
       print(
-          '${personalizedQuestions.length} questões personalizadas selecionadas');
+          '✅ ${personalizedQuestions.length} questões personalizadas selecionadas');
       return personalizedQuestions;
     } catch (e) {
-      print('Erro ao buscar questões personalizadas: $e');
+      print('❌ Erro ao buscar questões personalizadas: $e');
       return [];
     }
   }
 
-  /// Aplicar algoritmo de personalização 70/30
-  static List<QuestionModel> _personalizeQuestions(
+  /// ALGORITMO CORRIGIDO: Aplicar personalização 70/30 + NÍVEL DE CONHECIMENTO
+  static List<QuestionModel> _personalizeQuestionsComNivel(
     List<QuestionModel> allQuestions,
     UserModel user,
     int limit,
+    NivelHabilidade? nivelConhecimento, // NOVO PARÂMETRO
   ) {
     if (allQuestions.isEmpty) return [];
 
     List<QuestionModel> selected = [];
 
-    // 70% - Questões baseadas no objetivo principal
-    String preferredDifficulty = _getPreferredDifficulty(user);
+    // 🎯 DIFICULDADE INTELIGENTE: objetivo + nível de conhecimento
+    String preferredDifficulty = _getPreferredDifficultyComNivel(
+      user,
+      nivelConhecimento,
+    );
+
+    print(
+        '🎯 Dificuldade selecionada: $preferredDifficulty (objetivo: ${user.mainGoal}, nível: ${nivelConhecimento?.nome ?? "não informado"})');
+
+    // 70% - Questões baseadas na dificuldade inteligente
     var difficultyQuestions =
         allQuestions.where((q) => q.difficulty == preferredDifficulty).toList();
 
@@ -109,9 +125,13 @@ class FirebaseService {
     int thirtyPercent = limit - selected.length;
     selected.addAll(_selectRandomly(interestQuestions, thirtyPercent));
 
-    // Completar se necessário
+    // 🎯 COMPLETAR COM NÍVEL ADEQUADO se necessário
     if (selected.length < limit) {
-      var remaining = allQuestions.where((q) => !selected.contains(q)).toList();
+      var remaining = allQuestions
+          .where((q) => !selected.contains(q))
+          .where(
+              (q) => _isDifficultyAppropriate(q.difficulty, nivelConhecimento))
+          .toList();
       selected.addAll(_selectRandomly(remaining, limit - selected.length));
     }
 
@@ -119,7 +139,50 @@ class FirebaseService {
     return selected.take(limit).toList();
   }
 
-  static String _getPreferredDifficulty(UserModel user) {
+  /// 🎯 MÉTODO CORRIGIDO: Dificuldade baseada em objetivo + nível de conhecimento
+  static String _getPreferredDifficultyComNivel(
+    UserModel user,
+    NivelHabilidade? nivelConhecimento,
+  ) {
+    // Se não tem nível definido, usar lógica antiga
+    if (nivelConhecimento == null) {
+      return _getPreferredDifficultyLegacy(user);
+    }
+
+    // 🧠 LÓGICA INTELIGENTE: Nível de conhecimento SEMPRE tem prioridade
+    switch (nivelConhecimento) {
+      case NivelHabilidade.iniciante:
+        // Iniciante sempre começa com fácil, independente do objetivo
+        return 'facil';
+
+      case NivelHabilidade.intermediario:
+        // Intermediário usa objetivo como base, mas limitado
+        switch (user.mainGoal) {
+          case 'enemPrep':
+          case 'specificUniversity':
+            return 'medio'; // Não vai direto para difícil
+          case 'improveGrades':
+            return 'medio';
+          default:
+            return 'facil';
+        }
+
+      case NivelHabilidade.avancado:
+        // Avançado pode usar dificuldade baseada no objetivo
+        switch (user.mainGoal) {
+          case 'enemPrep':
+          case 'specificUniversity':
+            return 'dificil';
+          case 'improveGrades':
+            return 'medio';
+          default:
+            return 'medio'; // Avançado raramente precisa de fácil
+        }
+    }
+  }
+
+  /// Método legacy para compatibilidade
+  static String _getPreferredDifficultyLegacy(UserModel user) {
     switch (user.mainGoal) {
       case 'enemPrep':
       case 'specificUniversity':
@@ -131,6 +194,29 @@ class FirebaseService {
     }
   }
 
+  /// 🎯 NOVO: Verificar se dificuldade é apropriada para o nível
+  static bool _isDifficultyAppropriate(
+    String difficulty,
+    NivelHabilidade? nivelConhecimento,
+  ) {
+    if (nivelConhecimento == null) return true;
+
+    switch (nivelConhecimento) {
+      case NivelHabilidade.iniciante:
+        // Iniciante: só fácil e médio
+        return difficulty == 'facil' || difficulty == 'medio';
+
+      case NivelHabilidade.intermediario:
+        // Intermediário: todas as dificuldades
+        return true;
+
+      case NivelHabilidade.avancado:
+        // Avançado: prefere médio e difícil
+        return difficulty == 'medio' || difficulty == 'dificil';
+    }
+  }
+
+  /// Método mantido sem alterações
   static bool _isSubjectOfInterest(String subject, String interestArea) {
     const Map<String, List<String>> interestMapping = {
       'linguagens': ['portugues', 'ingles'],
@@ -152,13 +238,65 @@ class FirebaseService {
     return interestMapping[interestArea]?.contains(subject) ?? true;
   }
 
+  /// Método mantido sem alterações
   static List<T> _selectRandomly<T>(List<T> list, int count) {
     if (list.isEmpty) return [];
     List<T> shuffled = List.from(list)..shuffle();
     return shuffled.take(count).toList();
   }
 
-  // ===== ESTATÍSTICAS DO BANCO =====
+  // ===== MÉTODOS AUXILIARES PARA INTEGRAÇÃO COM ONBOARDING =====
+
+  /// 🎯 NOVO: Método helper para usar com dados do onboarding
+  static Future<List<QuestionModel>> getPersonalizedQuestionsFromOnboarding({
+    required UserModel user,
+    required NivelHabilidade? nivelConhecimento,
+    int limit = 10,
+    String? specificSubject,
+  }) async {
+    print('🎯 Personalizando questões com dados completos do onboarding...');
+    print('   Usuário: ${user.name}');
+    print('   Série: ${user.schoolLevel}');
+    print('   Objetivo: ${user.mainGoal}');
+    print('   Interesse: ${user.interestArea}');
+    print(
+        '   Nível conhecimento: ${nivelConhecimento?.nome ?? "não definido"}');
+
+    return await getPersonalizedQuestions(
+      user,
+      limit: limit,
+      specificSubject: specificSubject,
+      nivelConhecimento: nivelConhecimento,
+    );
+  }
+
+  /// 🎯 NOVO: Estatísticas do algoritmo de personalização
+  static Map<String, dynamic> getPersonalizationStats(
+    List<QuestionModel> questions,
+    NivelHabilidade? nivelConhecimento,
+  ) {
+    if (questions.isEmpty) return {};
+
+    final difficultyCount = <String, int>{};
+    final subjectCount = <String, int>{};
+
+    for (final question in questions) {
+      difficultyCount[question.difficulty] =
+          (difficultyCount[question.difficulty] ?? 0) + 1;
+      subjectCount[question.subject] =
+          (subjectCount[question.subject] ?? 0) + 1;
+    }
+
+    return {
+      'total_questions': questions.length,
+      'user_level': nivelConhecimento?.nome ?? 'não definido',
+      'difficulty_distribution': difficultyCount,
+      'subject_distribution': subjectCount,
+      'algorithm_version': 'v6.2_com_nivel_conhecimento',
+    };
+  }
+
+  // ===== ESTATÍSTICAS DO BANCO (mantido) =====
 
   /// Obter estatísticas das questões disponíveis
   static Map<String, dynamic> getQuestionsStats() {
@@ -170,7 +308,7 @@ class FirebaseService {
     return QuestionsDatabase.validateAllQuestions();
   }
 
-  // ===== PROGRESSO DO USUÁRIO (placeholder) =====
+  // ===== PROGRESSO DO USUÁRIO (placeholder mantido) =====
 
   /// Registrar resposta do usuário
   static Future<void> recordUserAnswer({
@@ -192,22 +330,34 @@ class FirebaseService {
     }
   }
 
-  // ===== MÉTODOS DE TESTE =====
+  // ===== MÉTODOS DE TESTE ATUALIZADOS =====
 
-  /// Teste rápido do sistema
-  static Future<void> testSystem() async {
-    print('🧪 Testando sistema Firebase...');
+  /// Teste rápido do sistema com nível de conhecimento
+  static Future<void> testSystemComNivel({
+    NivelHabilidade? nivelTeste,
+  }) async {
+    print('🧪 Testando sistema Firebase com nível de conhecimento...');
 
     final stats = getQuestionsStats();
-    print('📊 Estatísticas: $stats');
+    print('📊 Estatísticas gerais: $stats');
 
     final isValid = validateQuestions();
     print('✅ Questões válidas: $isValid');
 
     final user = await getCurrentUser();
     if (user != null) {
-      final questions = await getPersonalizedQuestions(user, limit: 5);
+      // Teste com nível específico
+      final questions = await getPersonalizedQuestionsFromOnboarding(
+        user: user,
+        nivelConhecimento: nivelTeste ?? NivelHabilidade.intermediario,
+        limit: 5,
+      );
+
       print('🎯 Questões personalizadas: ${questions.length}');
+
+      final personalizationStats =
+          getPersonalizationStats(questions, nivelTeste);
+      print('📊 Stats personalização: $personalizationStats');
 
       for (var q in questions.take(2)) {
         print(
@@ -216,5 +366,10 @@ class FirebaseService {
     }
 
     print('✅ Teste concluído!');
+  }
+
+  /// Teste legado mantido
+  static Future<void> testSystem() async {
+    await testSystemComNivel();
   }
 }

@@ -119,12 +119,23 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
   void _confirmSelection() {
     if (_selectedAvatar == null || !mounted) return;
 
-    // Salvar avatar selecionado (aqui você integraria com seu sistema de persistência)
-    // TODO: Integrar com UserRepository para salvar avatar
+    // Salvar avatar no onboardingProvider
+    ref.read(onboardingProvider.notifier).update((state) {
+      final newState = OnboardingData();
+      newState.name = state.name;
+      newState.educationLevel = state.educationLevel;
+      newState.studyGoal = state.studyGoal;
+      newState.interestArea = state.interestArea;
+      newState.dreamUniversity = state.dreamUniversity;
+      newState.studyTime = state.studyTime;
+      newState.mainDifficulty = state.mainDifficulty;
+      newState.studyStyle = state.studyStyle;
+      newState.selectedAvatar = _selectedAvatar; // Salvar avatar selecionado
+      return newState;
+    });
 
-    // Navegar para o menu principal
     if (mounted) {
-      context.go('/home');
+      context.go('/modo-selection');
     }
   }
 
