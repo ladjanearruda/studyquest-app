@@ -74,7 +74,7 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
   void _navigateToQuestions() {
     print('🚀 Navegando para questões...');
     if (mounted) {
-      context.go('/home');
+      context.go('/questoes-personalizada');
     }
   }
 

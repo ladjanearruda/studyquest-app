@@ -33,17 +33,26 @@ import 'features/trilha/models/recursos_vitais.dart';
 // Avatars
 import 'features/avatar/screens/avatar_selection_screen.dart';
 
-// 🎯 NOVO IMPORT - MODOS DE JOGO
+// NOVO IMPORT - MODOS DE JOGO
 import 'features/modos/screens/modo_selection_screen.dart';
 
 // Firebase
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
+//Questões
+import 'features/questoes/screens/questao_personalizada_screen.dart';
+
 // Router configurado com integração dos modos
 final router = GoRouter(
   initialLocation: '/onboarding/0',
   routes: [
+    // ROTA HOME PRINCIPAL
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const HomeScreen(),
+    ),
+
     // ROTAS DE ONBOARDING (mantidas exatamente iguais)
     GoRoute(path: '/onboarding/0', builder: (_, __) => const Tela0Nome()),
     GoRoute(
@@ -76,7 +85,7 @@ final router = GoRouter(
       builder: (_, __) => const AvatarSelectionScreen(),
     ),
 
-    // 🎯 NOVA ROTA - SELEÇÃO DE MODOS
+    // NOVA ROTA - SELEÇÃO DE MODOS
     GoRoute(
       path: '/modo-selection',
       name: 'modo-selection',
@@ -156,6 +165,19 @@ final router = GoRouter(
         return TrilhaOceanoQuestaoScreen(questaoId: id);
       },
     ),
+
+    // Questoes sprint 6
+    GoRoute(
+      path: '/questoes-personalizada',
+      builder: (context, state) => const QuestaoPersonalizadaScreen(),
+    ),
+
+    // ROTA RESULTADO QUESTÕES
+    GoRoute(
+      path: '/questoes-resultado',
+      builder: (context, state) => const QuestoesResultadoScreen(),
+    ),
+
     GoRoute(
         path: '/trilha-oceano-resultados',
         builder: (_, __) => const TrilhaOceanoResultadosScreen()),
@@ -192,36 +214,233 @@ class StudyQuestApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'StudyQuest',
       debugShowCheckedModeBanner: false,
-      theme: appTheme, // ✅ Mantém tema original
+      theme: appTheme,
       routerConfig: router,
     );
   }
 }
 
-// MANTIDA PARA COMPATIBILIDADE
-class PlaceholderHome extends StatelessWidget {
-  const PlaceholderHome({super.key});
+// TELA HOME PRINCIPAL
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('StudyQuest')),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.forest, size: 100, color: Colors.green),
-            SizedBox(height: 20),
-            Text(
-              'Bem-vindo ao StudyQuest!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Transformando estudos em aventura',
-              style: TextStyle(fontSize: 16),
-            ),
-          ],
+      backgroundColor: Colors.green[50],
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo StudyQuest
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(60),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.school,
+                  size: 60,
+                  color: Colors.white,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Título
+              const Text(
+                'StudyQuest',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Subtítulo
+              Text(
+                'Transforme seus estudos em aventuras',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 48),
+
+              // Botões de navegação
+              Column(
+                children: [
+                  SizedBox(
+                    width: 280,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => context.go('/onboarding/0'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Começar Jornada',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 280,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => context.go('/modo-selection'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        side: const BorderSide(color: Colors.green, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Continuar Estudos',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// TELA RESULTADO QUESTÕES
+class QuestoesResultadoScreen extends StatelessWidget {
+  const QuestoesResultadoScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Ícone de sucesso
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  size: 50,
+                  color: Colors.white,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Título
+              const Text(
+                'Questão Respondida!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Feedback
+              Text(
+                'Boa resposta! Continue explorando.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 48),
+
+              // Botões
+              Column(
+                children: [
+                  SizedBox(
+                    width: 280,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => context.go('/questoes-personalizada'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Próxima Questão',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 280,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => context.go('/'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        side: const BorderSide(color: Colors.green, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      child: const Text(
+                        'Voltar ao Início',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
