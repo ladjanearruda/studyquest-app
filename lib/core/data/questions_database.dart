@@ -1,12 +1,36 @@
-// lib/core/data/questions_database.dart
+// lib/core/data/questions_database.dart - FALLBACK INTELIGENTE
 import '../models/question_model.dart';
 
 class QuestionsDatabase {
-  /// Buscar questões por nível escolar
+  /// Buscar questões por nível escolar - MÉTODO PRINCIPAL DE FALLBACK
   static List<QuestionModel> getQuestionsByLevel(String schoolLevel,
       {int limit = 20}) {
-    return _allQuestions
+    print('📦 Usando fallback local para nível: $schoolLevel');
+
+    // Filtrar por nível exato primeiro
+    var exactMatches = _allQuestions
         .where((data) => data['school_level'] == schoolLevel)
+        .toList();
+
+    // Se não tiver questões suficientes para o nível exato, usar níveis próximos
+    if (exactMatches.length < limit) {
+      print(
+          '⚠️ Apenas ${exactMatches.length} questões para $schoolLevel - expandindo busca...');
+
+      final nearbyLevels = _getNearbyLevels(schoolLevel);
+      for (final nearbyLevel in nearbyLevels) {
+        final additional = _allQuestions
+            .where((data) => data['school_level'] == nearbyLevel)
+            .where((data) => !exactMatches.contains(data))
+            .toList();
+
+        exactMatches.addAll(additional);
+
+        if (exactMatches.length >= limit) break;
+      }
+    }
+
+    final questions = exactMatches
         .take(limit)
         .map((data) => QuestionModel.createLocal(
               id: data['id'] as String,
@@ -27,9 +51,30 @@ class QuestionsDatabase {
               metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
             ))
         .toList();
+
+    print('✅ ${questions.length} questões de fallback carregadas');
+    return questions;
   }
 
-  /// Buscar questões por matéria
+  /// Determinar níveis próximos para fallback inteligente
+  static List<String> _getNearbyLevels(String schoolLevel) {
+    const Map<String, List<String>> nearbyMap = {
+      // Ensino Fundamental
+      '6ano': ['7ano', '8ano'],
+      '7ano': ['6ano', '8ano', '9ano'],
+      '8ano': ['7ano', '9ano', '6ano'],
+      '9ano': ['8ano', '7ano', 'EM1'],
+
+      // Ensino Médio - fallback para fundamental quando necessário
+      'EM1': ['9ano', '8ano', 'EM2'],
+      'EM2': ['EM1', '9ano', 'EM3', '8ano'],
+      'EM3': ['EM2', 'EM1', '9ano'],
+    };
+
+    return nearbyMap[schoolLevel] ?? ['8ano', '9ano']; // Fallback padrão
+  }
+
+  /// Buscar questões por matéria - MANTIDO
   static List<QuestionModel> getQuestionsBySubject(String subject,
       {int limit = 10}) {
     return _allQuestions
@@ -56,13 +101,15 @@ class QuestionsDatabase {
         .toList();
   }
 
-  /// Estatísticas das questões disponíveis
+  /// Estatísticas das questões disponíveis - CORRIGIDA
   static Map<String, dynamic> getStats() {
     final stats = {
       'total': _allQuestions.length,
       'por_materia': <String, int>{},
       'por_nivel': <String, int>{},
       'por_dificuldade': <String, int>{},
+      'status': 'fallback_local',
+      'recomendacao': 'Conecte Firebase para mais questões',
     };
 
     for (final question in _allQuestions) {
@@ -70,7 +117,6 @@ class QuestionsDatabase {
       final level = question['school_level'] as String;
       final difficulty = question['difficulty'] as String;
 
-      // CORREÇÃO COMPLETA PARA TODAS AS TRÊS LINHAS
       final porMateria = stats['por_materia'] as Map<String, int>;
       final porNivel = stats['por_nivel'] as Map<String, int>;
       final porDificuldade = stats['por_dificuldade'] as Map<String, int>;
@@ -83,9 +129,9 @@ class QuestionsDatabase {
     return stats;
   }
 
-  /// Validar se todas as questões estão corretas
+  /// Validar questões - MANTIDO
   static bool validateAllQuestions() {
-    print('🔍 Validando ${_allQuestions.length} questões aventura floresta...');
+    print('🔍 Validando ${_allQuestions.length} questões de fallback...');
 
     int valid = 0;
     int invalid = 0;
@@ -98,7 +144,7 @@ class QuestionsDatabase {
       }
     }
 
-    print('✅ $valid questões válidas');
+    print('✅ $valid questões válidas de fallback');
     if (invalid > 0) {
       print('❌ $invalid questões inválidas');
     }
@@ -145,86 +191,84 @@ class QuestionsDatabase {
     return true;
   }
 
-  /// Buscar questões para teste rápido
+  /// Questões para teste rápido
   static List<QuestionModel> getTestQuestions({int limit = 5}) {
     return getQuestionsByLevel('8ano', limit: limit);
   }
 
-  // BANCO DE QUESTÕES AVENTURA NA FLORESTA AMAZÔNICA
+  /// NOVO: Verificar disponibilidade por nível
+  static Map<String, int> getAvailabilityByLevel() {
+    final availability = <String, int>{};
+
+    for (final question in _allQuestions) {
+      final level = question['school_level'] as String;
+      availability[level] = (availability[level] ?? 0) + 1;
+    }
+
+    return availability;
+  }
+
+  /// NOVO: Recomendar população de dados
+  static Map<String, dynamic> getDataRecommendations() {
+    final availability = getAvailabilityByLevel();
+    final recommendations = <String, String>{};
+
+    const targetLevels = ['6ano', '7ano', '8ano', '9ano', 'EM1', 'EM2', 'EM3'];
+
+    for (final level in targetLevels) {
+      final count = availability[level] ?? 0;
+      if (count < 10) {
+        recommendations[level] = 'Adicionar ${10 - count}+ questões';
+      } else if (count < 20) {
+        recommendations[level] = 'Expandir com ${20 - count} questões';
+      }
+    }
+
+    return {
+      'availability': availability,
+      'recommendations': recommendations,
+      'priority_levels': recommendations.keys.toList(),
+      'total_needed': recommendations.values.length,
+    };
+  }
+
+  // ===== BANCO DE QUESTÕES FALLBACK (MANTIDO) =====
   static final List<Map<String, dynamic>> _allQuestions = [
+    // Questões 8ano - MATEMÁTICA
     {
-      'id': 'floresta_mat_001',
+      'id': 'fallback_mat_8ano_001',
       'subject': 'matematica',
       'school_level': '8ano',
       'difficulty': 'medio',
       'enunciado':
-          '''🧭 Você está perdido na floresta amazônica e precisa atravessar um rio perigoso!
-
-Observando do alto de uma árvore, você vê que o rio forma um retângulo de 150 metros de comprimento por 80 metros de largura.
-
-Para economizar energia e não atrair jacarés, qual é a MENOR distância que você pode nadar?''',
+          '🧭 Atravessando a floresta, você precisa calcular a menor distância para atravessar um rio retangular de 150m × 80m. Qual é a menor distância que você deve nadar?',
       'alternativas': [
-        'A) 150 metros (comprimento total)',
-        'B) 80 metros (largura total)',
+        'A) 150 metros (comprimento)',
+        'B) 80 metros (largura)',
         'C) 115 metros (diagonal)',
-        'D) 230 metros (contornando)'
+        'D) 230 metros (perímetro)'
       ],
       'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) 80 metros
-
-🧭 Para atravessar um rio retangular, a menor distância é sempre a largura, nadando perpendicularmente às margens.
-
-🐊 Nadar na diagonal ou pelo comprimento seria mais perigoso e cansativo!''',
+      'explicacao':
+          'A menor distância é sempre a largura (80m), nadando perpendicularmente às margens.',
       'aventura_contexto': 'navegacao_rio',
       'personagem_situacao': 'explorador_perdido',
       'local_floresta': 'margem_rio',
       'aspecto_comportamental': 'foco_concentracao',
       'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
-      'tags': ['geometria', 'area_perimetro', 'aplicacao_pratica'],
+      'tags': ['geometria', 'area_perimetro'],
       'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 6},
     },
+
+    // Questões 7ano - MATEMÁTICA
     {
-      'id': 'floresta_mat_002',
-      'subject': 'matematica',
-      'school_level': '6ano',
-      'difficulty': 'facil',
-      'enunciado':
-          '''🥤 Você encontrou água potável! Sua cantil comporta 2 litros.
-
-Você bebeu 1/4 da capacidade para se hidratar, encheu a cantil e bebeu mais 1/2 litro.
-
-Quantos litros restaram?''',
-      'alternativas': [
-        'A) 1,0 litro',
-        'B) 1,5 litro',
-        'C) 0,5 litro',
-        'D) 2,0 litros'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) 1,5 litro
-
-💧 Cálculo: Bebeu 1/4 de 2L = 0,5L + encheu (2L) - bebeu 0,5L = 1,5L restaram
-
-Agora você tem água para continuar a aventura!''',
-      'aventura_contexto': 'sobrevivencia',
-      'personagem_situacao': 'explorador_perdido',
-      'local_floresta': 'fonte_agua',
-      'aspecto_comportamental': 'organizacao_planejamento',
-      'estilo_aprendizado': 'pratico',
-      'imagem_especifica': null,
-      'tags': ['fracoes', 'aplicacao_pratica', 'operacoes_basicas'],
-      'metadata': {'duracao_estimada': 75, 'dificuldade_numerica': 4},
-    },
-    {
-      'id': 'floresta_mat_003',
+      'id': 'fallback_mat_7ano_001',
       'subject': 'matematica',
       'school_level': '7ano',
       'difficulty': 'facil',
       'enunciado':
-          '''🐦 Observando os pássaros da copa das árvores, você conta 15 tucanos em uma árvore e o dobro dessa quantidade em outra árvore próxima.
-
-Quantos tucanos você observou no total?''',
+          '🐦 Você conta 15 tucanos em uma árvore e o dobro em outra. Quantos tucanos no total?',
       'alternativas': [
         'A) 30 tucanos',
         'B) 45 tucanos',
@@ -232,31 +276,25 @@ Quantos tucanos você observou no total?''',
         'D) 35 tucanos'
       ],
       'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) 45 tucanos
-
-🐦 Cálculo: 15 tucanos + (15 × 2) = 15 + 30 = 45 tucanos total.
-
-Uma excelente observação da biodiversidade amazônica!''',
+      'explicacao': '15 + (15 × 2) = 15 + 30 = 45 tucanos no total.',
       'aventura_contexto': 'observacao_fauna',
       'personagem_situacao': 'biologa_pesquisando',
       'local_floresta': 'copa_arvores',
       'aspecto_comportamental': 'atencao_detalhes',
       'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
-      'tags': ['multiplicacao', 'adicao', 'operacoes_basicas'],
+      'tags': ['multiplicacao', 'adicao'],
       'metadata': {'duracao_estimada': 45, 'dificuldade_numerica': 3},
     },
+
+    // Questões 9ano - BIOLOGIA
     {
-      'id': 'floresta_bio_001',
+      'id': 'fallback_bio_9ano_001',
       'subject': 'biologia',
-      'school_level': '7ano',
-      'difficulty': 'facil',
+      'school_level': '9ano',
+      'difficulty': 'medio',
       'enunciado':
-          '''🌱 Durante sua exploração, você encontra uma planta medicinal! Suas folhas liberam um gel quando amassadas.
-
-O guia explica que ela produz energia através da fotossíntese, usando luz solar.
-
-Qual gás a planta ABSORVE durante esse processo?''',
+          '🌱 Uma planta da floresta faz fotossíntese. Qual gás ela absorve neste processo?',
       'alternativas': [
         'A) Oxigênio (O₂)',
         'B) Nitrogênio (N₂)',
@@ -264,220 +302,33 @@ Qual gás a planta ABSORVE durante esse processo?''',
         'D) Vapor de água (H₂O)'
       ],
       'resposta_correta': 2,
-      'explicacao': '''🎯 Resposta: C) Gás carbônico (CO₂)
-
-🌱 Na fotossíntese: CO₂ + água + luz solar = glicose + oxigênio
-
-Por isso a Amazônia é o "pulmão do mundo" - absorve CO₂ e produz O₂!''',
+      'explicacao': 'Na fotossíntese, as plantas absorvem CO₂ e liberam O₂.',
       'aventura_contexto': 'sobrevivencia',
       'personagem_situacao': 'biologa_pesquisando',
       'local_floresta': 'trilha_mata',
       'aspecto_comportamental': 'curiosidade_investigacao',
       'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
-      'tags': ['fotossintese', 'plantas', 'gases', 'ecologia'],
+      'tags': ['fotossintese', 'plantas', 'gases'],
       'metadata': {'duracao_estimada': 60, 'dificuldade_numerica': 3},
     },
+
+    // Questões EM2 - FÍSICA (EXPANSÃO PARA ENSINO MÉDIO)
     {
-      'id': 'floresta_bio_002',
-      'subject': 'biologia',
-      'school_level': '6ano',
-      'difficulty': 'facil',
-      'enunciado':
-          '''🐆 Você avista uma onça-pintada! Este grande felino é um predador que caça outros animais.
-
-Na cadeia alimentar da floresta, qual posição a onça-pintada ocupa?''',
-      'alternativas': [
-        'A) Produtor primário',
-        'B) Consumidor primário',
-        'C) Consumidor secundário/terciário',
-        'D) Decompositor'
-      ],
-      'resposta_correta': 2,
-      'explicacao': '''🎯 Resposta: C) Consumidor secundário/terciário
-
-🐆 A onça é um carnívoro no topo da cadeia - come outros carnívoros e herbívoros.
-
-Ela controla o equilíbrio populacional na floresta!''',
-      'aventura_contexto': 'observacao_fauna',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'trilha_mata',
-      'aspecto_comportamental': 'curiosidade_investigacao',
-      'estilo_aprendizado': 'visual',
-      'imagem_especifica': null,
-      'tags': ['cadeia_alimentar', 'ecologia', 'carnivoros'],
-      'metadata': {'duracao_estimada': 60, 'dificuldade_numerica': 2},
-    },
-    {
-      'id': 'floresta_port_001',
-      'subject': 'portugues',
-      'school_level': '8ano',
-      'difficulty': 'medio',
-      'enunciado': '''📜 Você encontra um bilhete de outro explorador:
-
-"A floresta sussurra seus segredos para quem sabe escutar..."
-
-Que recurso de linguagem foi usado em "A floresta sussurra"?''',
-      'alternativas': [
-        'A) Metáfora (comparação implícita)',
-        'B) Personificação (dar vida ao objeto)',
-        'C) Hipérbole (exagero)',
-        'D) Onomatopeia (som)'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Personificação
-
-📝 "Sussurrar" é ação humana atribuída à floresta (personificação).
-
-Isso cria conexão emocional com a natureza!''',
-      'aventura_contexto': 'descoberta_pistas',
-      'personagem_situacao': 'explorador_estudioso',
-      'local_floresta': 'acampamento_abandonado',
-      'aspecto_comportamental': 'criatividade_expressao',
-      'estilo_aprendizado': 'visual',
-      'imagem_especifica': null,
-      'tags': ['figuras_linguagem', 'personificacao'],
-      'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 5},
-    },
-    {
-      'id': 'floresta_port_002',
-      'subject': 'portugues',
-      'school_level': '7ano',
-      'difficulty': 'facil',
-      'enunciado':
-          '''📢 Na frase "Um bando de macacos-prego brincava entre as árvores", a palavra "bando" é:''',
-      'alternativas': [
-        'A) Substantivo comum',
-        'B) Substantivo coletivo',
-        'C) Adjetivo',
-        'D) Verbo'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Substantivo coletivo
-
-📢 "Bando" indica conjunto de animais (substantivo coletivo).
-
-Outros exemplos: cardume (peixes), matilha (cães), etc.''',
-      'aventura_contexto': 'observacao_fauna',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'copa_arvores',
-      'aspecto_comportamental': 'atencao_detalhes',
-      'estilo_aprendizado': 'visual',
-      'imagem_especifica': null,
-      'tags': ['substantivos', 'coletivos', 'classificacao'],
-      'metadata': {'duracao_estimada': 70, 'dificuldade_numerica': 2},
-    },
-    {
-      'id': 'floresta_geo_001',
-      'subject': 'geografia',
-      'school_level': '9ano',
-      'difficulty': 'dificil',
-      'enunciado': '''🧭 Seu GPS mostra: 3°S, 60°W
-
-Analisando essas coordenadas, você está em qual localização?''',
-      'alternativas': [
-        'A) Hemisfério Norte e Leste de Greenwich',
-        'B) Hemisfério Sul e Oeste de Greenwich',
-        'C) Hemisfério Norte e Oeste de Greenwich',
-        'D) Hemisfério Sul e Leste de Greenwich'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Hemisfério Sul e Oeste de Greenwich
-
-🌍 3°S = 3 graus ao Sul (hemisfério Sul)
-60°W = 60 graus a Oeste de Greenwich
-
-Você está no coração da Amazônia brasileira!''',
-      'aventura_contexto': 'navegacao_orientacao',
-      'personagem_situacao': 'explorador_experiente',
-      'local_floresta': 'centro_floresta',
-      'aspecto_comportamental': 'raciocinio_logico',
-      'estilo_aprendizado': 'teorico',
-      'imagem_especifica': null,
-      'tags': ['coordenadas_geograficas', 'orientacao', 'hemisferios'],
-      'metadata': {'duracao_estimada': 120, 'dificuldade_numerica': 7},
-    },
-    {
-      'id': 'floresta_geo_002',
-      'subject': 'geografia',
-      'school_level': '6ano',
-      'difficulty': 'facil',
-      'enunciado':
-          '''🌡️ Durante sua expedição, você nota que a temperatura varia pouco durante o dia, sempre entre 24°C e 32°C.
-
-Esta característica indica que você está em qual tipo de clima?''',
-      'alternativas': [
-        'A) Clima temperado',
-        'B) Clima equatorial',
-        'C) Clima tropical seco',
-        'D) Clima subtropical'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Clima equatorial
-
-🌿 Clima equatorial: temperaturas altas e constantes (24-32°C), pouca variação diária.
-
-Típico da Amazônia, com chuvas frequentes e alta umidade!''',
-      'aventura_contexto': 'observacao_clima',
-      'personagem_situacao': 'explorador_cientista',
-      'local_floresta': 'centro_floresta',
-      'aspecto_comportamental': 'observacao_cientifica',
-      'estilo_aprendizado': 'pratico',
-      'imagem_especifica': null,
-      'tags': ['tipos_clima', 'clima_equatorial', 'amazonia'],
-      'metadata': {'duracao_estimada': 50, 'dificuldade_numerica': 3},
-    },
-    {
-      'id': 'floresta_hist_001',
-      'subject': 'historia',
-      'school_level': '8ano',
-      'difficulty': 'medio',
-      'enunciado':
-          '''🏺 Explorando uma área da floresta, você encontra vestígios de cerâmica com desenhos geométricos complexos.
-
-Estes achados arqueológicos comprovam que antes da chegada dos europeus ao Brasil:''',
-      'alternativas': [
-        'A) A região era desabitada',
-        'B) Existiam sociedades complexas na Amazônia',
-        'C) Apenas grupos nômades viviam na floresta',
-        'D) A cerâmica foi trazida pelos portugueses'
-      ],
-      'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Existiam sociedades complexas na Amazônia
-
-🏺 Sítios arqueológicos na Amazônia revelam civilizações avançadas pré-colombianas.
-
-A cerâmica marajoara e outras culturas mostram sociedades com milhares de anos!''',
-      'aventura_contexto': 'descoberta_arqueologica',
-      'personagem_situacao': 'arqueologo_explorador',
-      'local_floresta': 'sitio_arqueologico',
-      'aspecto_comportamental': 'curiosidade_investigacao',
-      'estilo_aprendizado': 'visual',
-      'imagem_especifica': null,
-      'tags': ['historia_brasil', 'povos_indigenas', 'arqueologia'],
-      'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 5},
-    },
-    {
-      'id': 'floresta_fis_001',
+      'id': 'fallback_fis_EM2_001',
       'subject': 'fisica',
-      'school_level': '9ano',
+      'school_level': 'EM2',
       'difficulty': 'dificil',
       'enunciado':
-          '''🔊 Na floresta densa, o som viaja aproximadamente 340 m/s. 
-
-Se você gritar e ouvir o eco após 3 segundos, qual a distância aproximada até a árvore que refletiu o som?''',
+          '🔊 Na floresta, o som viaja a 340 m/s. Se você ouve o eco após 3 segundos, qual a distância até o obstáculo?',
       'alternativas': [
         'A) 340 metros',
         'B) 510 metros',
         'C) 680 metros',
-        'D) 1.020 metros'
+        'D) 1020 metros'
       ],
       'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) 510 metros
-
-🔊 O som percorre ida e volta em 3s. Distância = (340 × 3) ÷ 2 = 510 metros.
-
-O som vai até a árvore e volta, por isso dividimos por 2!''',
+      'explicacao': 'Distância = (340 × 3) ÷ 2 = 510m. O som faz ida e volta.',
       'aventura_contexto': 'navegacao_orientacao',
       'personagem_situacao': 'explorador_perdido',
       'local_floresta': 'floresta_densa',
@@ -487,15 +338,68 @@ O som vai até a árvore e volta, por isso dividimos por 2!''',
       'tags': ['ondas_sonoras', 'velocidade', 'eco'],
       'metadata': {'duracao_estimada': 180, 'dificuldade_numerica': 7},
     },
+
+    // Questões EM1 - GEOGRAFIA
     {
-      'id': 'floresta_qui_001',
-      'subject': 'quimica',
-      'school_level': '9ano',
+      'id': 'fallback_geo_EM1_001',
+      'subject': 'geografia',
+      'school_level': 'EM1',
       'difficulty': 'medio',
       'enunciado':
-          '''🌧️ Você testa a água de um igarapé e descobre que tem pH 4,5 (solo amazônico é naturalmente ácido).
+          '🌍 Suas coordenadas GPS mostram 3°S, 60°W. Em qual hemisfério você está?',
+      'alternativas': [
+        'A) Norte e Leste',
+        'B) Sul e Oeste',
+        'C) Norte e Oeste',
+        'D) Sul e Leste'
+      ],
+      'resposta_correta': 1,
+      'explicacao': '3°S = Hemisfério Sul, 60°W = Oeste de Greenwich.',
+      'aventura_contexto': 'navegacao_orientacao',
+      'personagem_situacao': 'explorador_experiente',
+      'local_floresta': 'centro_floresta',
+      'aspecto_comportamental': 'raciocinio_logico',
+      'estilo_aprendizado': 'teorico',
+      'imagem_especifica': null,
+      'tags': ['coordenadas_geograficas', 'hemisferios'],
+      'metadata': {'duracao_estimada': 120, 'dificuldade_numerica': 6},
+    },
 
-Isso significa que há maior concentração de:''',
+    // Questões 6ano - PORTUGUÊS
+    {
+      'id': 'fallback_port_6ano_001',
+      'subject': 'portugues',
+      'school_level': '6ano',
+      'difficulty': 'facil',
+      'enunciado':
+          '📝 Na frase "Um bando de macacos brincava", a palavra "bando" é:',
+      'alternativas': [
+        'A) Substantivo comum',
+        'B) Substantivo coletivo',
+        'C) Adjetivo',
+        'D) Verbo'
+      ],
+      'resposta_correta': 1,
+      'explicacao':
+          '"Bando" é substantivo coletivo - indica conjunto de animais.',
+      'aventura_contexto': 'observacao_fauna',
+      'personagem_situacao': 'biologa_pesquisando',
+      'local_floresta': 'copa_arvores',
+      'aspecto_comportamental': 'atencao_detalhes',
+      'estilo_aprendizado': 'visual',
+      'imagem_especifica': null,
+      'tags': ['substantivos', 'coletivos'],
+      'metadata': {'duracao_estimada': 70, 'dificuldade_numerica': 2},
+    },
+
+    // Questões EM3 - QUÍMICA
+    {
+      'id': 'fallback_qui_EM3_001',
+      'subject': 'quimica',
+      'school_level': 'EM3',
+      'difficulty': 'dificil',
+      'enunciado':
+          '🧪 A água do igarapé tem pH 4,5. Isso indica maior concentração de:',
       'alternativas': [
         'A) Íons OH⁻ (hidroxila)',
         'B) Íons H⁺ (hidrogênio)',
@@ -503,11 +407,8 @@ Isso significa que há maior concentração de:''',
         'D) Sais minerais'
       ],
       'resposta_correta': 1,
-      'explicacao': '''🎯 Resposta: B) Íons H⁺ (hidrogênio)
-
-🌧️ pH abaixo de 7 = ácido = mais íons H⁺
-
-O solo amazônico é naturalmente ácido devido à decomposição orgânica!''',
+      'explicacao':
+          'pH < 7 = ácido = mais íons H⁺. Solo amazônico é naturalmente ácido.',
       'aventura_contexto': 'analise_agua',
       'personagem_situacao': 'biologa_pesquisando',
       'local_floresta': 'igarape',
@@ -515,7 +416,85 @@ O solo amazônico é naturalmente ácido devido à decomposição orgânica!''',
       'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
       'tags': ['ph', 'acidez', 'ions'],
-      'metadata': {'duracao_estimada': 150, 'dificuldade_numerica': 4},
+      'metadata': {'duracao_estimada': 150, 'dificuldade_numerica': 6},
+    },
+
+    // Questões adicionais para cobertura melhor...
+    {
+      'id': 'fallback_hist_8ano_001',
+      'subject': 'historia',
+      'school_level': '8ano',
+      'difficulty': 'medio',
+      'enunciado':
+          '🏺 Vestígios de cerâmica encontrados na Amazônia comprovam que antes dos europeus:',
+      'alternativas': [
+        'A) A região era desabitada',
+        'B) Existiam sociedades complexas',
+        'C) Só havia grupos nômades',
+        'D) A cerâmica veio dos portugueses'
+      ],
+      'resposta_correta': 1,
+      'explicacao':
+          'Sítios arqueológicos mostram civilizações amazônicas milenares.',
+      'aventura_contexto': 'descoberta_arqueologica',
+      'personagem_situacao': 'arqueologo_explorador',
+      'local_floresta': 'sitio_arqueologico',
+      'aspecto_comportamental': 'curiosidade_investigacao',
+      'estilo_aprendizado': 'visual',
+      'imagem_especifica': null,
+      'tags': ['historia_brasil', 'povos_indigenas'],
+      'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 5},
+    },
+
+    {
+      'id': 'fallback_mat_9ano_001',
+      'subject': 'matematica',
+      'school_level': '9ano',
+      'difficulty': 'medio',
+      'enunciado':
+          '📐 Para construir uma ponte sobre o rio, você precisa calcular a hipotenusa de um triângulo com catetos de 3m e 4m.',
+      'alternativas': [
+        'A) 5 metros',
+        'B) 7 metros',
+        'C) 12 metros',
+        'D) 25 metros'
+      ],
+      'resposta_correta': 0,
+      'explicacao': 'Teorema de Pitágoras: 3² + 4² = 9 + 16 = 25, √25 = 5m.',
+      'aventura_contexto': 'construcao_ponte',
+      'personagem_situacao': 'engenheiro_explorador',
+      'local_floresta': 'margem_rio',
+      'aspecto_comportamental': 'raciocinio_logico',
+      'estilo_aprendizado': 'pratico',
+      'imagem_especifica': null,
+      'tags': ['teorema_pitagoras', 'geometria'],
+      'metadata': {'duracao_estimada': 120, 'dificuldade_numerica': 5},
+    },
+
+    {
+      'id': 'fallback_bio_EM2_001',
+      'subject': 'biologia',
+      'school_level': 'EM2',
+      'difficulty': 'dificil',
+      'enunciado':
+          '🐆 A onça-pintada controla populações de herbívoros na floresta. Ela é um:',
+      'alternativas': [
+        'A) Produtor primário',
+        'B) Consumidor primário',
+        'C) Consumidor secundário/terciário',
+        'D) Decompositor'
+      ],
+      'resposta_correta': 2,
+      'explicacao':
+          'A onça é predador de topo, consumindo outros carnívoros e herbívoros.',
+      'aventura_contexto': 'observacao_fauna',
+      'personagem_situacao': 'biologa_pesquisando',
+      'local_floresta': 'trilha_mata',
+      'aspecto_comportamental': 'curiosidade_investigacao',
+      'estilo_aprendizado': 'visual',
+      'imagem_especifica': null,
+      'tags': ['cadeia_alimentar', 'ecologia'],
+      'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 4},
     },
   ];
 }

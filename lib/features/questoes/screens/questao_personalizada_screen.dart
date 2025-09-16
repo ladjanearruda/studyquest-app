@@ -9,8 +9,6 @@ import '../providers/questao_personalizada_provider.dart';
 import '../models/questao_personalizada.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 
-import 'package:flutter/material.dart';
-
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
 
@@ -50,20 +48,19 @@ class _QuestaoPersonalizadaScreenState
       if (_timeLeft > 0 && !_showFeedback && mounted) {
         setState(() => _timeLeft--);
       } else if (_timeLeft == 0 && !_showFeedback && mounted) {
-        timer.cancel(); // CORRIGIDO: cancelar timer antes de processar
+        timer.cancel();
         _handleTimeout();
       }
     });
   }
 
   void _handleTimeout() {
-    if (!mounted || _showFeedback) return; // CORRIGIDO: verificar estado
+    if (!mounted || _showFeedback) return;
 
     setState(() => _showFeedback = true);
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(-1);
     ref.read(recursosPersonalizadosProvider.notifier).atualizarRecursos(false);
 
-    // Mostrar feedback de timeout
     _showFeedbackModal(false, isTimeout: true);
   }
 
@@ -98,7 +95,6 @@ class _QuestaoPersonalizadaScreenState
   void _showFeedbackModal(bool isCorrect, {bool isTimeout = false}) {
     if (!mounted) return;
 
-    // Obter dados dos providers
     final recursos = ref.read(recursosPersonalizadosProvider);
     final sessao = ref.read(sessaoQuestoesProvider);
 
@@ -118,11 +114,10 @@ class _QuestaoPersonalizadaScreenState
   }
 
   void _nextQuestion() {
-    print('🔍 _nextQuestion chamado'); // Para debug
+    print('🔍 _nextQuestion chamado');
 
     if (!mounted) return;
 
-    // Fechar o modal primeiro
     Navigator.of(context).pop();
 
     final sessao = ref.read(sessaoQuestoesProvider);
@@ -132,10 +127,8 @@ class _QuestaoPersonalizadaScreenState
     if (sessao.temProximaQuestao) {
       print('➡️ Avançando para próxima questão...');
 
-      // Ir para próxima questão
       ref.read(sessaoQuestoesProvider.notifier).proximaQuestao();
 
-      // Resetar tela
       setState(() {
         _selectedOption = null;
         _showFeedback = false;
@@ -181,31 +174,19 @@ class _QuestaoPersonalizadaScreenState
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // HEADER CONFORME PROTÓTIPO
                 _buildHeaderPrototipo(onboardingData, sessao),
-
-                // RECURSOS VITAIS CONFORME PROTÓTIPO
                 _buildRecursosVitaisPrototipo(recursos),
-
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // QUESTÃO COM AVATAR PROTAGONISTA
                       _buildQuestaoComAvatarProtagonista(
                           questao, onboardingData, sessao),
-
                       const SizedBox(height: 20),
-
-                      // ALTERNATIVAS
                       ..._buildAlternativas(questao),
-
                       const SizedBox(height: 20),
-
-                      // PROGRESSO
                       _buildBarraProgresso(sessao),
-
                       const SizedBox(height: 60),
                     ],
                   ),
@@ -225,7 +206,6 @@ class _QuestaoPersonalizadaScreenState
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          // Avatar do usuário
           Container(
             width: 48,
             height: 48,
@@ -255,10 +235,7 @@ class _QuestaoPersonalizadaScreenState
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // Info do usuário
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,8 +260,6 @@ class _QuestaoPersonalizadaScreenState
               ],
             ),
           ),
-
-          // Timer com ícone de relógio
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -295,7 +270,7 @@ class _QuestaoPersonalizadaScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.access_time, // ÍCONE DE RELÓGIO CONFORME PROTÓTIPO
+                  Icons.access_time,
                   size: 16,
                   color: _timeLeft <= 10 ? Colors.red[700] : Colors.orange[700],
                 ),
@@ -322,33 +297,28 @@ class _QuestaoPersonalizadaScreenState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          // ENERGIA
           Expanded(
             child: _buildRecursoItemPrototipo(
               Icons.flash_on,
-              'Energia', // NOME CONFORME PROTÓTIPO
+              'Energia',
               recursos['energia'] ?? 100.0,
               Colors.yellow[700]!,
             ),
           ),
           const SizedBox(width: 8),
-
-          // ÁGUA
           Expanded(
             child: _buildRecursoItemPrototipo(
               Icons.water_drop,
-              'Água', // NOME CONFORME PROTÓTIPO
+              'Água',
               recursos['agua'] ?? 100.0,
               Colors.blue[700]!,
             ),
           ),
           const SizedBox(width: 8),
-
-          // SAÚDE
           Expanded(
             child: _buildRecursoItemPrototipo(
               Icons.favorite,
-              'Saúde', // NOME CONFORME PROTÓTIPO
+              'Saúde',
               recursos['saude'] ?? 100.0,
               Colors.red[700]!,
             ),
@@ -392,7 +362,7 @@ class _QuestaoPersonalizadaScreenState
           ),
           const SizedBox(height: 4),
           Text(
-            nome, // MOSTRA O NOME CONFORME PROTÓTIPO
+            nome,
             style: TextStyle(
               fontSize: 10,
               color: Colors.grey[600],
@@ -421,7 +391,6 @@ class _QuestaoPersonalizadaScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AVATAR PROTAGONISTA GRANDE (PREPARADO PARA ANIMAÇÕES)
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -440,7 +409,7 @@ class _QuestaoPersonalizadaScreenState
               ],
             ),
             child: CircleAvatar(
-              radius: 40, // AVATAR PROTAGONISTA GRANDE
+              radius: 40,
               backgroundColor: Colors.white,
               child: Text(
                 onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
@@ -452,15 +421,11 @@ class _QuestaoPersonalizadaScreenState
               ),
             ),
           ),
-
           const SizedBox(width: 20),
-
-          // Conteúdo da questão
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tags da questão
                 Row(
                   children: [
                     Container(
@@ -498,10 +463,7 @@ class _QuestaoPersonalizadaScreenState
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
-                // Título
                 Text(
                   'Sobrevivência na Amazônia - Questão ${sessao.questaoAtual + 1}',
                   style: TextStyle(
@@ -510,10 +472,7 @@ class _QuestaoPersonalizadaScreenState
                     color: Colors.green.shade800,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Enunciado
                 Text(
                   questao.enunciado,
                   style: const TextStyle(
@@ -635,18 +594,15 @@ class _QuestaoPersonalizadaScreenState
   }
 }
 
-// Modal de Feedback baseado no protótipo do projeto
-
-// Modal de Feedback SEM ERROS DE CONTEXT
-
+/// Modal de feedback corrigido com lógica dos protótipos
 class FeedbackPersonalizadoModal extends StatelessWidget {
   final bool acertou;
   final bool isTimeout;
   final int? selectedOption;
   final dynamic questao;
-  final VoidCallback onContinue;
   final Map<String, double> recursos;
   final dynamic sessao;
+  final VoidCallback onContinue;
 
   const FeedbackPersonalizadoModal({
     super.key,
@@ -680,25 +636,18 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // HEADER
               _buildHeader(),
-
-              // CONTEÚDO PRINCIPAL
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // COLUNA ESQUERDA: EXPLICAÇÃO
                       Expanded(
                         flex: 1,
                         child: _buildExplicacaoCard(),
                       ),
-
                       const SizedBox(width: 16),
-
-                      // COLUNA DIREITA: RECURSOS + PROGRESSO
                       Expanded(
                         flex: 1,
                         child: Column(
@@ -713,8 +662,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // BOTÃO CONTINUAR
               _buildBotaoContinuar(),
             ],
           ),
@@ -750,7 +697,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                 Text(
                   isTimeout
                       ? 'Tempo Esgotado!'
-                      : (acertou ? '🎉 Excelente!' : '😅 Quase lá!'),
+                      : (acertou ? 'Excelente!' : 'Quase lá!'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -783,7 +730,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TÍTULO COM ÍCONE
           Row(
             children: [
               Container(
@@ -809,10 +755,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // EXPLICAÇÃO
           Expanded(
             child: SingleChildScrollView(
               child: Text(
@@ -826,10 +769,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // AVATAR PROFESSOR COM BALÃO
           _buildAvatarProfessor(),
         ],
       ),
@@ -839,7 +779,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   Widget _buildAvatarProfessor() {
     return Row(
       children: [
-        // AVATAR GRANDE
         Container(
           width: 60,
           height: 60,
@@ -870,10 +809,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(width: 12),
-
-        // BALÃO DE FALA
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(12),
@@ -913,7 +849,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // TÍTULO
           Row(
             children: [
               Icon(
@@ -923,7 +858,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                acertou ? '🚀 Recursos Recuperados!' : '📉 Recursos Perdidos!',
+                _getRecursoTexto(), // USAR MÉTODO DINÂMICO
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -932,15 +867,25 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               ),
             ],
           ),
-
+          const SizedBox(height: 8),
+          Text(
+            _getRecursoDescricao(), // DESCRIÇÃO DINÂMICA
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
-
-          // RECURSOS
-          _buildRecursoItem(Icons.flash_on, 'Energia', 75, Colors.yellow[700]!),
+          _buildRecursoItem(Icons.flash_on, 'Energia',
+              recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
           const SizedBox(height: 8),
-          _buildRecursoItem(Icons.water_drop, 'Água', 60, Colors.blue[700]!),
+          _buildRecursoItem(Icons.water_drop, 'Água',
+              recursos['agua']?.toInt() ?? 100, Colors.blue[700]!),
           const SizedBox(height: 8),
-          _buildRecursoItem(Icons.favorite, 'Saúde', 85, Colors.red[700]!),
+          _buildRecursoItem(Icons.favorite, 'Saúde',
+              recursos['saude']?.toInt() ?? 100, Colors.red[700]!),
         ],
       ),
     );
@@ -969,6 +914,15 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   }
 
   Widget _buildProgressoCard() {
+    final questaoAtual = (sessao?.questaoAtual ?? 0) + 1;
+    final totalQuestoes = sessao?.totalQuestoes ?? 10;
+    final acertos =
+        sessao?.acertos?.where((acerto) => acerto == true).length ?? 0;
+    final totalRespondidas = sessao?.acertos?.length ?? 1;
+    final precisao =
+        totalRespondidas > 0 ? ((acertos / totalRespondidas) * 100).round() : 0;
+    final xpGanho = this.acertou ? 15 : (isTimeout ? 0 : 5);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -978,13 +932,12 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // TÍTULO
           Row(
             children: [
               Icon(Icons.star, color: Colors.amber[700], size: 20),
               const SizedBox(width: 8),
               Text(
-                '⭐ Progresso',
+                'Progresso',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -993,15 +946,12 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // ITENS DE PROGRESSO
-          _buildProgressoItem('XP Ganho', acertou ? '+15' : '+5'),
+          _buildProgressoItem('XP Ganho', '+$xpGanho'),
           const SizedBox(height: 8),
-          _buildProgressoItem('Questão', '3/10'),
+          _buildProgressoItem('Questão', '$questaoAtual/$totalQuestoes'),
           const SizedBox(height: 8),
-          _buildProgressoItem('Precisão', '78%'),
+          _buildProgressoItem('Precisão', '$precisao%'),
         ],
       ),
     );
@@ -1034,7 +984,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         width: double.infinity,
         height: 48,
         child: ElevatedButton(
-          onPressed: onContinue, // SEM NAVIGATOR.POP - FUNÇÃO JÁ FAZ ISSO
+          onPressed: onContinue,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
@@ -1073,5 +1023,39 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         String.fromCharCode(65 + (questao?.respostaCorreta as int? ?? 0));
 
     return 'Sua resposta: $suaResposta | Correta: $respostaCorreta';
+  }
+
+  // MÉTODOS DOS RECURSOS CORRIGIDOS - IGUAL AOS PROTÓTIPOS
+  String _getRecursoTexto() {
+    if (acertou) {
+      // Verificar se todos recursos estão em 100%
+      bool todosRecursosEm100 = (recursos['energia'] ?? 0) >= 100 &&
+          (recursos['agua'] ?? 0) >= 100 &&
+          (recursos['saude'] ?? 0) >= 100;
+
+      if (todosRecursosEm100) {
+        return 'Recursos Mantidos!'; // CORRETO: quando já está 100%
+      } else {
+        return 'Recursos Recuperados!'; // CORRETO: quando precisa recuperar
+      }
+    } else {
+      return 'Recursos Perdidos!';
+    }
+  }
+
+  String _getRecursoDescricao() {
+    if (acertou) {
+      bool todosRecursosEm100 = (recursos['energia'] ?? 0) >= 100 &&
+          (recursos['agua'] ?? 0) >= 100 &&
+          (recursos['saude'] ?? 0) >= 100;
+
+      if (todosRecursosEm100) {
+        return 'Você está em ótima forma! Continue assim.';
+      } else {
+        return '+5% em todos os recursos vitais';
+      }
+    } else {
+      return '-10% em todos os recursos vitais';
+    }
   }
 }
