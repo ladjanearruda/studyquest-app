@@ -1,4 +1,4 @@
-// lib/features/questoes/providers/questao_personalizada_provider.dart
+// lib/features/questoes/providers/questao_personalizada_provider.dart - CORRIGIDO V6.7
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/questao_personalizada.dart';
@@ -20,7 +20,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   SessaoQuestoesNotifier(this.ref)
       : super(SessaoQuestoes(inicioSessao: DateTime.now()));
 
-  // Iniciar sessão com algoritmo personalizado
+  // Iniciar sessão com algoritmo personalizado - CORRIGIDO
   Future<void> iniciarSessao({String? modo}) async {
     try {
       // Obter dados do onboarding real
@@ -34,7 +34,11 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
         throw Exception('Onboarding incompleto: faça o onboarding primeiro');
       }
 
-      // Criar UserModel a partir do OnboardingData
+      // 🔧 BUSCAR NÍVEL DO USUÁRIO DO ONBOARDING/MODO DESCOBERTA
+      final descobertaState = ref.read(descobertaNivelProvider);
+      String userLevel = _getUserLevelFromOnboarding(descobertaState);
+
+      // Criar UserModel a partir do OnboardingData - CORRIGIDO
       final user = UserModel(
         id: 'user_${onboardingData.name}',
         name: onboardingData.name!,
@@ -46,6 +50,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
         mainDifficulty: onboardingData.mainDifficulty ?? 'matematica',
         behavioralAspect: 'foco_concentracao',
         studyStyle: onboardingData.studyStyle ?? 'sozinho_meu_ritmo',
+        userLevel: userLevel, // 🆕 INCLUIR NÍVEL DO USUÁRIO
         createdAt: DateTime.now(),
         lastLogin: DateTime.now(),
         totalXp: 0,
@@ -58,12 +63,16 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       );
 
       print('🎯 Usando usuário: ${user.name}');
+      print('   Matéria com dificuldade: ${user.mainDifficulty}');
+      print('   Área de interesse: ${user.interestArea}');
+      print('   Nível do usuário: ${user.userLevel}');
 
-      // Chamar algoritmo personalizado do Firebase
+      // Chamar algoritmo personalizado do Firebase - AGORA CORRETO
       final questoes =
           await FirebaseService.getPersonalizedQuestionsFromOnboarding(
         user: user,
-        nivelConhecimento: null,
+        nivelConhecimento:
+            null, // Por enquanto null, será implementado quando Modo Descoberta estiver completo
         limit: 10,
       );
 
@@ -99,10 +108,61 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       );
 
       print('🎯 Sessão iniciada: ${questoesPersonalizadas.length} questões');
+      print('🔧 Algoritmo corrigido V6.7: dificuldade do perfil = $userLevel');
     } catch (e) {
       print('❌ Erro ao iniciar sessão: $e');
       rethrow;
     }
+  }
+
+  // 🆕 NOVO MÉTODO - Extrair nível do usuário do onboarding
+  String _getUserLevelFromOnboarding(DescobertaNivelState descobertaState) {
+    print('🔍 Extraindo nível do usuário...');
+
+    // Verificar se escolheu o Modo Descoberta
+    if (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta) {
+      // Buscar resultado do Modo Descoberta
+      final modoDescobertaState = ref.read(modoDescobertaProvider);
+
+      if (modoDescobertaState.resultado != null) {
+        final nivelDetectado = modoDescobertaState.resultado!.nivelDetectado;
+        print('   Modo Descoberta resultado: ${nivelDetectado.titulo}');
+
+        // Converter NivelDetectado para dificuldade
+        switch (nivelDetectado) {
+          case NivelDetectado.iniciante:
+          case NivelDetectado.iniciantePlus:
+            return 'facil';
+          case NivelDetectado.intermediario:
+          case NivelDetectado.intermediarioPlus:
+            return 'medio';
+          case NivelDetectado.avancado:
+            return 'dificil';
+        }
+      } else {
+        print(
+            '   Modo Descoberta: resultado ainda não disponível, usando medio');
+        return 'medio';
+      }
+    }
+
+    // Se escolheu manual, usar seleção
+    if (descobertaState.nivelManual != null) {
+      final nivel = descobertaState.nivelManual!;
+      print('   Seleção manual: ${nivel.nome}');
+      switch (nivel) {
+        case NivelHabilidade.iniciante:
+          return 'facil';
+        case NivelHabilidade.intermediario:
+          return 'medio';
+        case NivelHabilidade.avancado:
+          return 'dificil';
+      }
+    }
+
+    // Fallback padrão
+    print('   Fallback: nivel medio');
+    return 'medio';
   }
 
   // Responder questão atual
@@ -137,7 +197,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
     state = SessaoQuestoes(inicioSessao: DateTime.now());
   }
 
-  // Métodos de conversão
+  // Métodos de conversão - MANTIDOS
   String _convertEducationLevel(EducationLevel level) {
     switch (level) {
       case EducationLevel.fundamental6:
@@ -188,7 +248,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   }
 }
 
-// Provider para recursos vitais da sessão atual
+// Provider para recursos vitais da sessão atual - MANTIDO
 final recursosPersonalizadosProvider =
     StateNotifierProvider<RecursosPersonalizadosNotifier, Map<String, double>>(
   (ref) => RecursosPersonalizadosNotifier(),

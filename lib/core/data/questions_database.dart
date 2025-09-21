@@ -1,4 +1,4 @@
-// lib/core/data/questions_database.dart - FALLBACK INTELIGENTE
+// lib/core/data/questions_database.dart - FALLBACK INTELIGENTE CORRIGIDO
 import '../models/question_model.dart';
 
 class QuestionsDatabase {
@@ -32,23 +32,20 @@ class QuestionsDatabase {
 
     final questions = exactMatches
         .take(limit)
-        .map((data) => QuestionModel.createLocal(
+        .map((data) => QuestionModel(
               id: data['id'] as String,
               subject: data['subject'] as String,
               schoolLevel: data['school_level'] as String,
               difficulty: data['difficulty'] as String,
+              theme: 'floresta',
               enunciado: data['enunciado'] as String,
               alternativas: List<String>.from(data['alternativas'] as List),
               respostaCorreta: data['resposta_correta'] as int,
               explicacao: data['explicacao'] as String,
-              aventuraContexto: data['aventura_contexto'] as String,
-              personagemSituacao: data['personagem_situacao'] as String,
-              localFloresta: data['local_floresta'] as String,
-              aspectoComportamental: data['aspecto_comportamental'] as String,
-              estiloAprendizado: data['estilo_aprendizado'] as String,
               imagemEspecifica: data['imagem_especifica'] as String?,
               tags: List<String>.from(data['tags'] ?? []),
               metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
+              createdAt: DateTime.now(),
             ))
         .toList();
 
@@ -80,23 +77,20 @@ class QuestionsDatabase {
     return _allQuestions
         .where((data) => data['subject'] == subject)
         .take(limit)
-        .map((data) => QuestionModel.createLocal(
+        .map((data) => QuestionModel(
               id: data['id'] as String,
               subject: data['subject'] as String,
               schoolLevel: data['school_level'] as String,
               difficulty: data['difficulty'] as String,
+              theme: 'floresta',
               enunciado: data['enunciado'] as String,
               alternativas: List<String>.from(data['alternativas'] as List),
               respostaCorreta: data['resposta_correta'] as int,
               explicacao: data['explicacao'] as String,
-              aventuraContexto: data['aventura_contexto'] as String,
-              personagemSituacao: data['personagem_situacao'] as String,
-              localFloresta: data['local_floresta'] as String,
-              aspectoComportamental: data['aspecto_comportamental'] as String,
-              estiloAprendizado: data['estilo_aprendizado'] as String,
               imagemEspecifica: data['imagem_especifica'] as String?,
               tags: List<String>.from(data['tags'] ?? []),
               metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
+              createdAt: DateTime.now(),
             ))
         .toList();
   }
@@ -160,10 +154,7 @@ class QuestionsDatabase {
       'difficulty',
       'enunciado',
       'alternativas',
-      'resposta_correta',
-      'aventura_contexto',
-      'personagem_situacao',
-      'local_floresta'
+      'resposta_correta'
     ];
 
     for (final field in required) {
@@ -241,7 +232,7 @@ class QuestionsDatabase {
       'school_level': '8ano',
       'difficulty': 'medio',
       'enunciado':
-          '🧭 Atravessando a floresta, você precisa calcular a menor distância para atravessar um rio retangular de 150m × 80m. Qual é a menor distância que você deve nadar?',
+          'Atravessando a floresta, você precisa calcular a menor distância para atravessar um rio retangular de 150m × 80m. Qual é a menor distância que você deve nadar?',
       'alternativas': [
         'A) 150 metros (comprimento)',
         'B) 80 metros (largura)',
@@ -251,11 +242,6 @@ class QuestionsDatabase {
       'resposta_correta': 1,
       'explicacao':
           'A menor distância é sempre a largura (80m), nadando perpendicularmente às margens.',
-      'aventura_contexto': 'navegacao_rio',
-      'personagem_situacao': 'explorador_perdido',
-      'local_floresta': 'margem_rio',
-      'aspecto_comportamental': 'foco_concentracao',
-      'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
       'tags': ['geometria', 'area_perimetro'],
       'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 6},
@@ -268,7 +254,7 @@ class QuestionsDatabase {
       'school_level': '7ano',
       'difficulty': 'facil',
       'enunciado':
-          '🐦 Você conta 15 tucanos em uma árvore e o dobro em outra. Quantos tucanos no total?',
+          'Você conta 15 tucanos em uma árvore e o dobro em outra. Quantos tucanos no total?',
       'alternativas': [
         'A) 30 tucanos',
         'B) 45 tucanos',
@@ -277,11 +263,6 @@ class QuestionsDatabase {
       ],
       'resposta_correta': 1,
       'explicacao': '15 + (15 × 2) = 15 + 30 = 45 tucanos no total.',
-      'aventura_contexto': 'observacao_fauna',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'copa_arvores',
-      'aspecto_comportamental': 'atencao_detalhes',
-      'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
       'tags': ['multiplicacao', 'adicao'],
       'metadata': {'duracao_estimada': 45, 'dificuldade_numerica': 3},
@@ -294,7 +275,7 @@ class QuestionsDatabase {
       'school_level': '9ano',
       'difficulty': 'medio',
       'enunciado':
-          '🌱 Uma planta da floresta faz fotossíntese. Qual gás ela absorve neste processo?',
+          'Uma planta da floresta faz fotossíntese. Qual gás ela absorve neste processo?',
       'alternativas': [
         'A) Oxigênio (O₂)',
         'B) Nitrogênio (N₂)',
@@ -303,11 +284,6 @@ class QuestionsDatabase {
       ],
       'resposta_correta': 2,
       'explicacao': 'Na fotossíntese, as plantas absorvem CO₂ e liberam O₂.',
-      'aventura_contexto': 'sobrevivencia',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'trilha_mata',
-      'aspecto_comportamental': 'curiosidade_investigacao',
-      'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
       'tags': ['fotossintese', 'plantas', 'gases'],
       'metadata': {'duracao_estimada': 60, 'dificuldade_numerica': 3},
@@ -320,7 +296,7 @@ class QuestionsDatabase {
       'school_level': 'EM2',
       'difficulty': 'dificil',
       'enunciado':
-          '🔊 Na floresta, o som viaja a 340 m/s. Se você ouve o eco após 3 segundos, qual a distância até o obstáculo?',
+          'Na floresta, o som viaja a 340 m/s. Se você ouve o eco após 3 segundos, qual a distância até o obstáculo?',
       'alternativas': [
         'A) 340 metros',
         'B) 510 metros',
@@ -329,11 +305,6 @@ class QuestionsDatabase {
       ],
       'resposta_correta': 1,
       'explicacao': 'Distância = (340 × 3) ÷ 2 = 510m. O som faz ida e volta.',
-      'aventura_contexto': 'navegacao_orientacao',
-      'personagem_situacao': 'explorador_perdido',
-      'local_floresta': 'floresta_densa',
-      'aspecto_comportamental': 'raciocinio_logico',
-      'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
       'tags': ['ondas_sonoras', 'velocidade', 'eco'],
       'metadata': {'duracao_estimada': 180, 'dificuldade_numerica': 7},
@@ -346,7 +317,7 @@ class QuestionsDatabase {
       'school_level': 'EM1',
       'difficulty': 'medio',
       'enunciado':
-          '🌍 Suas coordenadas GPS mostram 3°S, 60°W. Em qual hemisfério você está?',
+          'Suas coordenadas GPS mostram 3°S, 60°W. Em qual hemisfério você está?',
       'alternativas': [
         'A) Norte e Leste',
         'B) Sul e Oeste',
@@ -355,11 +326,6 @@ class QuestionsDatabase {
       ],
       'resposta_correta': 1,
       'explicacao': '3°S = Hemisfério Sul, 60°W = Oeste de Greenwich.',
-      'aventura_contexto': 'navegacao_orientacao',
-      'personagem_situacao': 'explorador_experiente',
-      'local_floresta': 'centro_floresta',
-      'aspecto_comportamental': 'raciocinio_logico',
-      'estilo_aprendizado': 'teorico',
       'imagem_especifica': null,
       'tags': ['coordenadas_geograficas', 'hemisferios'],
       'metadata': {'duracao_estimada': 120, 'dificuldade_numerica': 6},
@@ -372,7 +338,7 @@ class QuestionsDatabase {
       'school_level': '6ano',
       'difficulty': 'facil',
       'enunciado':
-          '📝 Na frase "Um bando de macacos brincava", a palavra "bando" é:',
+          'Na frase "Um bando de macacos brincava", a palavra "bando" é:',
       'alternativas': [
         'A) Substantivo comum',
         'B) Substantivo coletivo',
@@ -382,11 +348,6 @@ class QuestionsDatabase {
       'resposta_correta': 1,
       'explicacao':
           '"Bando" é substantivo coletivo - indica conjunto de animais.',
-      'aventura_contexto': 'observacao_fauna',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'copa_arvores',
-      'aspecto_comportamental': 'atencao_detalhes',
-      'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
       'tags': ['substantivos', 'coletivos'],
       'metadata': {'duracao_estimada': 70, 'dificuldade_numerica': 2},
@@ -399,7 +360,7 @@ class QuestionsDatabase {
       'school_level': 'EM3',
       'difficulty': 'dificil',
       'enunciado':
-          '🧪 A água do igarapé tem pH 4,5. Isso indica maior concentração de:',
+          'A água do igarapé tem pH 4,5. Isso indica maior concentração de:',
       'alternativas': [
         'A) Íons OH⁻ (hidroxila)',
         'B) Íons H⁺ (hidrogênio)',
@@ -409,11 +370,6 @@ class QuestionsDatabase {
       'resposta_correta': 1,
       'explicacao':
           'pH < 7 = ácido = mais íons H⁺. Solo amazônico é naturalmente ácido.',
-      'aventura_contexto': 'analise_agua',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'igarape',
-      'aspecto_comportamental': 'observacao_cientifica',
-      'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
       'tags': ['ph', 'acidez', 'ions'],
       'metadata': {'duracao_estimada': 150, 'dificuldade_numerica': 6},
@@ -426,7 +382,7 @@ class QuestionsDatabase {
       'school_level': '8ano',
       'difficulty': 'medio',
       'enunciado':
-          '🏺 Vestígios de cerâmica encontrados na Amazônia comprovam que antes dos europeus:',
+          'Vestígios de cerâmica encontrados na Amazônia comprovam que antes dos europeus:',
       'alternativas': [
         'A) A região era desabitada',
         'B) Existiam sociedades complexas',
@@ -436,11 +392,6 @@ class QuestionsDatabase {
       'resposta_correta': 1,
       'explicacao':
           'Sítios arqueológicos mostram civilizações amazônicas milenares.',
-      'aventura_contexto': 'descoberta_arqueologica',
-      'personagem_situacao': 'arqueologo_explorador',
-      'local_floresta': 'sitio_arqueologico',
-      'aspecto_comportamental': 'curiosidade_investigacao',
-      'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
       'tags': ['historia_brasil', 'povos_indigenas'],
       'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 5},
@@ -452,7 +403,7 @@ class QuestionsDatabase {
       'school_level': '9ano',
       'difficulty': 'medio',
       'enunciado':
-          '📐 Para construir uma ponte sobre o rio, você precisa calcular a hipotenusa de um triângulo com catetos de 3m e 4m.',
+          'Para construir uma ponte sobre o rio, você precisa calcular a hipotenusa de um triângulo com catetos de 3m e 4m.',
       'alternativas': [
         'A) 5 metros',
         'B) 7 metros',
@@ -461,11 +412,6 @@ class QuestionsDatabase {
       ],
       'resposta_correta': 0,
       'explicacao': 'Teorema de Pitágoras: 3² + 4² = 9 + 16 = 25, √25 = 5m.',
-      'aventura_contexto': 'construcao_ponte',
-      'personagem_situacao': 'engenheiro_explorador',
-      'local_floresta': 'margem_rio',
-      'aspecto_comportamental': 'raciocinio_logico',
-      'estilo_aprendizado': 'pratico',
       'imagem_especifica': null,
       'tags': ['teorema_pitagoras', 'geometria'],
       'metadata': {'duracao_estimada': 120, 'dificuldade_numerica': 5},
@@ -477,7 +423,7 @@ class QuestionsDatabase {
       'school_level': 'EM2',
       'difficulty': 'dificil',
       'enunciado':
-          '🐆 A onça-pintada controla populações de herbívoros na floresta. Ela é um:',
+          'A onça-pintada controla populações de herbívoros na floresta. Ela é um:',
       'alternativas': [
         'A) Produtor primário',
         'B) Consumidor primário',
@@ -487,11 +433,6 @@ class QuestionsDatabase {
       'resposta_correta': 2,
       'explicacao':
           'A onça é predador de topo, consumindo outros carnívoros e herbívoros.',
-      'aventura_contexto': 'observacao_fauna',
-      'personagem_situacao': 'biologa_pesquisando',
-      'local_floresta': 'trilha_mata',
-      'aspecto_comportamental': 'curiosidade_investigacao',
-      'estilo_aprendizado': 'visual',
       'imagem_especifica': null,
       'tags': ['cadeia_alimentar', 'ecologia'],
       'metadata': {'duracao_estimada': 90, 'dificuldade_numerica': 4},

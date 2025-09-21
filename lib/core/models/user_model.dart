@@ -1,4 +1,4 @@
-// lib/core/models/user_model.dart
+// lib/core/models/user_model.dart - CORRIGIDO V6.7
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
@@ -13,6 +13,11 @@ class UserModel {
   final String mainDifficulty; // ✅ Tela 7: Matéria com dificuldade
   final String behavioralAspect; // ✅ Tela 7: Aspecto comportamental
   final String studyStyle; // ✅ Tela 8: Estilo de estudo
+
+  // 🆕 NOVO CAMPO - CORREÇÃO PRINCIPAL
+  final String
+      userLevel; // ✅ DIFICULDADE DO PERFIL: 'facil', 'medio', 'dificil'
+
   final DateTime createdAt;
   final DateTime lastLogin;
 
@@ -36,6 +41,7 @@ class UserModel {
     required this.mainDifficulty,
     required this.behavioralAspect,
     required this.studyStyle,
+    required this.userLevel, // 🆕 OBRIGATÓRIO AGORA
     required this.createdAt,
     required this.lastLogin,
     this.totalXp = 0,
@@ -62,6 +68,7 @@ class UserModel {
       behavioralAspect:
           data['profile']['behavioral_aspect'] ?? 'foco_concentracao',
       studyStyle: data['profile']['study_style'] ?? 'sozinho_meu_ritmo',
+      userLevel: data['profile']['user_level'] ?? 'medio', // 🆕 NOVO CAMPO
       createdAt: (data['profile']['created_at'] as Timestamp).toDate(),
       lastLogin: (data['profile']['last_login'] as Timestamp).toDate(),
       totalXp: data['stats']['total_xp'] ?? 0,
@@ -74,7 +81,7 @@ class UserModel {
     );
   }
 
-  // Factory para converter do OnboardingData (seu provider existente)
+  // 🔧 FACTORY CORRIGIDO - Incluir userLevel do onboarding
   factory UserModel.fromOnboardingData(
       String userId, Map<String, dynamic> onboardingData) {
     return UserModel(
@@ -85,42 +92,86 @@ class UserModel {
       interestArea: _convertProfessionalTrail(onboardingData['interestArea']),
       dreamUniversity: onboardingData['dreamUniversity'] ?? 'ainda_nao_decidi',
       studyTime: onboardingData['studyTime'] ?? '30-60 min',
-      mainDifficulty: onboardingData['mainDifficulty'] ?? 'matematica',
+      mainDifficulty: _convertMainDifficulty(onboardingData['mainDifficulty']),
       behavioralAspect:
           _convertBehavioralAspect(onboardingData['behavioralAspect']),
       studyStyle: onboardingData['studyStyle'] ?? 'sozinho_meu_ritmo',
+      userLevel: _convertUserLevel(onboardingData), // 🆕 CONVERSÃO DO NÍVEL
       createdAt: DateTime.now(),
       lastLogin: DateTime.now(),
     );
   }
 
-  // Conversores para mapear enums do onboarding para strings
+  // 🆕 NOVO MÉTODO - Converter nível do onboarding para dificuldade
+  static String _convertUserLevel(Map<String, dynamic> onboardingData) {
+    // Verificar se veio do Modo Descoberta (tem nivelConhecimento)
+    final nivelConhecimento = onboardingData['nivelConhecimento'];
+    if (nivelConhecimento != null) {
+      // Converter NivelHabilidade para dificuldade
+      switch (nivelConhecimento.toString().split('.').last) {
+        case 'iniciante':
+          return 'facil';
+        case 'intermediario':
+          return 'medio';
+        case 'avancado':
+          return 'dificil';
+      }
+    }
+
+    // Verificar se veio de seleção manual (tem nivelManual)
+    final nivelManual = onboardingData['nivelManual'];
+    if (nivelManual != null) {
+      switch (nivelManual.toString().split('.').last) {
+        case 'iniciante':
+          return 'facil';
+        case 'intermediario':
+          return 'medio';
+        case 'avancado':
+          return 'dificil';
+      }
+    }
+
+    // Fallback padrão
+    return 'medio';
+  }
+
+  // 🆕 CONVERTER MATÉRIA COM DIFICULDADE DO ONBOARDING
+  static String _convertMainDifficulty(String? difficulty) {
+    if (difficulty == null) return 'matematica';
+
+    // Mapear matérias da tela 6 do onboarding
+    const Map<String, String> materiaMapping = {
+      'Português e Literatura': 'portugues',
+      'Matemática': 'matematica',
+      'Física': 'fisica',
+      'Química': 'quimica',
+      'Biologia': 'biologia',
+      'História': 'historia',
+      'Geografia': 'geografia',
+      'Inglês': 'ingles',
+      'Não tenho dificuldade específica em matérias': 'geral',
+    };
+
+    return materiaMapping[difficulty] ?? difficulty.toLowerCase();
+  }
+
+  // Conversores existentes mantidos
   static String _convertEducationLevel(dynamic educationLevel) {
     if (educationLevel == null) return 'fundamental9';
-    return educationLevel
-        .toString()
-        .split('.')
-        .last; // EducationLevel.fundamental6 -> fundamental6
+    return educationLevel.toString().split('.').last;
   }
 
   static String _convertStudyGoal(dynamic studyGoal) {
     if (studyGoal == null) return 'improveGrades';
-    return studyGoal
-        .toString()
-        .split('.')
-        .last; // StudyGoal.enemPrep -> enemPrep
+    return studyGoal.toString().split('.').last;
   }
 
   static String _convertProfessionalTrail(dynamic trail) {
     if (trail == null) return 'descobrindo';
-    return trail
-        .toString()
-        .split('.')
-        .last; // ProfessionalTrail.linguagens -> linguagens
+    return trail.toString().split('.').last;
   }
 
   static String _convertBehavioralAspect(String? aspect) {
-    // Mapear os aspectos comportamentais do seu onboarding
     const Map<String, String> aspectMapping = {
       'Foco e concentração': 'foco_concentracao',
       'Memorização e fixação': 'memorizacao_fixacao',
@@ -145,6 +196,7 @@ class UserModel {
         'main_difficulty': mainDifficulty,
         'behavioral_aspect': behavioralAspect,
         'study_style': studyStyle,
+        'user_level': userLevel, // 🆕 SALVAR NO FIRESTORE
         'created_at': Timestamp.fromDate(createdAt),
         'last_login': Timestamp.fromDate(lastLogin),
       },
@@ -171,6 +223,7 @@ class UserModel {
     String? mainDifficulty,
     String? behavioralAspect,
     String? studyStyle,
+    String? userLevel, // 🆕 INCLUIR NO COPYWITH
     DateTime? createdAt,
     DateTime? lastLogin,
     int? totalXp,
@@ -192,6 +245,7 @@ class UserModel {
       mainDifficulty: mainDifficulty ?? this.mainDifficulty,
       behavioralAspect: behavioralAspect ?? this.behavioralAspect,
       studyStyle: studyStyle ?? this.studyStyle,
+      userLevel: userLevel ?? this.userLevel, // 🆕 COPYWITH INCLUÍDO
       createdAt: createdAt ?? this.createdAt,
       lastLogin: lastLogin ?? this.lastLogin,
       totalXp: totalXp ?? this.totalXp,
@@ -206,6 +260,6 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(name: $name, schoolLevel: $schoolLevel, mainGoal: $mainGoal)';
+    return 'UserModel(name: $name, schoolLevel: $schoolLevel, mainGoal: $mainGoal, userLevel: $userLevel)';
   }
 }

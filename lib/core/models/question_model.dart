@@ -1,35 +1,19 @@
-// lib/core/models/question_model.dart - CORRIGIDO PARA AVENTURA FLORESTA
-import 'package:cloud_firestore/cloud_firestore.dart';
+// lib/features/questoes/models/question_model.dart - V6.8 COMPATÍVEL
+// Model unificado compatível com Firebase e algoritmo V6.8
 
 class QuestionModel {
   final String id;
   final String subject; // 'matematica', 'portugues', 'fisica', etc.
-  final String schoolLevel; // '6ano', '7ano', '8ano', '9ano'
+  final String schoolLevel; // '6ano', '7ano', 'EM1', 'EM2', etc.
   final String difficulty; // 'facil', 'medio', 'dificil'
-  final String theme; // 'floresta_amazonica'
-
-  // 🎮 CONTEXTO AVENTURA (ADICIONADO)
-  final String enunciado; // "Para atravessar o rio Amazonas..."
+  final String theme; // 'floresta' (Amazônia)
+  final String enunciado;
   final List<String> alternativas;
-  final int respostaCorreta;
+  final int respostaCorreta; // index da resposta correta
   final String explicacao;
-
-  // 🧭 ELEMENTOS NARRATIVOS AVENTURA (NOVOS)
-  final String
-      aventuraContexto; // "navegacao_rio", "sobrevivencia", "exploracao"
-  final String
-      personagemSituacao; // "explorador_perdido", "biologa_pesquisando"
-  final String localFloresta; // "margem_rio", "copa_arvores", "trilha_mata"
-
-  // 📊 PERSONALIZAÇÃO ALGORITMO 70/30 (NOVOS)
-  final String
-      aspectoComportamental; // 'foco_concentracao', 'organizacao_planejamento'
-  final String estiloAprendizado; // 'visual', 'pratico', 'teorico'
-
-  // 🎯 CAMPOS EXISTENTES MANTIDOS
-  final String? imagemEspecifica;
-  final List<String> tags;
-  final Map<String, dynamic> metadata;
+  final String? imagemEspecifica; // para questões visuais
+  final List<String> tags; // ['matematica_basica', 'area', 'geometria']
+  final Map<String, dynamic> metadata; // dados para personalização
   final DateTime createdAt;
 
   const QuestionModel({
@@ -42,48 +26,98 @@ class QuestionModel {
     required this.alternativas,
     required this.respostaCorreta,
     required this.explicacao,
-    // NOVOS CAMPOS AVENTURA
-    required this.aventuraContexto,
-    required this.personagemSituacao,
-    required this.localFloresta,
-    required this.aspectoComportamental,
-    required this.estiloAprendizado,
-    // CAMPOS EXISTENTES
     this.imagemEspecifica,
     required this.tags,
     required this.metadata,
     required this.createdAt,
   });
 
-  // 🔥 FROM FIRESTORE ATUALIZADO
-  factory QuestionModel.fromFirestore(DocumentSnapshot doc) {
+  // ===== FACTORY METHODS =====
+
+  /// Criar a partir de dados do Firebase Firestore
+  factory QuestionModel.fromFirestore(Map<String, dynamic> doc) {
+    return QuestionModel(
+      id: doc['id'] ?? '',
+      subject: doc['subject'] ?? '',
+      schoolLevel: doc['school_level'] ?? '',
+      difficulty: doc['difficulty'] ?? 'medio',
+      theme: doc['theme'] ?? 'floresta',
+      enunciado: doc['enunciado'] ?? '',
+      alternativas: List<String>.from(doc['alternativas'] ?? []),
+      respostaCorreta: doc['resposta_correta'] ?? 0,
+      explicacao: doc['explicacao'] ?? '',
+      imagemEspecifica: doc['imagem_especifica'],
+      tags: List<String>.from(doc['tags'] ?? []),
+      metadata: Map<String, dynamic>.from(doc['metadata'] ?? {}),
+      createdAt: doc['created_at'] != null
+          ? DateTime.parse(doc['created_at'].toString())
+          : DateTime.now(),
+    );
+  }
+
+  /// Criar a partir de Map genérico (compatibilidade)
+  factory QuestionModel.fromMap(Map<String, dynamic> map) {
+    return QuestionModel(
+      id: map['id'] ?? '',
+      subject: map['subject'] ?? '',
+      schoolLevel: map['schoolLevel'] ?? '',
+      difficulty: map['difficulty'] ?? 'medio',
+      theme: map['theme'] ?? 'floresta',
+      enunciado: map['enunciado'] ?? '',
+      alternativas: List<String>.from(map['alternativas'] ?? []),
+      respostaCorreta: map['respostaCorreta'] ?? 0,
+      explicacao: map['explicacao'] ?? '',
+      imagemEspecifica: map['imagemEspecifica'],
+      tags: List<String>.from(map['tags'] ?? []),
+      metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
+      createdAt: map['createdAt'] != null
+          ? (map['createdAt'] is String
+              ? DateTime.parse(map['createdAt'])
+              : map['createdAt'] as DateTime)
+          : DateTime.now(),
+    );
+  }
+
+  /// Criar a partir de DocumentSnapshot (Firebase SDK)
+  factory QuestionModel.fromDocumentSnapshot(dynamic doc) {
     final data = doc.data() as Map<String, dynamic>;
     return QuestionModel(
       id: doc.id,
       subject: data['subject'] ?? '',
-      schoolLevel: data['school_level'] ?? '9ano',
+      schoolLevel: data['school_level'] ?? '',
       difficulty: data['difficulty'] ?? 'medio',
-      theme: data['theme'] ?? 'floresta_amazonica',
+      theme: data['theme'] ?? 'floresta',
       enunciado: data['enunciado'] ?? '',
       alternativas: List<String>.from(data['alternativas'] ?? []),
       respostaCorreta: data['resposta_correta'] ?? 0,
       explicacao: data['explicacao'] ?? '',
-      // NOVOS CAMPOS
-      aventuraContexto: data['aventura_contexto'] ?? 'exploracao',
-      personagemSituacao: data['personagem_situacao'] ?? 'explorador_perdido',
-      localFloresta: data['local_floresta'] ?? 'trilha_mata',
-      aspectoComportamental:
-          data['aspecto_comportamental'] ?? 'foco_concentracao',
-      estiloAprendizado: data['estilo_aprendizado'] ?? 'pratico',
-      // CAMPOS EXISTENTES
       imagemEspecifica: data['imagem_especifica'],
       tags: List<String>.from(data['tags'] ?? []),
       metadata: Map<String, dynamic>.from(data['metadata'] ?? {}),
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: data['created_at']?.toDate() ?? DateTime.now(),
     );
   }
 
-  // 🔥 TO FIRESTORE ATUALIZADO
+  // ===== CONVERSION METHODS =====
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'subject': subject,
+      'schoolLevel': schoolLevel,
+      'difficulty': difficulty,
+      'theme': theme,
+      'enunciado': enunciado,
+      'alternativas': alternativas,
+      'respostaCorreta': respostaCorreta,
+      'explicacao': explicacao,
+      'imagemEspecifica': imagemEspecifica,
+      'tags': tags,
+      'metadata': metadata,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'subject': subject,
@@ -94,124 +128,130 @@ class QuestionModel {
       'alternativas': alternativas,
       'resposta_correta': respostaCorreta,
       'explicacao': explicacao,
-      // NOVOS CAMPOS
-      'aventura_contexto': aventuraContexto,
-      'personagem_situacao': personagemSituacao,
-      'local_floresta': localFloresta,
-      'aspecto_comportamental': aspectoComportamental,
-      'estilo_aprendizado': estiloAprendizado,
-      // CAMPOS EXISTENTES
       'imagem_especifica': imagemEspecifica,
       'tags': tags,
       'metadata': metadata,
-      'created_at': Timestamp.fromDate(createdAt),
+      'created_at': createdAt,
     };
   }
 
-  // 🔥 CREATE LOCAL ATUALIZADO (para manter compatibilidade)
-  factory QuestionModel.createLocal({
-    required String id,
-    required String subject,
-    required String schoolLevel,
-    required String difficulty,
-    required String enunciado,
-    required List<String> alternativas,
-    required int respostaCorreta,
-    required String explicacao,
-    // NOVOS PARÂMETROS OPCIONAIS COM DEFAULTS
-    String aventuraContexto = 'exploracao',
-    String personagemSituacao = 'explorador_perdido',
-    String localFloresta = 'trilha_mata',
-    String aspectoComportamental = 'foco_concentracao',
-    String estiloAprendizado = 'pratico',
-    // EXISTENTES
+  // ===== UTILITY METHODS =====
+
+  /// Verificar se é uma questão visual
+  bool get isVisual => imagemEspecifica != null && imagemEspecifica!.isNotEmpty;
+
+  /// Obter nível de dificuldade numérico (1-3)
+  int get difficultyLevel {
+    switch (difficulty.toLowerCase()) {
+      case 'facil':
+        return 1;
+      case 'medio':
+        return 2;
+      case 'dificil':
+        return 3;
+      default:
+        return 2;
+    }
+  }
+
+  /// Verificar se está no nível escolar correto
+  bool isForSchoolLevel(String targetLevel) {
+    return schoolLevel.toLowerCase() == targetLevel.toLowerCase();
+  }
+
+  /// Verificar se é da matéria específica
+  bool isSubject(String targetSubject) {
+    return subject.toLowerCase().contains(targetSubject.toLowerCase()) ||
+        targetSubject.toLowerCase().contains(subject.toLowerCase());
+  }
+
+  /// Verificar se tem tag específica
+  bool hasTag(String tag) {
+    return tags.any((t) => t.toLowerCase().contains(tag.toLowerCase()));
+  }
+
+  // ===== COPYWITH METHOD =====
+
+  QuestionModel copyWith({
+    String? id,
+    String? subject,
+    String? schoolLevel,
+    String? difficulty,
+    String? theme,
+    String? enunciado,
+    List<String>? alternativas,
+    int? respostaCorreta,
+    String? explicacao,
     String? imagemEspecifica,
     List<String>? tags,
     Map<String, dynamic>? metadata,
+    DateTime? createdAt,
   }) {
     return QuestionModel(
-      id: id,
-      subject: subject,
-      schoolLevel: schoolLevel,
-      difficulty: difficulty,
-      theme: 'floresta_amazonica',
-      enunciado: enunciado,
-      alternativas: alternativas,
-      respostaCorreta: respostaCorreta,
-      explicacao: explicacao,
-      // NOVOS CAMPOS COM DEFAULTS
-      aventuraContexto: aventuraContexto,
-      personagemSituacao: personagemSituacao,
-      localFloresta: localFloresta,
-      aspectoComportamental: aspectoComportamental,
-      estiloAprendizado: estiloAprendizado,
-      // EXISTENTES
-      imagemEspecifica: imagemEspecifica,
-      tags: tags ?? [],
-      metadata: metadata ?? {},
-      createdAt: DateTime.now(),
+      id: id ?? this.id,
+      subject: subject ?? this.subject,
+      schoolLevel: schoolLevel ?? this.schoolLevel,
+      difficulty: difficulty ?? this.difficulty,
+      theme: theme ?? this.theme,
+      enunciado: enunciado ?? this.enunciado,
+      alternativas: alternativas ?? this.alternativas,
+      respostaCorreta: respostaCorreta ?? this.respostaCorreta,
+      explicacao: explicacao ?? this.explicacao,
+      imagemEspecifica: imagemEspecifica ?? this.imagemEspecifica,
+      tags: tags ?? this.tags,
+      metadata: metadata ?? this.metadata,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 
-  // 🎯 MÉTODOS EXISTENTES MANTIDOS
-  bool isAppropriateForUser(String userSchoolLevel, String userInterestArea) {
-    if (schoolLevel != userSchoolLevel) {
-      return false;
-    }
-    return _subjectMatchesInterestArea(subject, userInterestArea);
-  }
+  // ===== EQUALITY AND HASH =====
 
-  bool _subjectMatchesInterestArea(String subject, String interestArea) {
-    const Map<String, List<String>> interestMapping = {
-      'linguagens': ['portugues', 'ingles'],
-      'cienciasNatureza': ['matematica', 'fisica', 'quimica', 'biologia'],
-      'matematicaTecnologia': ['matematica', 'fisica'],
-      'humanas': ['historia', 'geografia', 'portugues'],
-      'negocios': ['matematica', 'portugues', 'historia'],
-      'descobrindo': [
-        'matematica',
-        'portugues',
-        'fisica',
-        'quimica',
-        'biologia',
-        'historia',
-        'geografia',
-        'ingles'
-      ],
-    };
-    return interestMapping[interestArea]?.contains(subject) ?? true;
-  }
-
-  String getSubjectColor() {
-    const Map<String, String> subjectColors = {
-      'matematica': '#F44336',
-      'portugues': '#9C27B0',
-      'fisica': '#2196F3',
-      'quimica': '#FF9800',
-      'biologia': '#4CAF50',
-      'historia': '#FFC107',
-      'geografia': '#795548',
-      'ingles': '#3F51B5',
-    };
-    return subjectColors[subject] ?? '#9E9E9E';
-  }
-
-  String getSubjectEmoji() {
-    const Map<String, String> subjectEmojis = {
-      'matematica': '🔢',
-      'portugues': '📖',
-      'fisica': '⚛️',
-      'quimica': '⚗️',
-      'biologia': '🧬',
-      'historia': '📚',
-      'geografia': '🌍',
-      'ingles': '🇺🇸',
-    };
-    return subjectEmojis[subject] ?? '📝';
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is QuestionModel && other.id == id;
   }
 
   @override
+  int get hashCode => id.hashCode;
+
+  @override
   String toString() {
-    return 'QuestionModel(id: $id, subject: $subject, difficulty: $difficulty, context: $aventuraContexto)';
+    return 'QuestionModel(id: $id, subject: $subject, schoolLevel: $schoolLevel, difficulty: $difficulty)';
+  }
+
+  // ===== VALIDATION =====
+
+  /// Validar se a questão tem dados obrigatórios
+  bool get isValid {
+    return id.isNotEmpty &&
+        subject.isNotEmpty &&
+        schoolLevel.isNotEmpty &&
+        enunciado.isNotEmpty &&
+        alternativas.isNotEmpty &&
+        alternativas.length >= 2 &&
+        respostaCorreta >= 0 &&
+        respostaCorreta < alternativas.length &&
+        explicacao.isNotEmpty;
+  }
+
+  /// Lista de problemas de validação
+  List<String> get validationErrors {
+    final errors = <String>[];
+
+    if (id.isEmpty) errors.add('ID não pode estar vazio');
+    if (subject.isEmpty) errors.add('Matéria não pode estar vazia');
+    if (schoolLevel.isEmpty) errors.add('Nível escolar não pode estar vazio');
+    if (enunciado.isEmpty) errors.add('Enunciado não pode estar vazio');
+    if (alternativas.isEmpty) errors.add('Deve ter pelo menos uma alternativa');
+    if (alternativas.length < 2)
+      errors.add('Deve ter pelo menos 2 alternativas');
+    if (respostaCorreta < 0 || respostaCorreta >= alternativas.length) {
+      errors
+          .add('Resposta correta deve estar dentro do range das alternativas');
+    }
+    if (explicacao.isEmpty) errors.add('Explicação não pode estar vazia');
+
+    return errors;
   }
 }
