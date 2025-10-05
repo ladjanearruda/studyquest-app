@@ -1,10 +1,9 @@
 // lib/features/modos/screens/modo_selection_screen.dart
-// StudyQuest V6.2 - ATUALIZADO COM NÍVEL DE CONHECIMENTO
+// ✅ CORRIGIDO V6.9: Header com avatar completo "nome, tipo e título"
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../widgets/modo_card.dart';
 import '../models/modo_jogo.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../../core/models/avatar.dart';
@@ -21,23 +20,19 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
   ModoJogo? _modoSelecionado;
 
   @override
   void initState() {
     super.initState();
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
     );
-
     _animationController.forward();
   }
 
@@ -48,48 +43,24 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
   }
 
   void _handleModoSelection(ModoJogo modo) async {
-    setState(() {
-      _modoSelecionado = modo;
-    });
-
-    print('🎯 Modo selecionado: ${modo.nome}');
-
+    setState(() => _modoSelecionado = modo);
     await Future.delayed(const Duration(milliseconds: 500));
-
-    switch (modo.tipo) {
-      case ModoJogoType.missaoInteligente:
-        _navigateToQuestions();
-        break;
-      case ModoJogoType.focoTrilha:
-        print('🛤️ Foco Trilha selecionado');
-        _navigateToQuestions();
-        break;
-      case ModoJogoType.focoMateria:
-        print('🔍 Foco Matéria selecionado');
-        _navigateToQuestions();
-        break;
-    }
+    _navigateToQuestions();
   }
 
   void _navigateToQuestions() {
-    print('🚀 Navegando para questões...');
-    if (mounted) {
-      context.go('/questoes-personalizada');
-    }
+    if (mounted) context.go('/questoes-personalizada');
   }
 
   @override
   Widget build(BuildContext context) {
     final modos = ModoJogo.todosModos;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8E9),
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ HEADER ATUALIZADO COM NÍVEL DE CONHECIMENTO
             _buildHeaderComNivel(),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -113,11 +84,8 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
   }
 
   Widget _buildHeaderComNivel() {
-    // ✅ DADOS DO ONBOARDING
     final onboardingData = ref.watch(onboardingProvider);
     final userName = onboardingData.name ?? "Aventureiro";
-
-    // ✅ DADOS DO NÍVEL DE CONHECIMENTO
     final descobertaState = ref.watch(descobertaNivelProvider);
 
     return Container(
@@ -138,13 +106,11 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
       ),
       child: Column(
         children: [
-          // Navegação
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
                 onPressed: () {
-                  // ✅ NAVEGAÇÃO SEGURA - Voltar para avatar selection
                   if (context.canPop()) {
                     context.pop();
                   } else {
@@ -154,7 +120,6 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                 icon: const Icon(Icons.arrow_back_ios, size: 20),
                 color: Colors.green[700],
               ),
-              // Progress bar
               Container(
                 width: 120,
                 height: 6,
@@ -176,13 +141,9 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
               const SizedBox(width: 40),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // ✅ PERFIL COMPLETO COM NÍVEL DE CONHECIMENTO
           Row(
             children: [
-              // Avatar
               Container(
                 width: 60,
                 height: 60,
@@ -206,27 +167,20 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                   size: 28,
                 ),
               ),
-
               const SizedBox(width: 16),
-
-              // Informações ATUALIZADAS
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ✅ NOME + TIPO AVATAR BASEADO NO PERFIL
                     Text(
-                      '$userName, ${_getSelectedAvatarName()}',
+                      _getSelectedAvatarDisplayName(),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: Colors.green[800],
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
-                    // ✅ RESUMO COMPLETO COM NÍVEL DE CONHECIMENTO
                     Text(
                       _buildProfileSummaryComNivel(
                           onboardingData, descobertaState),
@@ -252,30 +206,20 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
   String _buildProfileSummaryComNivel(
       OnboardingData data, DescobertaNivelState descobertaState) {
     final parts = <String>[];
-
     try {
-      // ✅ SÉRIE ESCOLAR
       if (data.educationLevel != null) {
         parts.add(_getEducationLevelText(data.educationLevel!));
       }
-
-      // ✅ OBJETIVO PRINCIPAL
       if (data.studyGoal != null) {
         parts.add(_getStudyGoalText(data.studyGoal!));
       }
-
-      // ✅ ÁREA DE INTERESSE
       if (data.interestArea != null) {
         parts.add(_getInterestAreaText(data.interestArea!));
       }
-
-      // 🎯 NÍVEL DE CONHECIMENTO (NOVO!)
       final nivel = _getNivelDeConhecimento(descobertaState);
       if (nivel.isNotEmpty) {
         parts.add('Nível: $nivel');
       }
-
-      // ✅ ESTILO DE ESTUDO (se disponível)
       if (data.studyStyle != null) {
         final estilo = _getStudyStyleText(data.studyStyle!);
         if (estilo.isNotEmpty) {
@@ -283,108 +227,130 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
         }
       }
     } catch (e) {
-      print('Erro ao construir perfil: $e');
       return 'Perfil personalizado • Pronto para a aventura!';
     }
-
-    // ✅ RETORNO SEGURO
     if (parts.isEmpty) {
       return 'Perfil em construção • Nível detectado • Pronto para começar!';
     }
-
-    return parts.take(4).join(' • '); // Máximo 4 itens para evitar overflow
+    return parts.take(4).join(' • ');
   }
 
-  // 🎯 NOVO MÉTODO: Extrair nível de conhecimento
   String _getNivelDeConhecimento(DescobertaNivelState descobertaState) {
     try {
-      // Primeiro, verificar nível manual escolhido
       if (descobertaState.nivelManual != null) {
         return descobertaState.nivelManual!.nome;
       }
-
-      // Se não tem nível manual, verificar se tem método descoberta selecionado
       if (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta) {
-        // Se escolheu descoberta mas ainda não fez o teste
         return 'A descobrir';
       }
-
-      // Se não tem nenhum nível definido
       return '';
     } catch (e) {
-      print('Erro ao extrair nível: $e');
       return '';
     }
   }
 
-  String _getSelectedAvatarName() {
+  String _getSelectedAvatarDisplayName() {
     final onboardingData = ref.watch(onboardingProvider);
-    if (onboardingData.selectedAvatar != null) {
-      return Avatar.fromType(onboardingData.selectedAvatar!).name;
+    final userName = onboardingData.name ?? "Aventureiro";
+
+    if (onboardingData.selectedAvatarType != null &&
+        onboardingData.selectedAvatarGender != null) {
+      final tipo = _getAvatarTipoMinusculo(
+        onboardingData.selectedAvatarType!,
+        onboardingData.selectedAvatarGender!,
+      );
+      final titulo = _getAvatarTituloMinusculo(
+        onboardingData.selectedAvatarType!,
+        onboardingData.selectedAvatarGender!,
+      );
+      return '$userName, $tipo e $titulo';
     }
-    return 'Aventureiro'; // Fallback se não tiver avatar selecionado
+
+    return userName;
+  }
+
+  String _getAvatarTipoMinusculo(AvatarType type, AvatarGender gender) {
+    final isFeminino = gender == AvatarGender.feminino;
+    switch (type) {
+      case AvatarType.academico:
+        return isFeminino ? 'a acadêmica' : 'o acadêmico';
+      case AvatarType.competitivo:
+        return isFeminino ? 'a competitiva' : 'o competitivo';
+      case AvatarType.explorador:
+        return isFeminino ? 'a exploradora' : 'o explorador';
+      case AvatarType.equilibrado:
+        return isFeminino ? 'a equilibrada' : 'o equilibrado';
+    }
+  }
+
+  String _getAvatarTituloMinusculo(AvatarType type, AvatarGender gender) {
+    final isFeminino = gender == AvatarGender.feminino;
+    switch (type) {
+      case AvatarType.academico:
+        return isFeminino ? 'estudiosa' : 'estudioso';
+      case AvatarType.competitivo:
+        return isFeminino ? 'determinada' : 'determinado';
+      case AvatarType.explorador:
+        return isFeminino ? 'aventureira' : 'aventureiro';
+      case AvatarType.equilibrado:
+        return isFeminino ? 'sábia' : 'sábio';
+    }
   }
 
   Widget _buildMainTitle() {
     return AnimatedBuilder(
       animation: _fadeAnimation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: Column(
-            children: [
-              Text(
-                'Escolha seu Modo de Jogo! 🎮',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.green[800],
-                  height: 1.2,
-                ),
-                textAlign: TextAlign.center,
+      builder: (context, child) => Opacity(
+        opacity: _fadeAnimation.value,
+        child: Column(
+          children: [
+            Text(
+              'Escolha seu Modo de Jogo! 🎮',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.green[800],
+                height: 1.2,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Cada modo oferece uma experiência única personalizada para você',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.green[700],
-                  fontWeight: FontWeight.w400,
-                ),
-                textAlign: TextAlign.center,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Cada modo oferece uma experiência única personalizada para você',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.green[700],
+                fontWeight: FontWeight.w400,
               ),
-            ],
-          ),
-        );
-      },
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   List<Widget> _buildModoCards(List<ModoJogo> modos) {
     return modos.map((modo) {
       final isSelected = _modoSelecionado?.tipo == modo.tipo;
-
       return AnimatedBuilder(
         animation: _fadeAnimation,
-        builder: (context, child) {
-          return Transform.translate(
-            offset: Offset(0, 20 * (1 - _fadeAnimation.value)),
-            child: Opacity(
-              opacity: _fadeAnimation.value,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: _buildModoCardCompact(modo, isSelected),
-              ),
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, 20 * (1 - _fadeAnimation.value)),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: _buildModoCardCompact(modo, isSelected),
             ),
-          );
-        },
+          ),
+        ),
       );
     }).toList();
   }
 
   Widget _buildModoCardCompact(ModoJogo modo, bool isSelected) {
     final primaryColor = Color(modo.corPrimariaInt);
-
     return GestureDetector(
       onTap: () => _handleModoSelection(modo),
       child: AnimatedContainer(
@@ -407,7 +373,6 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
         ),
         child: Row(
           children: [
-            // Ícone
             Container(
               width: 60,
               height: 60,
@@ -416,16 +381,10 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(
-                  modo.icone,
-                  style: const TextStyle(fontSize: 28),
-                ),
+                child: Text(modo.icone, style: const TextStyle(fontSize: 28)),
               ),
             ),
-
             const SizedBox(width: 16),
-
-            // Conteúdo
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,9 +404,7 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                       if (modo.isRecomendado)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.amber,
                             borderRadius: BorderRadius.circular(12),
@@ -464,9 +421,7 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                       if (modo.isSessaoExtra)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.blue[600],
                             borderRadius: BorderRadius.circular(12),
@@ -505,8 +460,6 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
                 ],
               ),
             ),
-
-            // Indicador de seleção
             Icon(
               isSelected ? Icons.check_circle : Icons.arrow_forward_ios,
               color: isSelected ? primaryColor : Colors.grey[400],
@@ -549,7 +502,6 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
     );
   }
 
-  // ✅ MÉTODOS AUXILIARES PARA CONVERSÃO DE DADOS
   String _getEducationLevelText(EducationLevel level) {
     switch (level) {
       case EducationLevel.fundamental6:

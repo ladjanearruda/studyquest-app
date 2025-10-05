@@ -1,13 +1,14 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
+// ✅ CORRIGIDO V6.9: Header dinâmico com avatar do onboarding
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
-
 import '../providers/questao_personalizada_provider.dart';
 import '../models/questao_personalizada.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
+import '../../../core/models/avatar.dart';
 
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
@@ -56,11 +57,9 @@ class _QuestaoPersonalizadaScreenState
 
   void _handleTimeout() {
     if (!mounted || _showFeedback) return;
-
     setState(() => _showFeedback = true);
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(-1);
     ref.read(recursosPersonalizadosProvider.notifier).atualizarRecursos(false);
-
     _showFeedbackModal(false, isTimeout: true);
   }
 
@@ -72,32 +71,25 @@ class _QuestaoPersonalizadaScreenState
 
   void _selectOption(int index) {
     if (_showFeedback) return;
-
     setState(() {
       _selectedOption = index;
       _showFeedback = true;
     });
-
     _timer?.cancel();
-
     final sessao = ref.read(sessaoQuestoesProvider);
     final questao = sessao.questaoAtualObj;
     final isCorrect = questao != null && index == questao.respostaCorreta;
-
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(index);
     ref
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(isCorrect);
-
     _showFeedbackModal(isCorrect);
   }
 
   void _showFeedbackModal(bool isCorrect, {bool isTimeout = false}) {
     if (!mounted) return;
-
     final recursos = ref.read(recursosPersonalizadosProvider);
     final sessao = ref.read(sessaoQuestoesProvider);
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -114,27 +106,16 @@ class _QuestaoPersonalizadaScreenState
   }
 
   void _nextQuestion() {
-    print('🔍 _nextQuestion chamado');
-
     if (!mounted) return;
-
     Navigator.of(context).pop();
-
     final sessao = ref.read(sessaoQuestoesProvider);
-    print(
-        '📊 Questão atual: ${sessao.questaoAtual + 1}/${sessao.totalQuestoes}');
-
     if (sessao.temProximaQuestao) {
-      print('➡️ Avançando para próxima questão...');
-
       ref.read(sessaoQuestoesProvider.notifier).proximaQuestao();
-
       setState(() {
         _selectedOption = null;
         _showFeedback = false;
         _timeLeft = 45;
       });
-
       _startTimer();
     } else {
       context.go('/questoes-resultado');
@@ -146,13 +127,10 @@ class _QuestaoPersonalizadaScreenState
     final sessao = ref.watch(sessaoQuestoesProvider);
     final recursos = ref.watch(recursosPersonalizadosProvider);
     final onboardingData = ref.watch(onboardingProvider);
-
     final questao = sessao.questaoAtualObj;
 
     if (questao == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!ref.read(recursosPersonalizadosProvider.notifier).estaVivo) {
@@ -201,6 +179,8 @@ class _QuestaoPersonalizadaScreenState
 
   Widget _buildHeaderPrototipo(
       OnboardingData onboardingData, SessaoQuestoes sessao) {
+    final avatarDisplay = _getAvatarShortDisplay(onboardingData);
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(16),
@@ -241,7 +221,7 @@ class _QuestaoPersonalizadaScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${onboardingData.name ?? "Usuário"}, Exploradora',
+                  avatarDisplay,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -251,12 +231,19 @@ class _QuestaoPersonalizadaScreenState
                 ),
                 Text(
                   'Questão ${sessao.questaoAtual + 1} de ${sessao.totalQuestoes}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (onboardingData.mainDifficulty != null)
+                  Text(
+                    'Desafio: ${_formatMateria(onboardingData.mainDifficulty!)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
@@ -269,21 +256,18 @@ class _QuestaoPersonalizadaScreenState
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: _timeLeft <= 10 ? Colors.red[700] : Colors.orange[700],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${_timeLeft}s',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                Icon(Icons.access_time,
+                    size: 16,
                     color:
-                        _timeLeft <= 10 ? Colors.red[700] : Colors.orange[700],
-                  ),
-                ),
+                        _timeLeft <= 10 ? Colors.red[700] : Colors.orange[700]),
+                const SizedBox(width: 4),
+                Text('${_timeLeft}s',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _timeLeft <= 10
+                            ? Colors.red[700]
+                            : Colors.orange[700])),
               ],
             ),
           ),
@@ -298,31 +282,16 @@ class _QuestaoPersonalizadaScreenState
       child: Row(
         children: [
           Expanded(
-            child: _buildRecursoItemPrototipo(
-              Icons.flash_on,
-              'Energia',
-              recursos['energia'] ?? 100.0,
-              Colors.yellow[700]!,
-            ),
-          ),
+              child: _buildRecursoItemPrototipo(Icons.flash_on, 'Energia',
+                  recursos['energia'] ?? 100.0, Colors.yellow[700]!)),
           const SizedBox(width: 8),
           Expanded(
-            child: _buildRecursoItemPrototipo(
-              Icons.water_drop,
-              'Água',
-              recursos['agua'] ?? 100.0,
-              Colors.blue[700]!,
-            ),
-          ),
+              child: _buildRecursoItemPrototipo(Icons.water_drop, 'Água',
+                  recursos['agua'] ?? 100.0, Colors.blue[700]!)),
           const SizedBox(width: 8),
           Expanded(
-            child: _buildRecursoItemPrototipo(
-              Icons.favorite,
-              'Saúde',
-              recursos['saude'] ?? 100.0,
-              Colors.red[700]!,
-            ),
-          ),
+              child: _buildRecursoItemPrototipo(Icons.favorite, 'Saúde',
+                  recursos['saude'] ?? 100.0, Colors.red[700]!)),
         ],
       ),
     );
@@ -337,10 +306,9 @@ class _QuestaoPersonalizadaScreenState
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -350,24 +318,13 @@ class _QuestaoPersonalizadaScreenState
             children: [
               Icon(icon, size: 16, color: cor),
               const SizedBox(width: 4),
-              Text(
-                '${valor.toInt()}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: cor,
-                ),
-              ),
+              Text('${valor.toInt()}%',
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold, color: cor)),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            nome,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text(nome, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
         ],
       ),
     );
@@ -382,10 +339,9 @@ class _QuestaoPersonalizadaScreenState
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
@@ -395,17 +351,13 @@ class _QuestaoPersonalizadaScreenState
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green.shade300, Colors.green.shade500],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+                  colors: [Colors.green.shade300, Colors.green.shade500]),
               borderRadius: BorderRadius.circular(50),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.green.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4)),
               ],
             ),
             child: CircleAvatar(
@@ -414,10 +366,9 @@ class _QuestaoPersonalizadaScreenState
               child: Text(
                 onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
                 style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green),
               ),
             ),
           ),
@@ -435,14 +386,11 @@ class _QuestaoPersonalizadaScreenState
                         color: Colors.green.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        questao.subject.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
+                      child: Text(questao.subject.toUpperCase(),
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800)),
                     ),
                     const SizedBox(width: 8),
                     Container(
@@ -452,35 +400,25 @@ class _QuestaoPersonalizadaScreenState
                         color: Colors.blue.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        questao.difficulty.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
-                        ),
-                      ),
+                      child: Text(questao.difficulty.toUpperCase(),
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade800)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Sobrevivência na Amazônia - Questão ${sessao.questaoAtual + 1}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade800,
-                  ),
-                ),
+                    'Sobrevivência na Amazônia - Questão ${sessao.questaoAtual + 1}',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade800)),
                 const SizedBox(height: 16),
-                Text(
-                  questao.enunciado,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.5,
-                    color: Colors.black87,
-                  ),
-                ),
+                Text(questao.enunciado,
+                    style: const TextStyle(
+                        fontSize: 15, height: 1.5, color: Colors.black87)),
               ],
             ),
           ),
@@ -509,10 +447,9 @@ class _QuestaoPersonalizadaScreenState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color:
-                    isSelected ? Colors.green.shade400 : Colors.grey.shade300,
-                width: isSelected ? 2 : 1,
-              ),
+                  color:
+                      isSelected ? Colors.green.shade400 : Colors.grey.shade300,
+                  width: isSelected ? 2 : 1),
             ),
           ),
           child: Row(
@@ -521,22 +458,15 @@ class _QuestaoPersonalizadaScreenState
                 backgroundColor:
                     isSelected ? Colors.green.shade600 : Colors.grey.shade100,
                 radius: 16,
-                child: Text(
-                  letra,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
+                child: Text(letra,
+                    style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14)),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  opcao,
-                  style: const TextStyle(fontSize: 15),
-                ),
-              ),
+                  child: Text(opcao, style: const TextStyle(fontSize: 15))),
             ],
           ),
         ),
@@ -552,10 +482,9 @@ class _QuestaoPersonalizadaScreenState
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -563,22 +492,16 @@ class _QuestaoPersonalizadaScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Progresso da Sessão',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                '${sessao.questaoAtual + 1}/${sessao.totalQuestoes}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade600,
-                ),
-              ),
+              Text('Progresso da Sessão',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600)),
+              Text('${sessao.questaoAtual + 1}/${sessao.totalQuestoes}',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade600)),
             ],
           ),
           const SizedBox(height: 8),
@@ -592,9 +515,78 @@ class _QuestaoPersonalizadaScreenState
       ),
     );
   }
+
+  // ✅ MÉTODOS AUXILIARES PARA AVATAR DISPLAY
+
+  String _getAvatarFullDisplay(OnboardingData onboarding) {
+    final userName = onboarding.name ?? "Usuário";
+    if (onboarding.selectedAvatarType != null &&
+        onboarding.selectedAvatarGender != null) {
+      final tipo = _getAvatarTipoMinusculo(
+          onboarding.selectedAvatarType!, onboarding.selectedAvatarGender!);
+      final titulo = _getAvatarTituloMinusculo(
+          onboarding.selectedAvatarType!, onboarding.selectedAvatarGender!);
+      return '$userName, $tipo e $titulo';
+    }
+    return userName;
+  }
+
+  String _getAvatarShortDisplay(OnboardingData onboarding) {
+    final userName = onboarding.name ?? "Usuário";
+    if (onboarding.selectedAvatarType != null &&
+        onboarding.selectedAvatarGender != null) {
+      final tipo = _getAvatarTipoMinusculo(
+          onboarding.selectedAvatarType!, onboarding.selectedAvatarGender!);
+      return '$userName, $tipo';
+    }
+    return userName;
+  }
+
+  String _getAvatarTipoMinusculo(AvatarType type, AvatarGender gender) {
+    final isFeminino = gender == AvatarGender.feminino;
+    switch (type) {
+      case AvatarType.academico:
+        return isFeminino ? 'a acadêmica' : 'o acadêmico';
+      case AvatarType.competitivo:
+        return isFeminino ? 'a competitiva' : 'o competitivo';
+      case AvatarType.explorador:
+        return isFeminino ? 'a exploradora' : 'o explorador';
+      case AvatarType.equilibrado:
+        return isFeminino ? 'a equilibrada' : 'o equilibrado';
+    }
+  }
+
+  String _getAvatarTituloMinusculo(AvatarType type, AvatarGender gender) {
+    final isFeminino = gender == AvatarGender.feminino;
+    switch (type) {
+      case AvatarType.academico:
+        return isFeminino ? 'estudiosa' : 'estudioso';
+      case AvatarType.competitivo:
+        return isFeminino ? 'determinada' : 'determinado';
+      case AvatarType.explorador:
+        return isFeminino ? 'aventureira' : 'aventureiro';
+      case AvatarType.equilibrado:
+        return isFeminino ? 'sábia' : 'sábio';
+    }
+  }
+
+  String _formatMateria(String materia) {
+    const materiaMap = {
+      'Português e Literatura': 'Português',
+      'Matemática': 'Matemática',
+      'Física': 'Física',
+      'Química': 'Química',
+      'Biologia': 'Biologia',
+      'História': 'História',
+      'Geografia': 'Geografia',
+      'Inglês': 'Inglês',
+      'Não tenho dificuldade específica em matérias': 'Geral',
+    };
+    return materiaMap[materia] ?? materia;
+  }
 }
 
-/// Modal de feedback corrigido com lógica dos protótipos
+// Modal de feedback (mantido do código original, sem alterações necessárias)
 class FeedbackPersonalizadoModal extends StatelessWidget {
   final bool acertou;
   final bool isTimeout;
@@ -628,10 +620,9 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black26,
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
+                  color: Colors.black26,
+                  blurRadius: 15,
+                  offset: const Offset(0, 5)),
             ],
           ),
           child: Column(
@@ -643,10 +634,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 1,
-                        child: _buildExplicacaoCard(),
-                      ),
+                      Expanded(flex: 1, child: _buildExplicacaoCard()),
                       const SizedBox(width: 16),
                       Expanded(
                         flex: 1,
@@ -699,18 +687,13 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                       ? 'Tempo Esgotado!'
                       : (acertou ? 'Excelente!' : 'Quase lá!'),
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  _buildSubtitle(),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
+                Text(_buildSubtitle(),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
@@ -738,21 +721,15 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                   color: Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  Icons.lightbulb,
-                  color: Colors.amber[700],
-                  size: 20,
-                ),
+                child:
+                    Icon(Icons.lightbulb, color: Colors.amber[700], size: 20),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Explicação da Questão',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
+              const Text('Explicação da Questão',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87)),
             ],
           ),
           const SizedBox(height: 16),
@@ -760,79 +737,14 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             child: SingleChildScrollView(
               child: Text(
                 questao?.explicacao ??
-                    'Para calcular a área de um retângulo, multiplicamos comprimento × largura: 150m × 80m = 12.000 m². Portanto, serão necessárias 12.000 mudas para o reflorestamento.',
+                    'Para calcular a área de um retângulo, multiplicamos comprimento × largura.',
                 style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: Colors.black87,
-                ),
+                    fontSize: 14, height: 1.5, color: Colors.black87),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          _buildAvatarProfessor(),
         ],
       ),
-    );
-  }
-
-  Widget _buildAvatarProfessor() {
-    return Row(
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.green.shade400, Colors.green.shade600],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.green.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Text(
-              'M',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Text(
-              isTimeout
-                  ? '"Não desista! O tempo é um desafio, mas você pode superar!"'
-                  : (acertou
-                      ? '"Excelente raciocínio! Continue assim!"'
-                      : '"Não desista! Cada erro é uma oportunidade de aprender."'),
-              style: TextStyle(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                color: Colors.grey[700],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -843,40 +755,30 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: acertou ? Colors.green[200]! : Colors.red[200]!,
-          width: 2,
-        ),
+            color: acertou ? Colors.green[200]! : Colors.red[200]!, width: 2),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(
-                acertou ? Icons.trending_up : Icons.trending_down,
-                color: acertou ? Colors.green[600] : Colors.red[600],
-                size: 20,
-              ),
+              Icon(acertou ? Icons.trending_up : Icons.trending_down,
+                  color: acertou ? Colors.green[600] : Colors.red[600],
+                  size: 20),
               const SizedBox(width: 8),
-              Text(
-                _getRecursoTexto(), // USAR MÉTODO DINÂMICO
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: acertou ? Colors.green[700] : Colors.red[700],
-                ),
-              ),
+              Text(_getRecursoTexto(),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: acertou ? Colors.green[700] : Colors.red[700])),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            _getRecursoDescricao(), // DESCRIÇÃO DINÂMICA
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-          ),
+          Text(_getRecursoDescricao(),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic),
+              textAlign: TextAlign.center),
           const SizedBox(height: 16),
           _buildRecursoItem(Icons.flash_on, 'Energia',
               recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
@@ -896,19 +798,12 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: cor),
         const SizedBox(width: 8),
-        Text(
-          nome,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
+        Text(nome,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
         const Spacer(),
-        Text(
-          '$valor%',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: cor,
-          ),
-        ),
+        Text('$valor%',
+            style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.bold, color: cor)),
       ],
     );
   }
@@ -921,7 +816,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     final totalRespondidas = sessao?.acertos?.length ?? 1;
     final precisao =
         totalRespondidas > 0 ? ((acertos / totalRespondidas) * 100).round() : 0;
-    final xpGanho = this.acertou ? 15 : (isTimeout ? 0 : 5);
+    final xpGanho = acertou ? 15 : (isTimeout ? 0 : 5);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -936,14 +831,11 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             children: [
               Icon(Icons.star, color: Colors.amber[700], size: 20),
               const SizedBox(width: 8),
-              Text(
-                'Progresso',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber[800],
-                ),
-              ),
+              Text('Progresso',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber[800])),
             ],
           ),
           const SizedBox(height: 16),
@@ -961,18 +853,13 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-        Text(
-          valor,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.amber[800],
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(valor,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.amber[800])),
       ],
     );
   }
@@ -988,22 +875,16 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.arrow_forward, size: 20),
               SizedBox(width: 8),
-              Text(
-                'Próxima Questão',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('Próxima Questão',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -1015,28 +896,23 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     if (isTimeout) {
       return 'O tempo esgotou | Correta: ${String.fromCharCode(65 + (questao?.respostaCorreta as int? ?? 0))}';
     }
-
     final suaResposta = selectedOption != null
         ? String.fromCharCode(65 + selectedOption!)
         : 'Nenhuma';
     final respostaCorreta =
         String.fromCharCode(65 + (questao?.respostaCorreta as int? ?? 0));
-
     return 'Sua resposta: $suaResposta | Correta: $respostaCorreta';
   }
 
-  // MÉTODOS DOS RECURSOS CORRIGIDOS - IGUAL AOS PROTÓTIPOS
   String _getRecursoTexto() {
     if (acertou) {
-      // Verificar se todos recursos estão em 100%
       bool todosRecursosEm100 = (recursos['energia'] ?? 0) >= 100 &&
           (recursos['agua'] ?? 0) >= 100 &&
           (recursos['saude'] ?? 0) >= 100;
-
       if (todosRecursosEm100) {
-        return 'Recursos Mantidos!'; // CORRETO: quando já está 100%
+        return 'Recursos Mantidos!';
       } else {
-        return 'Recursos Recuperados!'; // CORRETO: quando precisa recuperar
+        return 'Recursos Recuperados!';
       }
     } else {
       return 'Recursos Perdidos!';
@@ -1048,7 +924,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       bool todosRecursosEm100 = (recursos['energia'] ?? 0) >= 100 &&
           (recursos['agua'] ?? 0) >= 100 &&
           (recursos['saude'] ?? 0) >= 100;
-
       if (todosRecursosEm100) {
         return 'Você está em ótima forma! Continue assim.';
       } else {

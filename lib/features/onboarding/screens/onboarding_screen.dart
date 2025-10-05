@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/avatar.dart';
+
 // === ENUMS E MODELS ===
 
 enum EducationLevel {
@@ -41,7 +42,39 @@ class OnboardingData {
   String? studyTime;
   String? mainDifficulty;
   String? studyStyle;
-  AvatarType? selectedAvatar; // ← ADICIONAR ESTA LINHA para o avatar
+  AvatarType? selectedAvatarType;
+  AvatarGender? selectedAvatarGender;
+
+  // Construtor padrão (mantém compatibilidade)
+  OnboardingData();
+
+  // ✅ NOVO: Método copyWith para atualizações seguras
+  OnboardingData copyWith({
+    String? name,
+    EducationLevel? educationLevel,
+    StudyGoal? studyGoal,
+    ProfessionalTrail? interestArea,
+    String? dreamUniversity,
+    String? studyTime,
+    String? mainDifficulty,
+    String? studyStyle,
+    AvatarType? selectedAvatarType,
+    AvatarGender? selectedAvatarGender,
+  }) {
+    final newState = OnboardingData();
+    newState.name = name ?? this.name;
+    newState.educationLevel = educationLevel ?? this.educationLevel;
+    newState.studyGoal = studyGoal ?? this.studyGoal;
+    newState.interestArea = interestArea ?? this.interestArea;
+    newState.dreamUniversity = dreamUniversity ?? this.dreamUniversity;
+    newState.studyTime = studyTime ?? this.studyTime;
+    newState.mainDifficulty = mainDifficulty ?? this.mainDifficulty;
+    newState.studyStyle = studyStyle ?? this.studyStyle;
+    newState.selectedAvatarType = selectedAvatarType ?? this.selectedAvatarType;
+    newState.selectedAvatarGender =
+        selectedAvatarGender ?? this.selectedAvatarGender;
+    return newState;
+  }
 }
 
 // ===== ENUMS PARA MODO DESCOBERTA (ADICIONAR NO TOPO DO ARQUIVO) =====
@@ -428,22 +461,11 @@ class _Tela0NomeState extends ConsumerState<Tela0Nome>
                                     ref
                                         .read(onboardingProvider.notifier)
                                         .update((state) {
-                                      final newState = OnboardingData();
-                                      newState.name = value.trim().isEmpty
-                                          ? null
-                                          : value.trim();
-                                      newState.educationLevel =
-                                          state.educationLevel;
-                                      newState.studyGoal = state.studyGoal;
-                                      newState.interestArea =
-                                          state.interestArea;
-                                      newState.dreamUniversity =
-                                          state.dreamUniversity;
-                                      newState.studyTime = state.studyTime;
-                                      newState.mainDifficulty =
-                                          state.mainDifficulty;
-                                      newState.studyStyle = state.studyStyle;
-                                      return newState;
+                                      return state.copyWith(
+                                        name: value.trim().isEmpty
+                                            ? null
+                                            : value.trim(),
+                                      );
                                     });
                                   },
                                 ),
@@ -1183,16 +1205,9 @@ class _Tela2ObjetivoPrincipalState extends ConsumerState<Tela2ObjetivoPrincipal>
 
     // ✅ CORREÇÃO: Salvar no provider imediatamente
     ref.read(onboardingProvider.notifier).update((state) {
-      final newState = OnboardingData();
-      newState.name = state.name;
-      newState.educationLevel = state.educationLevel;
-      newState.studyGoal = goal; // ✅ Salvar seleção
-      newState.interestArea = state.interestArea;
-      newState.dreamUniversity = state.dreamUniversity;
-      newState.studyTime = state.studyTime;
-      newState.mainDifficulty = state.mainDifficulty;
-      newState.studyStyle = state.studyStyle;
-      return newState;
+      return state.copyWith(
+        studyGoal: goal,
+      );
     });
   }
 
@@ -1898,7 +1913,6 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: () {
-                                          // ✅ CORREÇÃO: Aplicar padrão exato da Tela 2
                                           setState(() {
                                             _selectedArea = areaData.trail;
                                           });
@@ -1906,23 +1920,9 @@ class _Tela3AreaInteresseState extends ConsumerState<Tela3AreaInteresse>
                                           ref
                                               .read(onboardingProvider.notifier)
                                               .update((state) {
-                                            final newState = OnboardingData();
-                                            newState.name = state.name;
-                                            newState.educationLevel =
-                                                state.educationLevel;
-                                            newState.studyGoal =
-                                                state.studyGoal;
-                                            newState.interestArea =
-                                                areaData.trail;
-                                            newState.dreamUniversity =
-                                                state.dreamUniversity;
-                                            newState.studyTime =
-                                                state.studyTime;
-                                            newState.mainDifficulty =
-                                                state.mainDifficulty;
-                                            newState.studyStyle =
-                                                state.studyStyle;
-                                            return newState;
+                                            return state.copyWith(
+                                              interestArea: areaData.trail,
+                                            );
                                           });
                                         },
                                         borderRadius: BorderRadius.circular(20),
@@ -2660,23 +2660,10 @@ class _Tela4UniversidadeSonhoState extends ConsumerState<Tela4UniversidadeSonho>
                                           ref
                                               .read(onboardingProvider.notifier)
                                               .update((state) {
-                                            final newState = OnboardingData();
-                                            newState.name = state.name;
-                                            newState.educationLevel =
-                                                state.educationLevel;
-                                            newState.studyGoal =
-                                                state.studyGoal;
-                                            newState.interestArea =
-                                                state.interestArea;
-                                            newState.dreamUniversity =
-                                                universityData.name;
-                                            newState.studyTime =
-                                                state.studyTime;
-                                            newState.mainDifficulty =
-                                                state.mainDifficulty;
-                                            newState.studyStyle =
-                                                state.studyStyle;
-                                            return newState;
+                                            return state.copyWith(
+                                              dreamUniversity:
+                                                  universityData.name,
+                                            );
                                           });
                                         },
                                         borderRadius: BorderRadius.circular(16),
@@ -3222,22 +3209,9 @@ class _Tela5TempoEstudoState extends ConsumerState<Tela5TempoEstudo>
                                           ref
                                               .read(onboardingProvider.notifier)
                                               .update((state) {
-                                            final newState = OnboardingData();
-                                            newState.name = state.name;
-                                            newState.educationLevel =
-                                                state.educationLevel;
-                                            newState.studyGoal =
-                                                state.studyGoal;
-                                            newState.interestArea =
-                                                state.interestArea;
-                                            newState.dreamUniversity =
-                                                state.dreamUniversity;
-                                            newState.studyTime = timeData.time;
-                                            newState.mainDifficulty =
-                                                state.mainDifficulty;
-                                            newState.studyStyle =
-                                                state.studyStyle;
-                                            return newState;
+                                            return state.copyWith(
+                                              studyTime: timeData.time,
+                                            );
                                           });
                                         },
                                         borderRadius: BorderRadius.circular(20),
@@ -3709,16 +3683,9 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
             : selectedSubject ?? selectedBehavior ?? '';
 
     ref.read(onboardingProvider.notifier).update((state) {
-      final newState = OnboardingData();
-      newState.name = state.name;
-      newState.educationLevel = state.educationLevel;
-      newState.studyGoal = state.studyGoal;
-      newState.interestArea = state.interestArea;
-      newState.dreamUniversity = state.dreamUniversity;
-      newState.studyTime = state.studyTime;
-      newState.mainDifficulty = combinedDifficulty;
-      newState.studyStyle = state.studyStyle;
-      return newState;
+      return state.copyWith(
+        mainDifficulty: combinedDifficulty,
+      );
     });
   }
 
@@ -5232,16 +5199,9 @@ class _Tela7EstiloEstudoState extends ConsumerState<Tela7EstiloEstudo>
     if (etapaAtual == 1) {
       // Salvar estilo de estudo selecionado no provider de onboarding
       ref.read(onboardingProvider.notifier).update((state) {
-        final newState = OnboardingData();
-        newState.name = state.name;
-        newState.educationLevel = state.educationLevel;
-        newState.studyGoal = state.studyGoal;
-        newState.interestArea = state.interestArea;
-        newState.dreamUniversity = state.dreamUniversity;
-        newState.studyTime = state.studyTime;
-        newState.mainDifficulty = state.mainDifficulty;
-        newState.studyStyle = estiloSelecionado;
-        return newState;
+        return state.copyWith(
+          studyStyle: estiloSelecionado,
+        );
       });
 
       // Ir para etapa 2 (Modo Descoberta)

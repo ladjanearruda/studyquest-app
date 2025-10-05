@@ -1,4 +1,4 @@
-// lib/core/models/user_profile.dart
+// lib/core/models/user_profile.dart - Integração Avatar V4.1
 
 import 'avatar.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -20,8 +20,9 @@ class UserProfile {
   final int currentLevel;
   final Map<String, double> subjectProgress;
 
-  // ✅ Campo do avatar
-  final AvatarType? selectedAvatar;
+  // ✅ CAMPOS AVATAR V4.1 - ATUALIZADOS
+  final AvatarType? selectedAvatarType;
+  final AvatarGender? selectedAvatarGender;
 
   UserProfile({
     required this.id,
@@ -36,8 +37,46 @@ class UserProfile {
     required this.totalXP,
     required this.currentLevel,
     required this.subjectProgress,
-    this.selectedAvatar,
+    this.selectedAvatarType,
+    this.selectedAvatarGender,
   });
+
+  // ✅ NOVOS GETTERS V4.1
+
+  // Verificar se tem avatar completo selecionado
+  bool get hasSelectedAvatar =>
+      selectedAvatarType != null && selectedAvatarGender != null;
+
+  // Obter avatar selecionado completo
+  Avatar? get selectedAvatar {
+    if (selectedAvatarType != null && selectedAvatarGender != null) {
+      return Avatar.fromTypeAndGender(
+          selectedAvatarType!, selectedAvatarGender!);
+    }
+    return null;
+  }
+
+  // Obter avatar recomendado (sempre disponível)
+  AvatarType get recommendedAvatarType => Avatar.recommendForProfile(this);
+
+  // Obter avatar ativo (selecionado ou recomendado)
+  Avatar getActiveAvatar({AvatarGender? defaultGender}) {
+    if (hasSelectedAvatar) {
+      return selectedAvatar!;
+    }
+
+    // Se não tem selecionado, usar recomendado com gênero padrão
+    final gender = defaultGender ?? AvatarGender.masculino;
+    return Avatar.fromTypeAndGender(recommendedAvatarType, gender);
+  }
+
+  // Obter nome completo do avatar ativo
+  String getActiveAvatarName({AvatarGender? defaultGender}) {
+    final avatar = getActiveAvatar(defaultGender: defaultGender);
+    return avatar.getFullName(name);
+  }
+
+  // ✅ FACTORY E SERIALIZAÇÃO ATUALIZADOS
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -53,8 +92,12 @@ class UserProfile {
       totalXP: json['totalXP'],
       currentLevel: json['currentLevel'],
       subjectProgress: Map<String, double>.from(json['subjectProgress']),
-      selectedAvatar: json['selectedAvatar'] != null
-          ? AvatarType.values.byName(json['selectedAvatar'])
+      // ✅ NOVOS CAMPOS V4.1
+      selectedAvatarType: json['selectedAvatarType'] != null
+          ? AvatarType.values.byName(json['selectedAvatarType'])
+          : null,
+      selectedAvatarGender: json['selectedAvatarGender'] != null
+          ? AvatarGender.values.byName(json['selectedAvatarGender'])
           : null,
     );
   }
@@ -73,10 +116,13 @@ class UserProfile {
       'totalXP': totalXP,
       'currentLevel': currentLevel,
       'subjectProgress': subjectProgress,
-      'selectedAvatar': selectedAvatar?.name,
+      // ✅ NOVOS CAMPOS V4.1
+      'selectedAvatarType': selectedAvatarType?.name,
+      'selectedAvatarGender': selectedAvatarGender?.name,
     };
   }
 
+  // ✅ COPYWITH ATUALIZADO
   UserProfile copyWith({
     String? id,
     String? name,
@@ -90,7 +136,8 @@ class UserProfile {
     int? totalXP,
     int? currentLevel,
     Map<String, double>? subjectProgress,
-    AvatarType? selectedAvatar,
+    AvatarType? selectedAvatarType,
+    AvatarGender? selectedAvatarGender,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -105,7 +152,50 @@ class UserProfile {
       totalXP: totalXP ?? this.totalXP,
       currentLevel: currentLevel ?? this.currentLevel,
       subjectProgress: subjectProgress ?? this.subjectProgress,
-      selectedAvatar: selectedAvatar ?? this.selectedAvatar,
+      selectedAvatarType: selectedAvatarType ?? this.selectedAvatarType,
+      selectedAvatarGender: selectedAvatarGender ?? this.selectedAvatarGender,
     );
   }
+
+  // ✅ MÉTODOS HELPER PARA AVATAR
+
+  // Selecionar avatar específico
+  UserProfile selectAvatar(AvatarType type, AvatarGender gender) {
+    return copyWith(
+      selectedAvatarType: type,
+      selectedAvatarGender: gender,
+    );
+  }
+
+  // Limpar seleção de avatar (volta para recomendado)
+  UserProfile clearAvatarSelection() {
+    return copyWith(
+      selectedAvatarType: null,
+      selectedAvatarGender: null,
+    );
+  }
+
+  // Verificar se avatar específico está selecionado
+  bool isAvatarSelected(AvatarType type, AvatarGender gender) {
+    return selectedAvatarType == type && selectedAvatarGender == gender;
+  }
+
+  // Obter opções de avatar recomendadas (masculino e feminino do tipo recomendado)
+  List<Avatar> getRecommendedAvatarOptions() {
+    final recommendedType = recommendedAvatarType;
+    return [
+      Avatar.fromTypeAndGender(recommendedType, AvatarGender.masculino),
+      Avatar.fromTypeAndGender(recommendedType, AvatarGender.feminino),
+    ];
+  }
+}
+
+// ✅ EXTENSÃO ATUALIZADA PARA COMPATIBILIDADE
+extension UserProfileAvatar on UserProfile {
+  // Compatibilidade com código existente
+  AvatarType? get selectedAvatar => selectedAvatarType;
+
+  AvatarType get recommendedAvatar => recommendedAvatarType;
+
+  Avatar get avatarData => getActiveAvatar();
 }

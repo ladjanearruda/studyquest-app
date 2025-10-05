@@ -1,11 +1,13 @@
-// lib/features/avatar/screens/avatar_selection_screen.dart
+// lib/features/avatar/screens/avatar_selection_screen.dart - CORRIGIDO V6.9
+// ✅ CORREÇÃO: Preview mostra apenas título do avatar ("O Sábio")
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/avatar.dart';
-// import '../../../core/models/user_profile.dart'; // Removido - não usado
+import '../../../core/models/user_profile.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
+import '../providers/avatar_provider.dart';
 
 class AvatarSelectionScreen extends ConsumerStatefulWidget {
   const AvatarSelectionScreen({super.key});
@@ -24,14 +26,33 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
   late List<Animation<double>> _cardAnimations;
   late Animation<double> _selectedAnimation;
 
-  AvatarType? _selectedAvatar;
+  AvatarType? _selectedType;
+  AvatarGender? _selectedGender;
   bool _isAnimatingSelection = false;
+  late UserProfile _userProfile;
 
   @override
   void initState() {
     super.initState();
+    _initializeUserProfile();
     _setupAnimations();
     _startAnimations();
+  }
+
+  void _initializeUserProfile() {
+    _userProfile = UserProfile(
+      id: 'user_123',
+      name: 'Explorador',
+      email: 'user@example.com',
+      educationLevel: EducationLevel.medio2,
+      primaryGoal: StudyGoal.enemPrep,
+      preferredTrail: ProfessionalTrail.cienciasNatureza,
+      dailyStudyMinutes: 60,
+      difficulties: ['matematica'],
+      totalXP: 0,
+      currentLevel: 1,
+      subjectProgress: {},
+    );
   }
 
   void _setupAnimations() {
@@ -39,53 +60,36 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-
     _cardsController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-
     _selectedController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-
-    _heroAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _heroController,
-      curve: Curves.easeOut,
-    ));
-
-    // Animações escalonadas para os 4 cards
+    _heroAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _heroController, curve: Curves.easeOut),
+    );
     _cardAnimations = List.generate(4, (index) {
       final startInterval = (index * 0.15).clamp(0.0, 0.6);
       final endInterval = (startInterval + 0.4).clamp(0.4, 1.0);
-
-      return Tween<double>(
-        begin: 0.0,
-        end: 1.0,
-      ).animate(CurvedAnimation(
-        parent: _cardsController,
-        curve: Interval(startInterval, endInterval, curve: Curves.easeOut),
-      ));
+      return Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _cardsController,
+          curve: Interval(startInterval, endInterval, curve: Curves.easeOut),
+        ),
+      );
     });
-
-    _selectedAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _selectedController,
-      curve: Curves.elasticOut,
-    ));
+    _selectedAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _selectedController, curve: Curves.elasticOut),
+    );
   }
 
   void _startAnimations() {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _heroController.forward();
     });
-
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) _cardsController.forward();
     });
@@ -99,87 +103,53 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
     super.dispose();
   }
 
-  void _selectAvatar(AvatarType avatarType) async {
+  void _selectAvatar(AvatarType type, AvatarGender gender) async {
     if (_isAnimatingSelection) return;
-
     setState(() {
-      _selectedAvatar = avatarType;
+      _selectedType = type;
+      _selectedGender = gender;
       _isAnimatingSelection = true;
     });
-
-    // Animação de seleção
+    ref.read(avatarProvider(_userProfile).notifier).selectAvatar(type, gender);
     await _selectedController.forward();
     await Future.delayed(const Duration(milliseconds: 200));
-
-    setState(() {
-      _isAnimatingSelection = false;
-    });
+    setState(() => _isAnimatingSelection = false);
   }
 
   void _confirmSelection() {
-    if (_selectedAvatar == null || !mounted) return;
-
-    // Salvar avatar no onboardingProvider
-    ref.read(onboardingProvider.notifier).update((state) {
-      final newState = OnboardingData();
-      newState.name = state.name;
-      newState.educationLevel = state.educationLevel;
-      newState.studyGoal = state.studyGoal;
-      newState.interestArea = state.interestArea;
-      newState.dreamUniversity = state.dreamUniversity;
-      newState.studyTime = state.studyTime;
-      newState.mainDifficulty = state.mainDifficulty;
-      newState.studyStyle = state.studyStyle;
-      newState.selectedAvatar = _selectedAvatar; // Salvar avatar selecionado
-      return newState;
-    });
-
-    if (mounted) {
-      context.go('/modo-selection');
-    }
+    if (_selectedType == null || _selectedGender == null || !mounted) return;
+    ref.read(onboardingProvider.notifier).update((state) => state.copyWith(
+          selectedAvatarType: _selectedType,
+          selectedAvatarGender: _selectedGender,
+        ));
+    if (mounted) context.go('/modo-selection');
   }
 
   @override
   Widget build(BuildContext context) {
-    // Remover a linha onboarding não utilizada
-    // final onboarding = ref.watch(onboardingProvider);
-
+    final avatarsGrouped = ref.watch(avatarsGroupedByTypeProvider);
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8E9),
       body: SafeArea(
         child: Column(
           children: [
-            // Progress Header
             _buildProgressHeader(),
-
-            // Conteúdo Principal
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-
-                    // Hero Section
                     _buildHeroSection(),
-
                     const SizedBox(height: 32),
-
-                    // Grid de Avatares
-                    _buildAvatarGrid(),
-
+                    _buildAvatarGrid(avatarsGrouped),
                     const SizedBox(height: 24),
-
-                    // Preview do Avatar Selecionado
                     _buildSelectedAvatarPreview(),
-
                     const SizedBox(height: 80),
                   ],
                 ),
               ),
             ),
-
-            // Botão de Confirmação
             _buildConfirmButton(),
           ],
         ),
@@ -200,14 +170,11 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                 icon: Icon(Icons.arrow_back_ios,
                     color: Colors.green[700]!, size: 20),
               ),
-              Text(
-                'Escolha seu Avatar',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green[700]!,
-                ),
-              ),
+              Text('Escolha seu Avatar',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green[700]!)),
               const SizedBox(width: 48),
             ],
           ),
@@ -224,8 +191,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                 width: MediaQuery.of(context).size.width * 0.95,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.green[400]!, Colors.green[600]!],
-                  ),
+                      colors: [Colors.green[400]!, Colors.green[600]!]),
                 ),
               ),
             ),
@@ -238,129 +204,198 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
   Widget _buildHeroSection() {
     return AnimatedBuilder(
       animation: _heroAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: 0.8 + (0.2 * _heroAnimation.value),
-          child: Opacity(
-            opacity: _heroAnimation.value,
-            child: Column(
-              children: [
-                Text('🎭',
-                    style: TextStyle(fontSize: 50 * _heroAnimation.value)),
-                const SizedBox(height: 16),
-                const Text(
-                  'Escolha seu Companheiro\nde Aventura!',
+      builder: (context, child) => Transform.scale(
+        scale: 0.8 + (0.2 * _heroAnimation.value),
+        child: Opacity(
+          opacity: _heroAnimation.value,
+          child: Column(
+            children: [
+              Text('🎭', style: TextStyle(fontSize: 50 * _heroAnimation.value)),
+              const SizedBox(height: 16),
+              const Text('Escolha seu Companheiro\nde Aventura!',
                   style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E7D32),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Cada avatar tem características únicas que combinam com seu perfil! 🌟',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                    height: 1.4,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32)),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              const Text(
+                  'Cada avatar tem características únicas.\nEscolha o tipo e gênero que mais combina com você!',
+                  style:
+                      TextStyle(fontSize: 16, color: Colors.grey, height: 1.4),
+                  textAlign: TextAlign.center),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildAvatarGrid() {
-    final avatars = AvatarType.values;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.0, // ✅ Mudado de 0.85 para 1.0 (mais compacto)
-        mainAxisSpacing: 12, // ✅ Reduzido de 16 para 12
-        crossAxisSpacing: 12, // ✅ Reduzido de 16 para 12
-      ),
-      itemCount: avatars.length,
-      itemBuilder: (context, index) {
-        final avatarType = avatars[index];
-        final avatarData = Avatar.fromType(avatarType);
-        final isSelected = _selectedAvatar == avatarType;
-
+  Widget _buildAvatarGrid(Map<AvatarType, List<Avatar>> avatarsGrouped) {
+    return Column(
+      children: AvatarType.values.asMap().entries.map((entry) {
+        final index = entry.key;
+        final type = entry.value;
+        final avatars = avatarsGrouped[type]!;
         return AnimatedBuilder(
           animation: _cardAnimations[index],
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, 40 * (1 - _cardAnimations[index].value)),
-              child: Opacity(
-                opacity: _cardAnimations[index].value,
-                child: _buildAvatarCard(avatarData, isSelected),
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, 40 * (1 - _cardAnimations[index].value)),
+            child: Opacity(
+              opacity: _cardAnimations[index].value,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildTypeSection(type, avatars),
               ),
-            );
-          },
+            ),
+          ),
         );
-      },
+      }).toList(),
+    );
+  }
+
+  Widget _buildTypeSection(AvatarType type, List<Avatar> avatars) {
+    final typeInfo = _getTypeInfo(type);
+    final recommendedType =
+        ref.watch(avatarProvider(_userProfile)).recommendedAvatarType;
+    final isRecommended = type == recommendedType;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isRecommended
+                ? typeInfo['color'].withOpacity(0.3)
+                : Colors.grey.shade200,
+            width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: typeInfo['color'],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(typeInfo['icon'], color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(typeInfo['title'],
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32))),
+                        if (isRecommended) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: typeInfo['color'],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('RECOMENDADO',
+                                style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(typeInfo['subtitle'],
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: avatars.map((avatar) {
+              final isSelected = _selectedType == avatar.type &&
+                  _selectedGender == avatar.gender;
+              return Expanded(
+                child: Padding(
+                  padding:
+                      EdgeInsets.only(right: avatar == avatars.last ? 0 : 8),
+                  child: _buildAvatarCard(avatar, isSelected),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildAvatarCard(Avatar avatar, bool isSelected) {
     final primaryColor = Color(Avatar.hexToColor(avatar.primaryColor));
+    final onboardingData = ref.watch(onboardingProvider);
+    final userName = onboardingData.name ?? 'Usuário';
 
     return GestureDetector(
-      onTap: () => _selectAvatar(avatar.type),
+      onTap: () => _selectAvatar(avatar.type, avatar.gender),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(
-                  colors: [
-                    primaryColor.withValues(alpha: 0.15),
-                    primaryColor.withValues(alpha: 0.05),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
+              ? LinearGradient(colors: [
+                  primaryColor.withOpacity(0.2),
+                  primaryColor.withOpacity(0.1)
+                ])
               : null,
-          color: isSelected ? null : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? null : Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.shade200,
-            width: isSelected ? 3 : 1,
-          ),
+              color: isSelected ? primaryColor : Colors.grey.shade200,
+              width: isSelected ? 3 : 1),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? primaryColor.withValues(alpha: 0.3)
-                  : Colors.black.withValues(alpha: 0.05),
+                  ? primaryColor.withOpacity(0.4)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 15 : 5,
-              offset: const Offset(0, 5),
+              offset: Offset(0, isSelected ? 6 : 5),
             ),
           ],
         ),
         child: Column(
           children: [
-            // Avatar Placeholder (será substituído pelas imagens do Programador 2)
             Stack(
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.2),
+                    color: primaryColor.withOpacity(0.2),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                        color: primaryColor, width: isSelected ? 3 : 2),
                   ),
                   child: Center(
                     child: Text(
-                      '🎭', // Placeholder - será substituído pela imagem real
-                      style: const TextStyle(fontSize: 40),
-                    ),
+                        avatar.gender == AvatarGender.masculino ? '👦' : '👧',
+                        style: const TextStyle(fontSize: 30)),
                   ),
                 ),
                 if (isSelected)
@@ -369,126 +404,68 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                     right: -5,
                     child: AnimatedBuilder(
                       animation: _selectedAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _selectedAnimation.value,
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                            ),
-                            child: const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 16,
-                            ),
+                      builder: (context, child) => Transform.scale(
+                        scale: _selectedAnimation.value,
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
-                        );
-                      },
+                          child: const Icon(Icons.check,
+                              color: Colors.white, size: 12),
+                        ),
+                      ),
                     ),
                   ),
               ],
             ),
-
-            const SizedBox(height: 12),
-
-            // Nome do Avatar
-            Text(
-              avatar.name,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? primaryColor : Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 6),
-
-            // Descrição
-            Text(
-              avatar.description,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected
-                    ? primaryColor.withValues(alpha: 0.8)
-                    : Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-
             const SizedBox(height: 8),
-
-            // Características principais (2 primeiras)
-            if (avatar.characteristics.length >= 2) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildCharacteristicChip(
-                    avatar.characteristics[0],
-                    primaryColor,
-                    isSelected,
-                  ),
-                  const SizedBox(width: 4),
-                  _buildCharacteristicChip(
-                    avatar.characteristics[1],
-                    primaryColor,
-                    isSelected,
-                  ),
-                ],
-              ),
-            ],
+            Text(avatar.getFullName(userName),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? primaryColor : Colors.black87),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(avatar.characteristics.take(2).join(', '),
+                style: TextStyle(
+                    fontSize: 9,
+                    color: isSelected
+                        ? primaryColor.withOpacity(0.8)
+                        : Colors.grey[600]),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCharacteristicChip(
-      String characteristic, Color color, bool isSelected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isSelected ? 0.2 : 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        characteristic,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          color: color.withValues(alpha: 0.8),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSelectedAvatarPreview() {
-    if (_selectedAvatar == null) return const SizedBox.shrink();
-
-    final avatarData = Avatar.fromType(_selectedAvatar!);
-    final primaryColor = Color(Avatar.hexToColor(avatarData.primaryColor));
+    if (_selectedType == null || _selectedGender == null)
+      return const SizedBox.shrink();
+    final avatar = Avatar.fromTypeAndGender(_selectedType!, _selectedGender!);
+    final primaryColor = Color(Avatar.hexToColor(avatar.primaryColor));
+    final avatarTitle = _getAvatarTitle(_selectedType!, _selectedGender!);
 
     return AnimatedOpacity(
-      opacity: _selectedAvatar != null ? 1.0 : 0.0,
+      opacity: _selectedType != null && _selectedGender != null ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 500),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              primaryColor.withValues(alpha: 0.1),
-              primaryColor.withValues(alpha: 0.05),
-            ],
-          ),
+          gradient: LinearGradient(colors: [
+            primaryColor.withOpacity(0.15),
+            primaryColor.withOpacity(0.05)
+          ]),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+          border: Border.all(color: primaryColor.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -497,67 +474,49 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                 Icon(Icons.check_circle, color: primaryColor, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Você escolheu: ${avatarData.name}!',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
-                  ),
+                  child: Text('Você escolheu: $avatarTitle!',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor)),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              avatarData.description,
-              style: TextStyle(
-                fontSize: 14,
-                color: primaryColor.withValues(alpha: 0.8),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: avatarData.characteristics.map((characteristic) {
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    characteristic,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: primaryColor.withValues(alpha: 0.9),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+            Text(avatar.description,
+                style: TextStyle(
+                    fontSize: 14, color: primaryColor.withOpacity(0.8))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildConfirmButton() {
-    final hasSelection = _selectedAvatar != null;
+  String _getAvatarTitle(AvatarType type, AvatarGender gender) {
+    final isFeminino = gender == AvatarGender.feminino;
+    switch (type) {
+      case AvatarType.academico:
+        return isFeminino ? 'A Estudiosa' : 'O Estudioso';
+      case AvatarType.competitivo:
+        return isFeminino ? 'A Determinada' : 'O Determinado';
+      case AvatarType.explorador:
+        return isFeminino ? 'A Aventureira' : 'O Aventureiro';
+      case AvatarType.equilibrado:
+        return isFeminino ? 'A Sábia' : 'O Sábio';
+    }
+  }
 
+  Widget _buildConfirmButton() {
+    final hasSelection = _selectedType != null && _selectedGender != null;
     return Container(
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F8E9),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2)),
         ],
       ),
       child: SafeArea(
@@ -573,20 +532,14 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               elevation: hasSelection ? 4 : 0,
-              shadowColor: Colors.green[600]!.withValues(alpha: 0.3),
+              shadowColor: Colors.green[600]!.withOpacity(0.3),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  hasSelection
-                      ? 'Iniciar Aventura com ${Avatar.fromType(_selectedAvatar!).name}! 🚀'
-                      : 'Escolha seu avatar',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text(hasSelection ? 'Iniciar Aventura!' : 'Escolha seu avatar',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
                 if (hasSelection) ...[
                   const SizedBox(width: 8),
                   const Icon(Icons.arrow_forward, size: 20),
@@ -597,5 +550,38 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
         ),
       ),
     );
+  }
+
+  Map<String, dynamic> _getTypeInfo(AvatarType type) {
+    switch (type) {
+      case AvatarType.academico:
+        return {
+          'title': 'Acadêmicos',
+          'subtitle': 'Focados no conhecimento',
+          'color': const Color(0xFF2E7D55),
+          'icon': Icons.school,
+        };
+      case AvatarType.competitivo:
+        return {
+          'title': 'Competitivos',
+          'subtitle': 'Buscam a vitória',
+          'color': const Color(0xFFE74C3C),
+          'icon': Icons.emoji_events,
+        };
+      case AvatarType.explorador:
+        return {
+          'title': 'Exploradores',
+          'subtitle': 'Descobrem novos caminhos',
+          'color': const Color(0xFF3498DB),
+          'icon': Icons.explore,
+        };
+      case AvatarType.equilibrado:
+        return {
+          'title': 'Equilibrados',
+          'subtitle': 'Harmonia em tudo',
+          'color': const Color(0xFF9B59B6),
+          'icon': Icons.balance,
+        };
+    }
   }
 }
