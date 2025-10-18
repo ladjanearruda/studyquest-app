@@ -1,13 +1,15 @@
-// lib/features/avatar/providers/avatar_provider.dart - Sistema V4.1
+// lib/features/avatar/providers/avatar_provider.dart - Sistema V6.9.3
+// ✅ ATUALIZADO: Gerenciamento de 3 estados emocionais
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/avatar.dart';
 import '../../../core/models/user_profile.dart';
 
-// Estado do avatar V4.1
+// Estado do avatar V6.9.3 com emoções
 class AvatarState {
   final AvatarType? selectedAvatarType;
   final AvatarGender? selectedAvatarGender;
+  final AvatarEmotion currentEmotion; // ✅ NOVO
   final AvatarType recommendedAvatarType;
   final bool isLoading;
   final String? error;
@@ -15,6 +17,7 @@ class AvatarState {
   const AvatarState({
     this.selectedAvatarType,
     this.selectedAvatarGender,
+    this.currentEmotion = AvatarEmotion.neutro, // ✅ Default neutro
     required this.recommendedAvatarType,
     this.isLoading = false,
     this.error,
@@ -23,6 +26,7 @@ class AvatarState {
   AvatarState copyWith({
     AvatarType? selectedAvatarType,
     AvatarGender? selectedAvatarGender,
+    AvatarEmotion? currentEmotion,
     AvatarType? recommendedAvatarType,
     bool? isLoading,
     String? error,
@@ -30,6 +34,7 @@ class AvatarState {
     return AvatarState(
       selectedAvatarType: selectedAvatarType ?? this.selectedAvatarType,
       selectedAvatarGender: selectedAvatarGender ?? this.selectedAvatarGender,
+      currentEmotion: currentEmotion ?? this.currentEmotion,
       recommendedAvatarType:
           recommendedAvatarType ?? this.recommendedAvatarType,
       isLoading: isLoading ?? this.isLoading,
@@ -41,15 +46,19 @@ class AvatarState {
   bool get hasCompleteSelection =>
       selectedAvatarType != null && selectedAvatarGender != null;
 
-  // Avatar ativo (selecionado ou recomendado com gênero padrão masculino)
+  // Avatar ativo (selecionado ou recomendado)
   Avatar get activeAvatar {
     if (hasCompleteSelection) {
       return Avatar.fromTypeAndGender(
           selectedAvatarType!, selectedAvatarGender!);
     }
-    // Se não tem seleção completa, usar recomendado masculino como padrão
     return Avatar.fromTypeAndGender(
         recommendedAvatarType, AvatarGender.masculino);
+  }
+
+  // ✅ NOVO: Obter path da imagem atual baseado na emoção
+  String get currentAvatarPath {
+    return activeAvatar.getPath(currentEmotion);
   }
 
   // Obter avatar com gênero específico
@@ -64,7 +73,7 @@ class AvatarState {
   Avatar get activeAvatarData => activeAvatar;
 }
 
-// Provider do Avatar V4.1
+// Provider do Avatar V6.9.3
 class AvatarNotifier extends StateNotifier<AvatarState> {
   final UserProfile userProfile;
 
@@ -74,6 +83,7 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
             recommendedAvatarType: Avatar.recommendForProfile(userProfile),
             selectedAvatarType: userProfile.selectedAvatarType,
             selectedAvatarGender: userProfile.selectedAvatarGender,
+            currentEmotion: AvatarEmotion.neutro, // ✅ Inicia neutro
           ),
         );
 
@@ -85,19 +95,82 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
     );
   }
 
-  // Selecionar apenas tipo (mantém gênero atual ou padrão)
+  // Selecionar apenas tipo (mantém gênero atual)
   void selectAvatarType(AvatarType type) {
     final gender = state.selectedAvatarGender ?? AvatarGender.masculino;
     selectAvatar(type, gender);
   }
 
-  // Selecionar apenas gênero (mantém tipo atual ou recomendado)
+  // Selecionar apenas gênero (mantém tipo atual)
   void selectAvatarGender(AvatarGender gender) {
     final type = state.selectedAvatarType ?? state.recommendedAvatarType;
     selectAvatar(type, gender);
   }
 
-  // Resetar para recomendação (limpar seleção)
+  // ========================================
+  // ✅ NOVOS MÉTODOS - GESTÃO DE EMOÇÕES
+  // ========================================
+
+  // Mudar emoção do avatar
+  void setEmotion(AvatarEmotion emotion) {
+    state = state.copyWith(currentEmotion: emotion);
+  }
+
+  // Resetar para neutro (estado padrão)
+  void resetToNeutral() {
+    state = state.copyWith(currentEmotion: AvatarEmotion.neutro);
+  }
+
+  // Mostrar feliz (acertos, conquistas)
+  void showHappy() {
+    state = state.copyWith(currentEmotion: AvatarEmotion.feliz);
+  }
+
+  // Mostrar determinado (erros, desafios)
+  void showDetermined() {
+    state = state.copyWith(currentEmotion: AvatarEmotion.determinado);
+  }
+
+  // Mostrar emoção temporária e voltar ao neutro
+  Future<void> showEmotionTemporary(
+    AvatarEmotion emotion, {
+    Duration duration = const Duration(seconds: 3),
+  }) async {
+    setEmotion(emotion);
+    await Future.delayed(duration);
+    if (mounted) {
+      resetToNeutral();
+    }
+  }
+
+  // Reagir a resposta de questão
+  Future<void> reactToAnswer(bool isCorrect, {bool isTimeout = false}) async {
+    if (isTimeout) {
+      // Timeout: determinado por 2 segundos
+      await showEmotionTemporary(
+        AvatarEmotion.determinado,
+        duration: const Duration(seconds: 2),
+      );
+    } else if (isCorrect) {
+      // Acerto: feliz por 3 segundos
+      await showEmotionTemporary(
+        AvatarEmotion.feliz,
+        duration: const Duration(seconds: 3),
+      );
+    } else {
+      // Erro: determinado por 2 segundos (motivacional)
+      await showEmotionTemporary(
+        AvatarEmotion.determinado,
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  // ========================================
+  // MÉTODOS EXISTENTES MANTIDOS
+  // ========================================
+
+  // Resetar para recomendação
   void useRecommended() {
     state = state.copyWith(
       selectedAvatarType: null,
@@ -111,12 +184,12 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
         state.selectedAvatarGender == gender;
   }
 
-  // Verificar se tipo está selecionado (qualquer gênero)
+  // Verificar se tipo está selecionado
   bool isTypeSelected(AvatarType type) {
     return state.selectedAvatarType == type;
   }
 
-  // Verificar se gênero está selecionado (qualquer tipo)
+  // Verificar se gênero está selecionado
   bool isGenderSelected(AvatarGender gender) {
     return state.selectedAvatarGender == gender;
   }
@@ -131,7 +204,7 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
     return Avatar.fromTypeAndGender(type, gender);
   }
 
-  // Obter todos os avatares de um tipo (masculino + feminino)
+  // Obter todos os avatares de um tipo
   List<Avatar> getAvatarsByType(AvatarType type) {
     return Avatar.getAvatarsByType(type);
   }
@@ -141,18 +214,18 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
     return state.activeAvatar.getFullName(userProfile.name);
   }
 
-  // Obter nome de avatar específico com nome do usuário
+  // Obter nome de avatar específico
   String getAvatarName(AvatarType type, AvatarGender gender) {
     final avatar = Avatar.fromTypeAndGender(type, gender);
     return avatar.getFullName(userProfile.name);
   }
 
-  // Obter opções recomendadas (masculino + feminino do tipo recomendado)
+  // Obter opções recomendadas
   List<Avatar> getRecommendedOptions() {
     return Avatar.getAvatarsByType(state.recommendedAvatarType);
   }
 
-  // Salvar seleção (integrar com sistema de persistência)
+  // Salvar seleção
   Future<void> saveSelection() async {
     if (!state.hasCompleteSelection) {
       state = state.copyWith(error: 'Selecione tipo e gênero do avatar');
@@ -163,14 +236,7 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
 
     try {
       // TODO: Integrar com sistema de persistência
-      // Exemplo: await userRepository.updateAvatar(
-      //   userProfile.id,
-      //   state.selectedAvatarType!,
-      //   state.selectedAvatarGender!
-      // );
-
-      await Future.delayed(const Duration(milliseconds: 500)); // Simula save
-
+      await Future.delayed(const Duration(milliseconds: 500));
       state = state.copyWith(isLoading: false, error: null);
     } catch (e) {
       state = state.copyWith(
@@ -185,11 +251,12 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
     state = state.copyWith(error: null);
   }
 
-  // Analytics - obter dados da seleção atual
+  // Analytics
   Map<String, dynamic> getSelectionAnalytics() {
     return {
       'selected_type': state.selectedAvatarType?.name,
       'selected_gender': state.selectedAvatarGender?.name,
+      'current_emotion': state.currentEmotion.name, // ✅ NOVO
       'recommended_type': state.recommendedAvatarType.name,
       'has_complete_selection': state.hasCompleteSelection,
       'user_name': userProfile.name,
@@ -199,18 +266,22 @@ class AvatarNotifier extends StateNotifier<AvatarState> {
   }
 }
 
+// ========================================
+// PROVIDERS
+// ========================================
+
 // Provider factory - precisa do UserProfile
 final avatarProvider =
     StateNotifierProvider.family<AvatarNotifier, AvatarState, UserProfile>(
   (ref, userProfile) => AvatarNotifier(userProfile),
 );
 
-// Provider para lista de todos os avatares disponíveis (8 total)
+// Provider para lista de todos os avatares (8 total)
 final allAvatarsProvider = Provider<List<Avatar>>((ref) {
   return Avatar.getAllAvatars();
 });
 
-// Provider para avatares agrupados por tipo (para UI)
+// Provider para avatares agrupados por tipo
 final avatarsGroupedByTypeProvider =
     Provider<Map<AvatarType, List<Avatar>>>((ref) {
   final Map<AvatarType, List<Avatar>> grouped = {};
@@ -232,10 +303,14 @@ final avatarGendersProvider = Provider<List<AvatarGender>>((ref) {
   return AvatarGender.values;
 });
 
-// Provider para verificar se usuário tem avatar configurado
+// ✅ NOVO: Provider para emoções disponíveis
+final avatarEmotionsProvider = Provider<List<AvatarEmotion>>((ref) {
+  return AvatarEmotion.values;
+});
+
+// Provider para verificar se tem avatar configurado
 final hasConfiguredAvatarProvider =
     Provider.family<bool, UserProfile>((ref, userProfile) {
-  final avatarNotifier = ref.watch(avatarProvider(userProfile).notifier);
   return ref.watch(avatarProvider(userProfile)).hasCompleteSelection;
 });
 
@@ -244,4 +319,16 @@ final activeAvatarNameProvider =
     Provider.family<String, UserProfile>((ref, userProfile) {
   final avatarNotifier = ref.watch(avatarProvider(userProfile).notifier);
   return avatarNotifier.getActiveAvatarName();
+});
+
+// ✅ NOVO: Provider para path atual do avatar (com emoção)
+final currentAvatarPathProvider =
+    Provider.family<String, UserProfile>((ref, userProfile) {
+  return ref.watch(avatarProvider(userProfile)).currentAvatarPath;
+});
+
+// ✅ NOVO: Provider para emoção atual
+final currentEmotionProvider =
+    Provider.family<AvatarEmotion, UserProfile>((ref, userProfile) {
+  return ref.watch(avatarProvider(userProfile)).currentEmotion;
 });

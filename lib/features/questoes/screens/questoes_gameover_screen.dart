@@ -1,4 +1,5 @@
 // lib/features/questoes/screens/questoes_gameover_screen.dart
+// ✅ ATUALIZADO: Avatar 100px estado DETERMINADO no header
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,16 +7,46 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../providers/questao_personalizada_provider.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
+import '../../../core/models/avatar.dart';
 
-class QuestoesGameOverScreen extends ConsumerWidget {
+class QuestoesGameOverScreen extends ConsumerStatefulWidget {
   const QuestoesGameOverScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QuestoesGameOverScreen> createState() =>
+      _QuestoesGameOverScreenState();
+}
+
+class _QuestoesGameOverScreenState
+    extends ConsumerState<QuestoesGameOverScreen> {
+  Avatar? _currentAvatar;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  void _loadAvatar() {
+    final onboardingData = ref.read(onboardingProvider);
+    if (onboardingData.selectedAvatarType != null &&
+        onboardingData.selectedAvatarGender != null) {
+      setState(() {
+        _currentAvatar = Avatar.fromTypeAndGender(
+          onboardingData.selectedAvatarType!,
+          onboardingData.selectedAvatarGender!,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sessao = ref.watch(sessaoQuestoesProvider);
     final recursos = ref.watch(recursosPersonalizadosProvider);
+    final onboardingData = ref.watch(onboardingProvider);
 
-    // Calcular estatísticas
     final totalRespondidas =
         sessao.acertos.isNotEmpty ? sessao.acertos.length : 0;
     final acertos = sessao.acertos.where((a) => a).length;
@@ -36,24 +67,15 @@ class QuestoesGameOverScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 children: [
-                  // Header compacto
-                  _buildCompactHeader(),
+                  _buildCompactHeaderComAvatar(onboardingData),
                   const SizedBox(height: 24),
-
-                  // Card principal de game over
                   _buildMainGameOverCard(totalRespondidas, acertos),
                   const SizedBox(height: 20),
-
-                  // Estatísticas em grid
                   _buildStatsGrid(
                       totalRespondidas, acertos, precisao, recursos),
                   const SizedBox(height: 20),
-
-                  // Análise dos recursos vitais
                   _buildResourceAnalysis(recursos),
                   const SizedBox(height: 24),
-
-                  // Botões de ação
                   _buildActionButtons(context, ref),
                   const SizedBox(height: 16),
                 ],
@@ -65,30 +87,72 @@ class QuestoesGameOverScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCompactHeader() {
+  // ✅ NOVO: Header com Avatar DETERMINADO 100×100px
+  Widget _buildCompactHeaderComAvatar(OnboardingData onboardingData) {
     return Row(
       children: [
-        // Ícone de game over
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        // ✅ AVATAR DETERMINADO 100×100px
+        if (_currentAvatar != null)
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade400, Colors.red.shade500],
               ),
-            ],
-          ),
-          child: Icon(
-            Icons.refresh,
-            size: 32,
-            color: Colors.red.shade700,
-          ),
-        ).animate().scale(duration: 600.ms, curve: Curves.bounceOut),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Container(
+              width: 92, // 100 - (4*2)
+              height: 92,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  _currentAvatar!
+                      .getPath(AvatarEmotion.determinado), // ✅ DETERMINADO
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.refresh,
+                      size: 50,
+                      color: Colors.red.shade700,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut)
+        else
+          // Fallback: Ícone de refresh
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.refresh,
+              size: 50,
+              color: Colors.red.shade700,
+            ),
+          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut),
 
         const SizedBox(width: 16),
 
@@ -145,7 +209,6 @@ class QuestoesGameOverScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Badge motivacional
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -161,10 +224,7 @@ class QuestoesGameOverScreen extends ConsumerWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Progresso antes de parar
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -188,9 +248,7 @@ class QuestoesGameOverScreen extends ConsumerWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 8),
-
           Text(
             'Questões Respondidas Corretamente',
             style: TextStyle(
@@ -199,10 +257,7 @@ class QuestoesGameOverScreen extends ConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Mensagem motivacional
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -332,8 +387,6 @@ class QuestoesGameOverScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-
-          // Grid de recursos com status
           Row(
             children: [
               Expanded(
@@ -349,10 +402,7 @@ class QuestoesGameOverScreen extends ConsumerWidget {
                       recursos['saude']?.toInt() ?? 0, saudeZero)),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Dica para próxima tentativa
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -437,7 +487,6 @@ class QuestoesGameOverScreen extends ConsumerWidget {
   Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        // Botão principal - Tentar Novamente
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -468,13 +517,9 @@ class QuestoesGameOverScreen extends ConsumerWidget {
             ),
           ),
         ).animate().slideY(begin: 1, delay: 1000.ms, duration: 600.ms),
-
         const SizedBox(height: 12),
-
-        // Botões secundários em linha
         Row(
           children: [
-            // Mudar Estratégia
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -501,10 +546,7 @@ class QuestoesGameOverScreen extends ConsumerWidget {
                 ),
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // Voltar ao Menu
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -539,13 +581,8 @@ class QuestoesGameOverScreen extends ConsumerWidget {
   }
 
   void _tentarNovamente(BuildContext context, WidgetRef ref) {
-    // Reset dos recursos
     ref.read(recursosPersonalizadosProvider.notifier).resetRecursos();
-
-    // Reset da sessão
     ref.read(sessaoQuestoesProvider.notifier).resetSessao();
-
-    // Reiniciar as questões personalizadas
     context.go('/questoes-personalizada');
   }
 }

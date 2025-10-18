@@ -1,5 +1,5 @@
 // lib/features/modos/screens/modo_selection_screen.dart
-// ✅ CORRIGIDO V6.9: Header com avatar completo "nome, tipo e título"
+// ✅ CORRIGIDO V6.9.3: Avatar 80px COM BORDA VERDE (apenas borda adicionada)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +21,7 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   ModoJogo? _modoSelecionado;
+  Avatar? _currentAvatar;
 
   @override
   void initState() {
@@ -34,6 +35,20 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
       curve: Curves.easeOut,
     );
     _animationController.forward();
+    _loadAvatar();
+  }
+
+  void _loadAvatar() {
+    final onboardingData = ref.read(onboardingProvider);
+    if (onboardingData.selectedAvatarType != null &&
+        onboardingData.selectedAvatarGender != null) {
+      setState(() {
+        _currentAvatar = Avatar.fromTypeAndGender(
+          onboardingData.selectedAvatarType!,
+          onboardingData.selectedAvatarGender!,
+        );
+      });
+    }
   }
 
   @override
@@ -83,6 +98,7 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
     );
   }
 
+  // ✅ APENAS ADICIONADA BORDA VERDE DE 3PX NO CONTAINER DO AVATAR
   Widget _buildHeaderComNivel() {
     final onboardingData = ref.watch(onboardingProvider);
     final userName = onboardingData.name ?? "Aventureiro";
@@ -144,29 +160,86 @@ class _ModoSelectionScreenState extends ConsumerState<ModoSelectionScreen>
           const SizedBox(height: 16),
           Row(
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green[400]!, Colors.green[600]!],
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              // ✅ MUDANÇA: Adicionado Container com borda verde gradient
+              if (_currentAvatar != null)
+                Container(
+                  padding: const EdgeInsets.all(3), // ✅ BORDA 3PX
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green[400]!, Colors.green[600]!],
                     ),
-                  ],
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    width: 74, // ✅ 80 - (3*2) = 74
+                    height: 74,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white, // Fundo branco interno
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        _currentAvatar!.getPath(AvatarEmotion.neutro),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.green[400]!,
+                                  Colors.green[600]!
+                                ],
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                )
+              else
+                // ✅ Fallback também COM BORDA
+                Container(
+                  padding: const EdgeInsets.all(3), // ✅ BORDA 3PX
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green[400]!, Colors.green[600]!],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    width: 74,
+                    height: 74,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.green,
+                      size: 40,
+                    ),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

@@ -1,5 +1,5 @@
-// lib/features/avatar/screens/avatar_selection_screen.dart - CORRIGIDO V6.9
-// ✅ CORREÇÃO: Preview mostra apenas título do avatar ("O Sábio")
+// lib/features/avatar/screens/avatar_selection_screen.dart - V6.9.3
+// ✅ CORRIGIDO: Borda verde quando selecionado (consistente com app)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -347,6 +347,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
     );
   }
 
+  // ✅ CORRIGIDO: Borda verde quando selecionado
   Widget _buildAvatarCard(Avatar avatar, bool isSelected) {
     final primaryColor = Color(Avatar.hexToColor(avatar.primaryColor));
     final onboardingData = ref.watch(onboardingProvider);
@@ -356,23 +357,27 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
       onTap: () => _selectAvatar(avatar.type, avatar.gender),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(colors: [
-                  primaryColor.withOpacity(0.2),
-                  primaryColor.withOpacity(0.1)
+                  Colors
+                      .green[100]!, // ✅ MUDANÇA: Verde ao invés de primaryColor
+                  Colors.green[50]!,
                 ])
               : null,
           color: isSelected ? null : Colors.white.withOpacity(0.8),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isSelected ? primaryColor : Colors.grey.shade200,
+              color: isSelected
+                  ? Colors
+                      .green[600]! // ✅ MUDANÇA: Verde ao invés de primaryColor
+                  : Colors.grey.shade200,
               width: isSelected ? 3 : 1),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? primaryColor.withOpacity(0.4)
+                  ? Colors.green.withOpacity(0.4) // ✅ MUDANÇA: Verde
                   : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 15 : 5,
               offset: Offset(0, isSelected ? 6 : 5),
@@ -383,19 +388,39 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
           children: [
             Stack(
               children: [
+                // ✅ CORRIGIDO: Container duplo para sobrepor borda da imagem
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: isSelected ? 130 : 120,
+                  height: isSelected ? 130 : 120,
+                  padding: const EdgeInsets.all(4), // Espaço para borda verde
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.2),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: primaryColor, width: isSelected ? 3 : 2),
+                    color: isSelected
+                        ? Colors.green[600]! // Borda verde quando selecionado
+                        : Colors
+                            .transparent, // Sem borda quando não selecionado
                   ),
-                  child: Center(
-                    child: Text(
-                        avatar.gender == AvatarGender.masculino ? '👦' : '👧',
-                        style: const TextStyle(fontSize: 30)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white, // Fundo branco interno
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        avatar.getPath(AvatarEmotion.neutro),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Text(
+                              avatar.gender == AvatarGender.masculino
+                                  ? '👦'
+                                  : '👧',
+                              style: const TextStyle(fontSize: 60),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
                 if (isSelected)
@@ -407,36 +432,38 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                       builder: (context, child) => Transform.scale(
                         scale: _selectedAnimation.value,
                         child: Container(
-                          width: 24,
-                          height: 24,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
-                            color: primaryColor,
+                            color: Colors.green[600]!, // ✅ MUDANÇA: Verde
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(color: Colors.white, width: 3),
                           ),
                           child: const Icon(Icons.check,
-                              color: Colors.white, size: 12),
+                              color: Colors.white, size: 18),
                         ),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(avatar.getFullName(userName),
                 style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? primaryColor : Colors.black87),
+                    color: isSelected
+                        ? Colors.green[800]! // ✅ MUDANÇA: Verde
+                        : Colors.black87),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(avatar.characteristics.take(2).join(', '),
                 style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 11,
                     color: isSelected
-                        ? primaryColor.withOpacity(0.8)
+                        ? Colors.green[700]! // ✅ MUDANÇA: Verde
                         : Colors.grey[600]),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -448,8 +475,10 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
   }
 
   Widget _buildSelectedAvatarPreview() {
-    if (_selectedType == null || _selectedGender == null)
+    if (_selectedType == null || _selectedGender == null) {
       return const SizedBox.shrink();
+    }
+
     final avatar = Avatar.fromTypeAndGender(_selectedType!, _selectedGender!);
     final primaryColor = Color(Avatar.hexToColor(avatar.primaryColor));
     final avatarTitle = _getAvatarTitle(_selectedType!, _selectedGender!);
@@ -461,31 +490,72 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
-            primaryColor.withOpacity(0.15),
-            primaryColor.withOpacity(0.05)
+            Colors.green[100]!, // ✅ MUDANÇA: Verde
+            Colors.green[50]!,
           ]),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: primaryColor.withOpacity(0.3)),
+          border: Border.all(
+              color: Colors.green.withOpacity(0.3)), // ✅ MUDANÇA: Verde
         ),
         child: Column(
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle, color: primaryColor, size: 24),
+                ClipOval(
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: primaryColor, width: 2),
+                    ),
+                    child: Image.asset(
+                      avatar.getPath(AvatarEmotion.neutro),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.person,
+                            color: primaryColor, size: 30);
+                      },
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('Você escolheu: $avatarTitle!',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green[600]!, // ✅ MUDANÇA: Verde
+                              size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Você escolheu: $avatarTitle!',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700]!, // ✅ MUDANÇA: Verde
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        avatar.description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.green[600]!, // ✅ MUDANÇA: Verde
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(avatar.description,
-                style: TextStyle(
-                    fontSize: 14, color: primaryColor.withOpacity(0.8))),
           ],
         ),
       ),

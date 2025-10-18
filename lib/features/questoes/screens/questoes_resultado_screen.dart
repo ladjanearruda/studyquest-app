@@ -1,4 +1,5 @@
 // lib/features/questoes/screens/questoes_resultado_screen.dart
+// ✅ ATUALIZADO: Avatar 100px estado FELIZ no header
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,16 +7,46 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../providers/questao_personalizada_provider.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
+import '../../../core/models/avatar.dart';
 
-class QuestoesResultadoScreen extends ConsumerWidget {
+class QuestoesResultadoScreen extends ConsumerStatefulWidget {
   const QuestoesResultadoScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QuestoesResultadoScreen> createState() =>
+      _QuestoesResultadoScreenState();
+}
+
+class _QuestoesResultadoScreenState
+    extends ConsumerState<QuestoesResultadoScreen> {
+  Avatar? _currentAvatar;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  void _loadAvatar() {
+    final onboardingData = ref.read(onboardingProvider);
+    if (onboardingData.selectedAvatarType != null &&
+        onboardingData.selectedAvatarGender != null) {
+      setState(() {
+        _currentAvatar = Avatar.fromTypeAndGender(
+          onboardingData.selectedAvatarType!,
+          onboardingData.selectedAvatarGender!,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sessao = ref.watch(sessaoQuestoesProvider);
     final recursos = ref.watch(recursosPersonalizadosProvider);
+    final onboardingData = ref.watch(onboardingProvider);
 
-    // Calcular estatísticas
     final totalQuestoes = sessao.totalQuestoes;
     final acertos = sessao.acertos.where((a) => a).length;
     final precisao = totalQuestoes > 0 ? (acertos / totalQuestoes) : 0.0;
@@ -36,24 +67,15 @@ class QuestoesResultadoScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 children: [
-                  // Header compacto
-                  _buildCompactHeader(performance),
+                  _buildCompactHeaderComAvatar(performance, onboardingData),
                   const SizedBox(height: 24),
-
-                  // Card principal de resultado
                   _buildMainResultCard(
                       performance, acertos, totalQuestoes, precisao),
                   const SizedBox(height: 20),
-
-                  // Estatísticas em grid
                   _buildStatsGrid(totalQuestoes, acertos, precisao, recursos),
                   const SizedBox(height: 20),
-
-                  // XP e Badge conquistados
                   _buildRewardsSection(performance, acertos),
                   const SizedBox(height: 24),
-
-                  // Botões de ação
                   _buildActionButtons(context, ref),
                   const SizedBox(height: 16),
                 ],
@@ -65,30 +87,72 @@ class QuestoesResultadoScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCompactHeader(PerformanceData performance) {
+  // ✅ NOVO: Header com Avatar FELIZ 100×100px
+  Widget _buildCompactHeaderComAvatar(
+      PerformanceData performance, OnboardingData onboardingData) {
     return Row(
       children: [
-        // Ícone de conquista
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        // ✅ AVATAR FELIZ 100×100px
+        if (_currentAvatar != null)
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green.shade300, Colors.green.shade500],
               ),
-            ],
-          ),
-          child: Icon(
-            performance.icon,
-            size: 32,
-            color: performance.primaryColor,
-          ),
-        ).animate().scale(duration: 600.ms, curve: Curves.bounceOut),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Container(
+              width: 92, // 100 - (4*2)
+              height: 92,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  _currentAvatar!.getPath(AvatarEmotion.feliz), // ✅ FELIZ
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      performance.icon,
+                      size: 50,
+                      color: performance.primaryColor,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut)
+        else
+          // Fallback: Ícone de conquista
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              performance.icon,
+              size: 50,
+              color: performance.primaryColor,
+            ),
+          ).animate().scale(duration: 600.ms, curve: Curves.bounceOut),
 
         const SizedBox(width: 16),
 
@@ -146,7 +210,6 @@ class QuestoesResultadoScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Badge de performance
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -162,10 +225,7 @@ class QuestoesResultadoScreen extends ConsumerWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Score principal
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -189,9 +249,7 @@ class QuestoesResultadoScreen extends ConsumerWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 8),
-
           Text(
             'Questões Corretas',
             style: TextStyle(
@@ -200,10 +258,7 @@ class QuestoesResultadoScreen extends ConsumerWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Barra de progresso circular ou linear estilizada
           _buildProgressBar(precisao, performance),
         ],
       ),
@@ -213,7 +268,6 @@ class QuestoesResultadoScreen extends ConsumerWidget {
   Widget _buildProgressBar(double precisao, PerformanceData performance) {
     return Column(
       children: [
-        // Barra de progresso
         Container(
           height: 8,
           decoration: BoxDecoration(
@@ -334,7 +388,6 @@ class QuestoesResultadoScreen extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // XP Ganho
           Expanded(
             child: Column(
               children: [
@@ -358,14 +411,11 @@ class QuestoesResultadoScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           Container(
             width: 1,
             height: 40,
             color: Colors.white.withOpacity(0.3),
           ),
-
-          // Badge conquistado
           Expanded(
             child: Column(
               children: [
@@ -398,7 +448,6 @@ class QuestoesResultadoScreen extends ConsumerWidget {
   Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        // Botão principal - Nova Missão
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -429,13 +478,9 @@ class QuestoesResultadoScreen extends ConsumerWidget {
             ),
           ),
         ).animate().slideY(begin: 1, delay: 1000.ms, duration: 600.ms),
-
         const SizedBox(height: 12),
-
-        // Botões secundários em linha
         Row(
           children: [
-            // Próximo Nível (se disponível)
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -462,10 +507,7 @@ class QuestoesResultadoScreen extends ConsumerWidget {
                 ),
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // Voltar ao Menu
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -540,19 +582,12 @@ class QuestoesResultadoScreen extends ConsumerWidget {
   }
 
   void _novaMissao(BuildContext context, WidgetRef ref) {
-    // Reset dos recursos
     ref.read(recursosPersonalizadosProvider.notifier).resetRecursos();
-
-    // Reset da sessão
     ref.read(sessaoQuestoesProvider.notifier).resetSessao();
-
-    // Voltar para seleção de modo
     context.go('/modo-selection');
   }
 
   void _proximoNivel(BuildContext context, WidgetRef ref) {
-    // TODO: Implementar sistema de níveis progressivos
-    // Por enquanto, inicia nova sessão com dificuldade aumentada
     ref.read(recursosPersonalizadosProvider.notifier).resetRecursos();
     ref.read(sessaoQuestoesProvider.notifier).resetSessao();
     context.go('/questoes-personalizada');

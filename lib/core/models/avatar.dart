@@ -1,4 +1,5 @@
-// lib/core/models/avatar.dart - Sistema V4.1 com nomes dinâmicos
+// lib/core/models/avatar.dart - Sistema V6.9.2 com 3 Estados Emocionais
+// ✅ ATUALIZADO: 24 PNGs integrados (8 avatares × 3 estados)
 
 import 'user_profile.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -15,26 +16,50 @@ enum AvatarGender {
   feminino,
 }
 
+enum AvatarEmotion {
+  neutro, // Default: menus, navegação, telas
+  feliz, // Acertos, conquistas, XP ganho
+  determinado, // Erros, desafios, motivação
+}
+
 class Avatar {
   final AvatarType type;
   final AvatarGender gender;
   final String personalityTitle; // "o Estudioso", "a Estudiosa"
   final String description;
-  final String assetPath;
   final String primaryColor;
   final String secondaryColor;
   final List<String> characteristics;
+
+  // ✅ NOVO: 3 paths para os 3 estados emocionais
+  final String neutralPath;
+  final String happyPath;
+  final String determinedPath;
 
   const Avatar({
     required this.type,
     required this.gender,
     required this.personalityTitle,
     required this.description,
-    required this.assetPath,
     required this.primaryColor,
     required this.secondaryColor,
     required this.characteristics,
+    required this.neutralPath,
+    required this.happyPath,
+    required this.determinedPath,
   });
+
+  // ✅ NOVO: Obter path baseado na emoção
+  String getPath(AvatarEmotion emotion) {
+    switch (emotion) {
+      case AvatarEmotion.neutro:
+        return neutralPath;
+      case AvatarEmotion.feliz:
+        return happyPath;
+      case AvatarEmotion.determinado:
+        return determinedPath;
+    }
+  }
 
   // Gerar nome completo com nome do usuário
   String getFullName(String userName) {
@@ -71,19 +96,20 @@ class Avatar {
 
   // Factory para compatibilidade com código existente
   factory Avatar.fromType(AvatarType type) {
-    // Por padrão, retorna masculino para manter compatibilidade
     return Avatar.fromTypeAndGender(type, AvatarGender.masculino);
   }
 
-  // Criadores específicos dos 8 avatares
+  // ========================================
+  // CRIADORES DOS 8 AVATARES COM 3 ESTADOS
+  // ========================================
+
   static Avatar _createAcademicoMasculino() {
     return const Avatar(
       type: AvatarType.academico,
       gender: AvatarGender.masculino,
       personalityTitle: 'o Estudioso',
       description: 'Dedicado e focado, domina a teoria antes da prática!',
-      assetPath: 'assets/images/avatars/academico_masculino.png',
-      primaryColor: '#2E7D55', // Verde acadêmico
+      primaryColor: '#2E7D55',
       secondaryColor: '#4A9B6B',
       characteristics: [
         'Metódico e organizado',
@@ -91,6 +117,12 @@ class Avatar {
         'Planeja antes de agir',
         'Foco na precisão'
       ],
+      neutralPath:
+          'assets/images/avatars/academico/masculino/academico_masculino_neutro.png',
+      happyPath:
+          'assets/images/avatars/academico/masculino/academico_masculino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/academico/masculino/academico_masculino_determinado.png',
     );
   }
 
@@ -100,8 +132,7 @@ class Avatar {
       gender: AvatarGender.feminino,
       personalityTitle: 'a Estudiosa',
       description: 'Dedicada e intelectual, sempre vai além nas pesquisas!',
-      assetPath: 'assets/images/avatars/academico_feminino.png',
-      primaryColor: '#2E7D55', // Verde acadêmico
+      primaryColor: '#2E7D55',
       secondaryColor: '#4A9B6B',
       characteristics: [
         'Intelectual e dedicada',
@@ -109,6 +140,12 @@ class Avatar {
         'Colaborativa',
         'Foco na excelência'
       ],
+      neutralPath:
+          'assets/images/avatars/academico/feminino/academico_feminino_neutro.png',
+      happyPath:
+          'assets/images/avatars/academico/feminino/academico_feminino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/academico/feminino/academico_feminino_determinado.png',
     );
   }
 
@@ -118,8 +155,7 @@ class Avatar {
       gender: AvatarGender.masculino,
       personalityTitle: 'o Determinado',
       description: 'Competitivo nato, busca sempre estar no topo!',
-      assetPath: 'assets/images/avatars/competitivo_masculino.png',
-      primaryColor: '#E74C3C', // Vermelho competitivo
+      primaryColor: '#E74C3C',
       secondaryColor: '#F39C12',
       characteristics: [
         'Ambicioso e determinado',
@@ -127,6 +163,12 @@ class Avatar {
         'Busca a vitória',
         'Persistente'
       ],
+      neutralPath:
+          'assets/images/avatars/competitivo/masculino/competitivo_masculino_neutro.png',
+      happyPath:
+          'assets/images/avatars/competitivo/masculino/competitivo_masculino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/competitivo/masculino/competitivo_masculino_determinado.png',
     );
   }
 
@@ -136,8 +178,7 @@ class Avatar {
       gender: AvatarGender.feminino,
       personalityTitle: 'a Determinada',
       description: 'Focada em resultados e sempre em busca da vitória!',
-      assetPath: 'assets/images/avatars/competitivo_feminino.png',
-      primaryColor: '#E74C3C', // Vermelho competitivo
+      primaryColor: '#E74C3C',
       secondaryColor: '#F39C12',
       characteristics: [
         'Focada e vencedora',
@@ -145,6 +186,12 @@ class Avatar {
         'Busca excelência',
         'Estratégica'
       ],
+      neutralPath:
+          'assets/images/avatars/competitivo/feminino/competitivo_feminino_neutro.png',
+      happyPath:
+          'assets/images/avatars/competitivo/feminino/competitivo_feminino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/competitivo/feminino/competitivo_feminino_determinado.png',
     );
   }
 
@@ -154,8 +201,7 @@ class Avatar {
       gender: AvatarGender.masculino,
       personalityTitle: 'o Aventureiro',
       description: 'Curioso e investigativo, quer descobrir todos os segredos!',
-      assetPath: 'assets/images/avatars/explorador_masculino.png',
-      primaryColor: '#3498DB', // Azul explorador
+      primaryColor: '#3498DB',
       secondaryColor: '#2ECC71',
       characteristics: [
         'Curioso por natureza',
@@ -163,6 +209,12 @@ class Avatar {
         'Faz muitas perguntas',
         'Aprende explorando'
       ],
+      neutralPath:
+          'assets/images/avatars/explorador/masculino/explorador_masculino_neutro.png',
+      happyPath:
+          'assets/images/avatars/explorador/masculino/explorador_masculino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/explorador/masculino/explorador_masculino_determinado.png',
     );
   }
 
@@ -172,8 +224,7 @@ class Avatar {
       gender: AvatarGender.feminino,
       personalityTitle: 'a Aventureira',
       description: 'Curiosa e criativa, sempre buscando novos caminhos!',
-      assetPath: 'assets/images/avatars/explorador_feminino.png',
-      primaryColor: '#3498DB', // Azul explorador
+      primaryColor: '#3498DB',
       secondaryColor: '#2ECC71',
       characteristics: [
         'Curiosa e criativa',
@@ -181,6 +232,12 @@ class Avatar {
         'Busca novos caminhos',
         'Aprende fazendo'
       ],
+      neutralPath:
+          'assets/images/avatars/explorador/feminino/explorador_feminino_neutro.png',
+      happyPath:
+          'assets/images/avatars/explorador/feminino/explorador_feminino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/explorador/feminino/explorador_feminino_determinado.png',
     );
   }
 
@@ -190,8 +247,7 @@ class Avatar {
       gender: AvatarGender.masculino,
       personalityTitle: 'o Sábio',
       description: 'Analítico e inteligente, sempre tem um plano equilibrado!',
-      assetPath: 'assets/images/avatars/equilibrado_masculino.png',
-      primaryColor: '#9B59B6', // Roxo equilibrado
+      primaryColor: '#9B59B6',
       secondaryColor: '#8E44AD',
       characteristics: [
         'Equilibrado e sereno',
@@ -199,6 +255,12 @@ class Avatar {
         'Analisa padrões',
         'Busca harmonia'
       ],
+      neutralPath:
+          'assets/images/avatars/equilibrado/masculino/equilibrado_masculino_neutro.png',
+      happyPath:
+          'assets/images/avatars/equilibrado/masculino/equilibrado_masculino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/equilibrado/masculino/equilibrado_masculino_determinado.png',
     );
   }
 
@@ -208,8 +270,7 @@ class Avatar {
       gender: AvatarGender.feminino,
       personalityTitle: 'a Sábia',
       description: 'Analítica e sábia, combina estratégia com serenidade!',
-      assetPath: 'assets/images/avatars/equilibrado_feminino.png',
-      primaryColor: '#9B59B6', // Roxo equilibrado
+      primaryColor: '#9B59B6',
       secondaryColor: '#8E44AD',
       characteristics: [
         'Sábia e equilibrada',
@@ -217,34 +278,35 @@ class Avatar {
         'Busca harmonia',
         'Centrada e focada'
       ],
+      neutralPath:
+          'assets/images/avatars/equilibrado/feminino/equilibrado_feminino_neutro.png',
+      happyPath:
+          'assets/images/avatars/equilibrado/feminino/equilibrado_feminino_feliz.png',
+      determinedPath:
+          'assets/images/avatars/equilibrado/feminino/equilibrado_feminino_determinado.png',
     );
   }
 
-  // Recomendação baseada no perfil do usuário (mantém lógica existente)
+  // Recomendação baseada no perfil do usuário
   static AvatarType recommendForProfile(UserProfile profile) {
-    // Se tem universidade específica + matemática/tecnologia = Acadêmico
     if (profile.targetUniversity != null &&
         profile.preferredTrail == ProfessionalTrail.matematicaTecnologia) {
       return AvatarType.academico;
     }
 
-    // Se gosta de ciências natureza = Explorador
     if (profile.preferredTrail == ProfessionalTrail.cienciasNatureza) {
       return AvatarType.explorador;
     }
 
-    // Se tem muitas dificuldades = Acadêmico (metódico)
     if (profile.difficulties.length >= 3) {
       return AvatarType.academico;
     }
 
-    // Padrão para ENEM ou metas altas = Competitivo
     if (profile.primaryGoal == StudyGoal.enemPrep ||
         profile.dailyStudyMinutes >= 120) {
       return AvatarType.competitivo;
     }
 
-    // Fallback padrão
     return AvatarType.equilibrado;
   }
 
@@ -278,27 +340,23 @@ class Avatar {
 // Extensão para UserProfile incluir avatar com gênero
 extension UserProfileAvatar on UserProfile {
   AvatarType? get selectedAvatarType {
-    // Por enquanto retorna null, será expandido quando integrarmos
-    return null;
+    return null; // Será expandido quando integrarmos
   }
 
   AvatarGender? get selectedAvatarGender {
-    // Por enquanto retorna null, será expandido quando integrarmos
-    return null;
+    return null; // Será expandido quando integrarmos
   }
 
   AvatarType get recommendedAvatarType {
     return Avatar.recommendForProfile(this);
   }
 
-  // Obter avatar recomendado (por padrão masculino, mas usuário pode escolher)
   Avatar getRecommendedAvatar({AvatarGender? preferredGender}) {
     final type = recommendedAvatarType;
     final gender = preferredGender ?? AvatarGender.masculino;
     return Avatar.fromTypeAndGender(type, gender);
   }
 
-  // Obter avatar selecionado ou recomendado
   Avatar getCurrentAvatar({AvatarGender? preferredGender}) {
     final type = selectedAvatarType ?? recommendedAvatarType;
     final gender =

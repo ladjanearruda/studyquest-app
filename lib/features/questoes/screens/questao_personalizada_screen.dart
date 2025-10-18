@@ -1,5 +1,5 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
-// ✅ CORRIGIDO V6.9: Header dinâmico com avatar do onboarding
+// ✅ ATUALIZADO V6.9.3: Avatares maiores (64/100/60px) + Scroll modal
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +9,7 @@ import '../providers/questao_personalizada_provider.dart';
 import '../models/questao_personalizada.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../../core/models/avatar.dart';
+import '../../avatar/providers/avatar_provider.dart';
 
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
@@ -25,11 +26,28 @@ class _QuestaoPersonalizadaScreenState
   int _timeLeft = 45;
   bool _showFeedback = false;
 
+  Avatar? _currentAvatar;
+  AvatarEmotion _currentEmotion = AvatarEmotion.neutro;
+
   @override
   void initState() {
     super.initState();
     _startTimer();
     _initializeSession();
+    _loadAvatar();
+  }
+
+  void _loadAvatar() {
+    final onboardingData = ref.read(onboardingProvider);
+    if (onboardingData.selectedAvatarType != null &&
+        onboardingData.selectedAvatarGender != null) {
+      setState(() {
+        _currentAvatar = Avatar.fromTypeAndGender(
+          onboardingData.selectedAvatarType!,
+          onboardingData.selectedAvatarGender!,
+        );
+      });
+    }
   }
 
   void _initializeSession() async {
@@ -57,7 +75,10 @@ class _QuestaoPersonalizadaScreenState
 
   void _handleTimeout() {
     if (!mounted || _showFeedback) return;
-    setState(() => _showFeedback = true);
+    setState(() {
+      _showFeedback = true;
+      _currentEmotion = AvatarEmotion.determinado;
+    });
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(-1);
     ref.read(recursosPersonalizadosProvider.notifier).atualizarRecursos(false);
     _showFeedbackModal(false, isTimeout: true);
@@ -71,14 +92,19 @@ class _QuestaoPersonalizadaScreenState
 
   void _selectOption(int index) {
     if (_showFeedback) return;
-    setState(() {
-      _selectedOption = index;
-      _showFeedback = true;
-    });
-    _timer?.cancel();
+
     final sessao = ref.read(sessaoQuestoesProvider);
     final questao = sessao.questaoAtualObj;
     final isCorrect = questao != null && index == questao.respostaCorreta;
+
+    setState(() {
+      _selectedOption = index;
+      _showFeedback = true;
+      _currentEmotion =
+          isCorrect ? AvatarEmotion.feliz : AvatarEmotion.determinado;
+    });
+
+    _timer?.cancel();
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(index);
     ref
         .read(recursosPersonalizadosProvider.notifier)
@@ -100,6 +126,8 @@ class _QuestaoPersonalizadaScreenState
         questao: sessao.questaoAtualObj,
         recursos: recursos,
         sessao: sessao,
+        currentAvatar: _currentAvatar,
+        currentEmotion: _currentEmotion,
         onContinue: _nextQuestion,
       ),
     );
@@ -115,6 +143,7 @@ class _QuestaoPersonalizadaScreenState
         _selectedOption = null;
         _showFeedback = false;
         _timeLeft = 45;
+        _currentEmotion = AvatarEmotion.neutro;
       });
       _startTimer();
     } else {
@@ -177,6 +206,7 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
+  // ✅ MUDANÇA: 48px → 64px
   Widget _buildHeaderPrototipo(
       OnboardingData onboardingData, SessaoQuestoes sessao) {
     final avatarDisplay = _getAvatarShortDisplay(onboardingData);
@@ -186,35 +216,70 @@ class _QuestaoPersonalizadaScreenState
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green.shade400, Colors.green.shade600],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+          if (_currentAvatar != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(32), // Ajustado para 64px
+              child: Container(
+                width: 64, // ✅ 48px → 64px
+                height: 64, // ✅ 48px → 64px
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade400, Colors.green.shade600],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10, // Ajustado proporcionalmente
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: Image.asset(
+                    _currentAvatar!.getPath(_currentEmotion),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Text(
+                          onboardingData.name?.substring(0, 1).toUpperCase() ??
+                              'U',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24, // Ajustado proporcionalmente
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            )
+          else
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green.shade400, Colors.green.shade600],
+                ),
+                borderRadius: BorderRadius.circular(32),
+              ),
+              child: Center(
+                child: Text(
+                  onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -330,6 +395,7 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
+  // ✅ MUDANÇA: 80px → 100px
   Widget _buildQuestaoComAvatarProtagonista(
       questao, OnboardingData onboardingData, SessaoQuestoes sessao) {
     return Container(
@@ -347,31 +413,64 @@ class _QuestaoPersonalizadaScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                  colors: [Colors.green.shade300, Colors.green.shade500]),
-              borderRadius: BorderRadius.circular(50),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.green.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4)),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.white,
-              child: Text(
-                onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
-                style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green),
+          if (_currentAvatar != null)
+            Container(
+              padding: const EdgeInsets.all(5), // Ajustado proporcionalmente
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [Colors.green.shade300, Colors.green.shade500]),
+                borderRadius: BorderRadius.circular(60), // Ajustado
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4)),
+                ],
+              ),
+              child: ClipOval(
+                child: Container(
+                  width: 100, // ✅ 80px → 100px
+                  height: 100, // ✅ 80px → 100px
+                  color: Colors.white,
+                  child: Image.asset(
+                    _currentAvatar!.getPath(_currentEmotion),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Text(
+                          onboardingData.name?.substring(0, 1).toUpperCase() ??
+                              'U',
+                          style: const TextStyle(
+                              fontSize: 42, // Ajustado proporcionalmente
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [Colors.green.shade300, Colors.green.shade500]),
+                borderRadius: BorderRadius.circular(60),
+              ),
+              child: CircleAvatar(
+                radius: 50, // 40 → 50 (para 100px total)
+                backgroundColor: Colors.white,
+                child: Text(
+                  onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
+                  style: const TextStyle(
+                      fontSize: 34, // Ajustado
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green),
+                ),
               ),
             ),
-          ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
@@ -429,9 +528,9 @@ class _QuestaoPersonalizadaScreenState
 
   List<Widget> _buildAlternativas(questao) {
     return questao.alternativas.asMap().entries.map<Widget>((entry) {
-      final index = entry.key;
-      final opcao = entry.value;
-      final letra = String.fromCharCode(65 + index as int);
+      final index = entry.key as int;
+      final opcao = entry.value as String;
+      final letra = String.fromCharCode(65 + index);
       final isSelected = _selectedOption == index;
 
       return Padding(
@@ -516,21 +615,6 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ MÉTODOS AUXILIARES PARA AVATAR DISPLAY
-
-  String _getAvatarFullDisplay(OnboardingData onboarding) {
-    final userName = onboarding.name ?? "Usuário";
-    if (onboarding.selectedAvatarType != null &&
-        onboarding.selectedAvatarGender != null) {
-      final tipo = _getAvatarTipoMinusculo(
-          onboarding.selectedAvatarType!, onboarding.selectedAvatarGender!);
-      final titulo = _getAvatarTituloMinusculo(
-          onboarding.selectedAvatarType!, onboarding.selectedAvatarGender!);
-      return '$userName, $tipo e $titulo';
-    }
-    return userName;
-  }
-
   String _getAvatarShortDisplay(OnboardingData onboarding) {
     final userName = onboarding.name ?? "Usuário";
     if (onboarding.selectedAvatarType != null &&
@@ -556,20 +640,6 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
-  String _getAvatarTituloMinusculo(AvatarType type, AvatarGender gender) {
-    final isFeminino = gender == AvatarGender.feminino;
-    switch (type) {
-      case AvatarType.academico:
-        return isFeminino ? 'estudiosa' : 'estudioso';
-      case AvatarType.competitivo:
-        return isFeminino ? 'determinada' : 'determinado';
-      case AvatarType.explorador:
-        return isFeminino ? 'aventureira' : 'aventureiro';
-      case AvatarType.equilibrado:
-        return isFeminino ? 'sábia' : 'sábio';
-    }
-  }
-
   String _formatMateria(String materia) {
     const materiaMap = {
       'Português e Literatura': 'Português',
@@ -586,7 +656,7 @@ class _QuestaoPersonalizadaScreenState
   }
 }
 
-// Modal de feedback (mantido do código original, sem alterações necessárias)
+// ✅ MODAL COM SCROLL (fonts/paddings originais mantidos)
 class FeedbackPersonalizadoModal extends StatelessWidget {
   final bool acertou;
   final bool isTimeout;
@@ -594,6 +664,8 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   final dynamic questao;
   final Map<String, double> recursos;
   final dynamic sessao;
+  final Avatar? currentAvatar;
+  final AvatarEmotion currentEmotion;
   final VoidCallback onContinue;
 
   const FeedbackPersonalizadoModal({
@@ -604,6 +676,8 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     this.questao,
     required this.recursos,
     required this.sessao,
+    this.currentAvatar,
+    this.currentEmotion = AvatarEmotion.neutro,
     required this.onContinue,
   });
 
@@ -628,20 +702,21 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           child: Column(
             children: [
               _buildHeader(),
+              // ✅ MUDANÇA: Expanded + SingleChildScrollView para resolver overflow
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16), // Mantido original
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(flex: 1, child: _buildExplicacaoCard()),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 16), // Mantido original
                       Expanded(
                         flex: 1,
                         child: Column(
                           children: [
                             _buildRecursosCard(),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 16), // Mantido original
                             _buildProgressoCard(),
                           ],
                         ),
@@ -658,9 +733,10 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     );
   }
 
+  // ✅ MUDANÇA: 50px → 60px no avatar
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16), // Mantido original
       decoration: BoxDecoration(
         color: acertou ? Colors.green.shade400 : Colors.red.shade400,
         borderRadius: const BorderRadius.only(
@@ -670,13 +746,36 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            isTimeout
-                ? Icons.schedule
-                : (acertou ? Icons.check_circle : Icons.cancel),
-            color: Colors.white,
-            size: 28,
-          ),
+          if (currentAvatar != null)
+            ClipOval(
+              child: Container(
+                width: 60, // ✅ 50px → 60px
+                height: 60, // ✅ 50px → 60px
+                color: Colors.white,
+                child: Image.asset(
+                  currentAvatar!.getPath(currentEmotion),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      isTimeout
+                          ? Icons.schedule
+                          : (acertou ? Icons.check_circle : Icons.cancel),
+                      color:
+                          acertou ? Colors.green.shade400 : Colors.red.shade400,
+                      size: 32, // Ajustado proporcionalmente
+                    );
+                  },
+                ),
+              ),
+            )
+          else
+            Icon(
+              isTimeout
+                  ? Icons.schedule
+                  : (acertou ? Icons.check_circle : Icons.cancel),
+              color: Colors.white,
+              size: 32,
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -688,12 +787,13 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                       : (acertou ? 'Excelente!' : 'Quase lá!'),
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: 20, // Mantido original
                       fontWeight: FontWeight.bold),
                 ),
                 Text(_buildSubtitle(),
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 14)),
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14)), // Mantido original
               ],
             ),
           ),
@@ -704,7 +804,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildExplicacaoCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20), // Mantido original
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
@@ -712,36 +812,34 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8), // Mantido original
                 decoration: BoxDecoration(
                   color: Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child:
-                    Icon(Icons.lightbulb, color: Colors.amber[700], size: 20),
+                child: Icon(Icons.lightbulb,
+                    color: Colors.amber[700], size: 20), // Mantido original
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 12), // Mantido original
               const Text('Explicação da Questão',
                   style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 16, // Mantido original
                       fontWeight: FontWeight.bold,
                       color: Colors.black87)),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Text(
-                questao?.explicacao ??
-                    'Para calcular a área de um retângulo, multiplicamos comprimento × largura.',
-                style: const TextStyle(
-                    fontSize: 14, height: 1.5, color: Colors.black87),
-              ),
-            ),
+          const SizedBox(height: 16), // Mantido original
+          Text(
+            questao?.explicacao ?? 'Explicação não disponível.',
+            style: const TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: Colors.black87), // Mantido original
           ),
         ],
       ),
@@ -750,7 +848,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildRecursosCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16), // Mantido original
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -758,34 +856,35 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             color: acertou ? Colors.green[200]! : Colors.red[200]!, width: 2),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
         children: [
           Row(
             children: [
               Icon(acertou ? Icons.trending_up : Icons.trending_down,
                   color: acertou ? Colors.green[600] : Colors.red[600],
-                  size: 20),
-              const SizedBox(width: 8),
+                  size: 20), // Mantido original
+              const SizedBox(width: 8), // Mantido original
               Text(_getRecursoTexto(),
                   style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 14, // Mantido original
                       fontWeight: FontWeight.bold,
                       color: acertou ? Colors.green[700] : Colors.red[700])),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // Mantido original
           Text(_getRecursoDescricao(),
               style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 12, // Mantido original
                   color: Colors.grey[600],
                   fontStyle: FontStyle.italic),
               textAlign: TextAlign.center),
-          const SizedBox(height: 16),
+          const SizedBox(height: 16), // Mantido original
           _buildRecursoItem(Icons.flash_on, 'Energia',
               recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // Mantido original
           _buildRecursoItem(Icons.water_drop, 'Água',
               recursos['agua']?.toInt() ?? 100, Colors.blue[700]!),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // Mantido original
           _buildRecursoItem(Icons.favorite, 'Saúde',
               recursos['saude']?.toInt() ?? 100, Colors.red[700]!),
         ],
@@ -796,14 +895,17 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   Widget _buildRecursoItem(IconData icon, String nome, int valor, Color cor) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: cor),
-        const SizedBox(width: 8),
+        Icon(icon, size: 16, color: cor), // Mantido original
+        const SizedBox(width: 8), // Mantido original
         Text(nome,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w500)), // Mantido original
         const Spacer(),
         Text('$valor%',
             style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.bold, color: cor)),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: cor)), // Mantido original
       ],
     );
   }
@@ -819,30 +921,32 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     final xpGanho = acertou ? 15 : (isTimeout ? 0 : 5);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16), // Mantido original
       decoration: BoxDecoration(
         color: Colors.amber[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.amber[200]!),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
         children: [
           Row(
             children: [
-              Icon(Icons.star, color: Colors.amber[700], size: 20),
-              const SizedBox(width: 8),
+              Icon(Icons.star,
+                  color: Colors.amber[700], size: 20), // Mantido original
+              const SizedBox(width: 8), // Mantido original
               Text('Progresso',
                   style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 14, // Mantido original
                       fontWeight: FontWeight.bold,
                       color: Colors.amber[800])),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 16), // Mantido original
           _buildProgressoItem('XP Ganho', '+$xpGanho'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // Mantido original
           _buildProgressoItem('Questão', '$questaoAtual/$totalQuestoes'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 8), // Mantido original
           _buildProgressoItem('Precisão', '$precisao%'),
         ],
       ),
@@ -854,10 +958,11 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w500)), // Mantido original
         Text(valor,
             style: TextStyle(
-                fontSize: 12,
+                fontSize: 12, // Mantido original
                 fontWeight: FontWeight.bold,
                 color: Colors.amber[800])),
       ],
@@ -866,7 +971,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildBotaoContinuar() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24), // Mantido original
       child: SizedBox(
         width: double.infinity,
         height: 48,
@@ -893,14 +998,24 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   }
 
   String _buildSubtitle() {
-    if (isTimeout) {
-      return 'O tempo esgotou | Correta: ${String.fromCharCode(65 + (questao?.respostaCorreta as int? ?? 0))}';
+    int getRespostaCorretaIndex() {
+      final resposta = questao?.respostaCorreta;
+      if (resposta == null) return 0;
+      if (resposta is int) return resposta;
+      if (resposta is num) return resposta.toInt();
+      return 0;
     }
+
+    if (isTimeout) {
+      final respostaCorretaIndex = getRespostaCorretaIndex();
+      return 'O tempo esgotou | Correta: ${String.fromCharCode(65 + respostaCorretaIndex)}';
+    }
+
     final suaResposta = selectedOption != null
         ? String.fromCharCode(65 + selectedOption!)
         : 'Nenhuma';
-    final respostaCorreta =
-        String.fromCharCode(65 + (questao?.respostaCorreta as int? ?? 0));
+    final respostaCorretaIndex = getRespostaCorretaIndex();
+    final respostaCorreta = String.fromCharCode(65 + respostaCorretaIndex);
     return 'Sua resposta: $suaResposta | Correta: $respostaCorreta';
   }
 

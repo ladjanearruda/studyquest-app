@@ -47,3 +47,23 @@ flutter:
     - assets/images/questoes/9ano/
     - assets/images/questoes/ensino-medio/
     - assets/images/questoes/modo_descoberta/
+    
+    # ========================================
+    # AVATARES - Sistema 8 Avatares + 3 Estados (24 PNGs)
+    # ========================================
+    # Acadêmico Masculino (3 estados)
+    - assets/images/avatars/academico/masculino/
+    # Acadêmico Feminino (3 estados)
+    - assets/images/avatars/academico/feminino/
+    # Competitivo Masculino (3 estados)
+    - assets/images/avatars/competitivo/masculino/
+    # Competitivo Feminino (3 estados)
+    - assets/images/avatars/competitivo/feminino/
+    # Explorador Masculino (3 estados)
+    - assets/images/avatars/explorador/masculino/
+    # Explorador Feminino (3 estados)
+    - assets/images/avatars/explorador/feminino/
+    # Equilibrado Masculino (3 estados)
+    - assets/images/avatars/equilibrado/masculino/
+    # Equilibrado Feminino (3 estados)
+    - assets/images/avatars/equilibrado/feminino/
