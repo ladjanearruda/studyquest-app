@@ -1,10 +1,11 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
-// ✅ ATUALIZADO V6.9.3: Avatares maiores (64/100/60px) + Scroll modal
+// ✅ V6.9.4 - CORRIGIDO: Validação de alternativas + logs debug
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
+import 'dart:math'; // ✅ ADICIONADO para min()
 import '../providers/questao_personalizada_provider.dart';
 import '../models/questao_personalizada.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
@@ -162,6 +163,23 @@ class _QuestaoPersonalizadaScreenState
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // ✅ LOG DE DEBUG DETALHADO
+    print('🔍 RENDERIZANDO QUESTÃO ${sessao.questaoAtual + 1}:');
+    print('   ID: ${questao.id}');
+    print(
+        '   Enunciado: ${questao.enunciado.substring(0, min(50, questao.enunciado.length))}...');
+    print('   Alternativas: ${questao.alternativas?.length ?? 0}');
+    if (questao.alternativas != null && questao.alternativas.isNotEmpty) {
+      for (int i = 0; i < questao.alternativas.length; i++) {
+        final altText = questao.alternativas[i];
+        final preview =
+            altText.length > 30 ? altText.substring(0, 30) : altText;
+        print('   [$i]: $preview${altText.length > 30 ? "..." : ""}');
+      }
+    } else {
+      print('   ⚠️ ALTERNATIVAS VAZIAS OU NULL!');
+    }
+
     if (!ref.read(recursosPersonalizadosProvider.notifier).estaVivo) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.go('/questoes-gameover');
@@ -206,7 +224,6 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ MUDANÇA: 48px → 64px
   Widget _buildHeaderPrototipo(
       OnboardingData onboardingData, SessaoQuestoes sessao) {
     final avatarDisplay = _getAvatarShortDisplay(onboardingData);
@@ -218,10 +235,10 @@ class _QuestaoPersonalizadaScreenState
         children: [
           if (_currentAvatar != null)
             ClipRRect(
-              borderRadius: BorderRadius.circular(32), // Ajustado para 64px
+              borderRadius: BorderRadius.circular(32),
               child: Container(
-                width: 64, // ✅ 48px → 64px
-                height: 64, // ✅ 48px → 64px
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Colors.green.shade400, Colors.green.shade600],
@@ -232,7 +249,7 @@ class _QuestaoPersonalizadaScreenState
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10, // Ajustado proporcionalmente
+                      blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -249,7 +266,7 @@ class _QuestaoPersonalizadaScreenState
                               'U',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24, // Ajustado proporcionalmente
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -395,7 +412,6 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ MUDANÇA: 80px → 100px
   Widget _buildQuestaoComAvatarProtagonista(
       questao, OnboardingData onboardingData, SessaoQuestoes sessao) {
     return Container(
@@ -415,11 +431,11 @@ class _QuestaoPersonalizadaScreenState
         children: [
           if (_currentAvatar != null)
             Container(
-              padding: const EdgeInsets.all(5), // Ajustado proporcionalmente
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                     colors: [Colors.green.shade300, Colors.green.shade500]),
-                borderRadius: BorderRadius.circular(60), // Ajustado
+                borderRadius: BorderRadius.circular(60),
                 boxShadow: [
                   BoxShadow(
                       color: Colors.green.withOpacity(0.3),
@@ -429,8 +445,8 @@ class _QuestaoPersonalizadaScreenState
               ),
               child: ClipOval(
                 child: Container(
-                  width: 100, // ✅ 80px → 100px
-                  height: 100, // ✅ 80px → 100px
+                  width: 100,
+                  height: 100,
                   color: Colors.white,
                   child: Image.asset(
                     _currentAvatar!.getPath(_currentEmotion),
@@ -441,7 +457,7 @@ class _QuestaoPersonalizadaScreenState
                           onboardingData.name?.substring(0, 1).toUpperCase() ??
                               'U',
                           style: const TextStyle(
-                              fontSize: 42, // Ajustado proporcionalmente
+                              fontSize: 42,
                               fontWeight: FontWeight.bold,
                               color: Colors.green),
                         ),
@@ -460,12 +476,12 @@ class _QuestaoPersonalizadaScreenState
                 borderRadius: BorderRadius.circular(60),
               ),
               child: CircleAvatar(
-                radius: 50, // 40 → 50 (para 100px total)
+                radius: 50,
                 backgroundColor: Colors.white,
                 child: Text(
                   onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
                   style: const TextStyle(
-                      fontSize: 34, // Ajustado
+                      fontSize: 34,
                       fontWeight: FontWeight.bold,
                       color: Colors.green),
                 ),
@@ -526,7 +542,58 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
+  // ✅ MÉTODO CORRIGIDO COM VALIDAÇÃO COMPLETA
   List<Widget> _buildAlternativas(questao) {
+    // 🛡️ VALIDAÇÃO DE SEGURANÇA
+    if (questao?.alternativas == null ||
+        questao.alternativas.isEmpty ||
+        questao.alternativas.length < 2) {
+      print('⚠️ ERRO: Questão sem alternativas válidas!');
+      print('   ID: ${questao?.id}');
+      print('   Alternativas: ${questao?.alternativas}');
+
+      // Retorna placeholder visual
+      return [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.shade300, width: 2),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade700, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Erro ao carregar alternativas',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Esta questão está com dados corrompidos no Firebase',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
     return questao.alternativas.asMap().entries.map<Widget>((entry) {
       final index = entry.key as int;
       final opcao = entry.value as String;
@@ -656,7 +723,7 @@ class _QuestaoPersonalizadaScreenState
   }
 }
 
-// ✅ MODAL COM SCROLL (fonts/paddings originais mantidos)
+// ===== MODAL (sem mudanças) =====
 class FeedbackPersonalizadoModal extends StatelessWidget {
   final bool acertou;
   final bool isTimeout;
@@ -702,21 +769,20 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           child: Column(
             children: [
               _buildHeader(),
-              // ✅ MUDANÇA: Expanded + SingleChildScrollView para resolver overflow
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16), // Mantido original
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(flex: 1, child: _buildExplicacaoCard()),
-                      const SizedBox(width: 16), // Mantido original
+                      const SizedBox(width: 16),
                       Expanded(
                         flex: 1,
                         child: Column(
                           children: [
                             _buildRecursosCard(),
-                            const SizedBox(height: 16), // Mantido original
+                            const SizedBox(height: 16),
                             _buildProgressoCard(),
                           ],
                         ),
@@ -733,10 +799,9 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     );
   }
 
-  // ✅ MUDANÇA: 50px → 60px no avatar
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16), // Mantido original
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: acertou ? Colors.green.shade400 : Colors.red.shade400,
         borderRadius: const BorderRadius.only(
@@ -749,8 +814,8 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           if (currentAvatar != null)
             ClipOval(
               child: Container(
-                width: 60, // ✅ 50px → 60px
-                height: 60, // ✅ 50px → 60px
+                width: 60,
+                height: 60,
                 color: Colors.white,
                 child: Image.asset(
                   currentAvatar!.getPath(currentEmotion),
@@ -762,7 +827,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                           : (acertou ? Icons.check_circle : Icons.cancel),
                       color:
                           acertou ? Colors.green.shade400 : Colors.red.shade400,
-                      size: 32, // Ajustado proporcionalmente
+                      size: 32,
                     );
                   },
                 ),
@@ -787,13 +852,12 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
                       : (acertou ? 'Excelente!' : 'Quase lá!'),
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 20, // Mantido original
+                      fontSize: 20,
                       fontWeight: FontWeight.bold),
                 ),
                 Text(_buildSubtitle(),
-                    style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14)), // Mantido original
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
@@ -804,7 +868,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildExplicacaoCard() {
     return Container(
-      padding: const EdgeInsets.all(20), // Mantido original
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
@@ -812,34 +876,32 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8), // Mantido original
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.lightbulb,
-                    color: Colors.amber[700], size: 20), // Mantido original
+                child:
+                    Icon(Icons.lightbulb, color: Colors.amber[700], size: 20),
               ),
-              const SizedBox(width: 12), // Mantido original
+              const SizedBox(width: 12),
               const Text('Explicação da Questão',
                   style: TextStyle(
-                      fontSize: 16, // Mantido original
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87)),
             ],
           ),
-          const SizedBox(height: 16), // Mantido original
+          const SizedBox(height: 16),
           Text(
             questao?.explicacao ?? 'Explicação não disponível.',
             style: const TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: Colors.black87), // Mantido original
+                fontSize: 14, height: 1.5, color: Colors.black87),
           ),
         ],
       ),
@@ -848,7 +910,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildRecursosCard() {
     return Container(
-      padding: const EdgeInsets.all(16), // Mantido original
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -856,35 +918,35 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             color: acertou ? Colors.green[200]! : Colors.red[200]!, width: 2),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Icon(acertou ? Icons.trending_up : Icons.trending_down,
                   color: acertou ? Colors.green[600] : Colors.red[600],
-                  size: 20), // Mantido original
-              const SizedBox(width: 8), // Mantido original
+                  size: 20),
+              const SizedBox(width: 8),
               Text(_getRecursoTexto(),
                   style: TextStyle(
-                      fontSize: 14, // Mantido original
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: acertou ? Colors.green[700] : Colors.red[700])),
             ],
           ),
-          const SizedBox(height: 8), // Mantido original
+          const SizedBox(height: 8),
           Text(_getRecursoDescricao(),
               style: TextStyle(
-                  fontSize: 12, // Mantido original
+                  fontSize: 12,
                   color: Colors.grey[600],
                   fontStyle: FontStyle.italic),
               textAlign: TextAlign.center),
-          const SizedBox(height: 16), // Mantido original
+          const SizedBox(height: 16),
           _buildRecursoItem(Icons.flash_on, 'Energia',
               recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
-          const SizedBox(height: 8), // Mantido original
+          const SizedBox(height: 8),
           _buildRecursoItem(Icons.water_drop, 'Água',
               recursos['agua']?.toInt() ?? 100, Colors.blue[700]!),
-          const SizedBox(height: 8), // Mantido original
+          const SizedBox(height: 8),
           _buildRecursoItem(Icons.favorite, 'Saúde',
               recursos['saude']?.toInt() ?? 100, Colors.red[700]!),
         ],
@@ -895,17 +957,14 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   Widget _buildRecursoItem(IconData icon, String nome, int valor, Color cor) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: cor), // Mantido original
-        const SizedBox(width: 8), // Mantido original
+        Icon(icon, size: 16, color: cor),
+        const SizedBox(width: 8),
         Text(nome,
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w500)), // Mantido original
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
         const Spacer(),
         Text('$valor%',
             style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: cor)), // Mantido original
+                fontSize: 12, fontWeight: FontWeight.bold, color: cor)),
       ],
     );
   }
@@ -921,32 +980,31 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     final xpGanho = acertou ? 15 : (isTimeout ? 0 : 5);
 
     return Container(
-      padding: const EdgeInsets.all(16), // Mantido original
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.amber[50],
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.amber[200]!),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // ✅ Adicionado para scroll
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(Icons.star,
-                  color: Colors.amber[700], size: 20), // Mantido original
-              const SizedBox(width: 8), // Mantido original
+              Icon(Icons.star, color: Colors.amber[700], size: 20),
+              const SizedBox(width: 8),
               Text('Progresso',
                   style: TextStyle(
-                      fontSize: 14, // Mantido original
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.amber[800])),
             ],
           ),
-          const SizedBox(height: 16), // Mantido original
+          const SizedBox(height: 16),
           _buildProgressoItem('XP Ganho', '+$xpGanho'),
-          const SizedBox(height: 8), // Mantido original
+          const SizedBox(height: 8),
           _buildProgressoItem('Questão', '$questaoAtual/$totalQuestoes'),
-          const SizedBox(height: 8), // Mantido original
+          const SizedBox(height: 8),
           _buildProgressoItem('Precisão', '$precisao%'),
         ],
       ),
@@ -958,11 +1016,10 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w500)), // Mantido original
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
         Text(valor,
             style: TextStyle(
-                fontSize: 12, // Mantido original
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: Colors.amber[800])),
       ],
@@ -971,7 +1028,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
 
   Widget _buildBotaoContinuar() {
     return Container(
-      padding: const EdgeInsets.all(24), // Mantido original
+      padding: const EdgeInsets.all(24),
       child: SizedBox(
         width: double.infinity,
         height: 48,

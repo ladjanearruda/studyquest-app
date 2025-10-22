@@ -1,5 +1,5 @@
-// lib/shared/services/firebase_service.dart - CÓDIGO COMPLETO V6.8
-// CORREÇÃO: 70% matéria com dificuldade + 30% matéria de interesse
+// lib/shared/services/firebase_service.dart - V7.0 MULTI-LAYER
+// ✅ Algoritmo Híbrido Inteligente com 5 Layers de Personalização
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -24,31 +24,33 @@ class FirebaseService {
   // Cache sistema para performance
   static final Map<String, CacheEntry> _questionsCache = {};
 
-  // ===== MÉTODO PRINCIPAL V6.8 - ALGORITMO CORRIGIDO =====
+  // ===== MÉTODO PRINCIPAL V7.0 - ALGORITMO MULTI-LAYER =====
 
-  /// Buscar questões personalizadas usando dados do onboarding
   static Future<List<QuestionModel>> getPersonalizedQuestionsFromOnboarding({
     required UserModel user,
     NivelHabilidade? nivelConhecimento,
     int limit = 10,
   }) async {
     try {
-      print('🎯 INICIANDO ALGORITMO V6.8 CORRIGIDO');
+      print('🎯 INICIANDO ALGORITMO V7.0 MULTI-LAYER');
       print('   Usuário: ${user.name} (${user.schoolLevel})');
       print('   Matéria com dificuldade: ${user.mainDifficulty}');
       print('   Área de interesse: ${user.interestArea}');
+      print('   Nível do usuário: ${user.userLevel}');
 
-      // 1. Buscar questões do Firebase com cache
+      // 1. Buscar questões do Firebase (nível exato)
       final allQuestions =
           await _getQuestionsFromFirestoreWithCache(user.schoolLevel);
 
       if (allQuestions.isEmpty) {
-        print('⚠️ Nenhuma questão Firebase. Usando fallback local.');
+        print('⚠️ Nenhuma questão Firebase. Usando fallback local completo.');
         return await _getQuestionsFromLocalFallback(user.schoolLevel, limit);
       }
 
-      // 2. Aplicar algoritmo de personalização 70/30 CORRIGIDO
-      final personalizedQuestions = _personalizeQuestionsComNivel(
+      print('✅ Firebase: ${allQuestions.length} questões disponíveis');
+
+      // 2. Aplicar algoritmo Multi-Layer
+      final personalizedQuestions = await _multiLayerPersonalization(
         allQuestions,
         user,
         limit,
@@ -56,7 +58,7 @@ class FirebaseService {
       );
 
       print(
-          '✅ ${personalizedQuestions.length} questões personalizadas selecionadas');
+          '✅ ${personalizedQuestions.length} questões selecionadas (Multi-Layer)');
       return personalizedQuestions;
     } catch (e) {
       print('❌ Erro na personalização: $e');
@@ -64,68 +66,252 @@ class FirebaseService {
     }
   }
 
-  // ===== ALGORITMO PERSONALIZAÇÃO CORRIGIDO FINAL =====
+  // ===== ALGORITMO MULTI-LAYER V7.0 =====
 
-  static List<QuestionModel> _personalizeQuestionsComNivel(
-    List<QuestionModel> allQuestions,
+  static Future<List<QuestionModel>> _multiLayerPersonalization(
+    List<QuestionModel> baseQuestions,
     UserModel user,
     int limit,
     NivelHabilidade? nivelConhecimento,
-  ) {
-    if (allQuestions.isEmpty) return [];
+  ) async {
+    print('\n🧠 ALGORITMO MULTI-LAYER V7.0');
 
     List<QuestionModel> selected = [];
-
-    print('🎯 ALGORITMO FINAL CORRIGIDO V6.8:');
-    print('   Matéria com dificuldade: ${user.mainDifficulty} (70%)');
-    print('   Área de interesse: ${user.interestArea} (30%)');
-    print('   Nível do usuário: ${user.userLevel}');
-
-    // 70% - Questões da MATÉRIA com maior dificuldade
+    final targetDifficulty = user.userLevel;
     final materiaProblematica = _normalizarNomeMateria(user.mainDifficulty);
-    var questoesMateriaDificil = allQuestions
+
+    // ===== LAYER 1: BUSCA PRIMÁRIA (70/30 IDEAL) =====
+    print('\n📍 LAYER 1 - Busca Primária (70% matéria + 30% interesse)');
+
+    // 70% matéria com dificuldade
+    var questoesMateria = baseQuestions
         .where((q) => _isSubjectMatch(q.subject, materiaProblematica))
+        .where((q) => q.difficulty == targetDifficulty)
         .toList();
+
+    if (questoesMateria.isEmpty) {
+      // Aceitar outras dificuldades da mesma matéria
+      questoesMateria = baseQuestions
+          .where((q) => _isSubjectMatch(q.subject, materiaProblematica))
+          .toList();
+    }
 
     int seventyPercent = (limit * 0.7).round();
-    questoesMateriaDificil.shuffle();
-    selected.addAll(questoesMateriaDificil.take(seventyPercent));
+    questoesMateria.shuffle();
+    selected.addAll(questoesMateria.take(seventyPercent));
 
     print(
-        '   ✅ Selecionadas ${selected.length}/$seventyPercent questões de $materiaProblematica');
+        '   ✅ Matéria (${materiaProblematica}): ${selected.length}/$seventyPercent');
 
-    // 30% - Questões da ÁREA DE INTERESSE (evitando duplicatas)
-    var questoesInteresse = allQuestions
+    // 30% área de interesse
+    var questoesInteresse = baseQuestions
         .where((q) => _isSubjectOfInterest(q.subject, user.interestArea))
-        .where((q) => !selected.contains(q)) // Evita duplicatas
+        .where((q) => q.difficulty == targetDifficulty)
+        .where((q) => !selected.contains(q))
         .toList();
 
-    int thirtyPercent = limit - selected.length;
+    if (questoesInteresse.isEmpty) {
+      questoesInteresse = baseQuestions
+          .where((q) => _isSubjectOfInterest(q.subject, user.interestArea))
+          .where((q) => !selected.contains(q))
+          .toList();
+    }
+
+    int thirtyPercent = (limit * 0.3).round();
     questoesInteresse.shuffle();
     selected.addAll(questoesInteresse.take(thirtyPercent));
 
     print(
-        '   ✅ Selecionadas ${selected.length - seventyPercent}/$thirtyPercent questões de interesse');
+        '   ✅ Interesse: ${selected.length}/${seventyPercent + thirtyPercent}');
 
-    // Completar com questões gerais se necessário
+    // ===== LAYER 2: EXPANSÃO INTELIGENTE (Cross-Subject) =====
     if (selected.length < limit) {
-      var remaining = allQuestions.where((q) => !selected.contains(q)).toList();
-      remaining.shuffle();
+      print('\n📍 LAYER 2 - Expansão Inteligente (matérias relacionadas)');
+
       final needed = limit - selected.length;
+      var related = baseQuestions
+          .where((q) => !selected.contains(q))
+          .where((q) => _isRelatedSubject(
+              q.subject, materiaProblematica, user.interestArea))
+          .toList();
+
+      related.shuffle();
+      selected.addAll(related.take(needed));
+
+      print('   ✅ Relacionadas: +${related.take(needed).length} questões');
+    }
+
+    // ===== LAYER 3: POOL EXPANDIDO (Níveis Adjacentes) =====
+    if (selected.length < limit) {
+      print('\n📍 LAYER 3 - Pool Expandido (níveis ±1)');
+
+      final adjacentLevels = _getAdjacentLevels(user.schoolLevel);
+      List<QuestionModel> expandedPool = [];
+
+      for (final level in adjacentLevels) {
+        final adjacentQuestions =
+            await _getQuestionsFromFirestoreWithCache(level);
+        expandedPool.addAll(adjacentQuestions);
+      }
+
+      print('   📦 Pool expandido: +${expandedPool.length} questões');
+
+      if (expandedPool.isNotEmpty) {
+        final needed = limit - selected.length;
+
+        // Priorizar mesma matéria e dificuldade
+        var priorityQuestions = expandedPool
+            .where((q) => !selected.contains(q))
+            .where((q) =>
+                _isSubjectMatch(q.subject, materiaProblematica) ||
+                _isSubjectOfInterest(q.subject, user.interestArea))
+            .where((q) => q.difficulty == targetDifficulty)
+            .toList();
+
+        if (priorityQuestions.isEmpty) {
+          // Aceitar qualquer matéria relevante
+          priorityQuestions =
+              expandedPool.where((q) => !selected.contains(q)).toList();
+        }
+
+        priorityQuestions.shuffle();
+        selected.addAll(priorityQuestions.take(needed));
+
+        print(
+            '   ✅ Níveis adjacentes: +${priorityQuestions.take(needed).length} questões');
+      }
+    }
+
+    // ===== LAYER 4: ADAPTAÇÃO PROPORCIONAL (Qualquer Firebase) =====
+    if (selected.length < limit) {
+      print('\n📍 LAYER 4 - Adaptação Proporcional (maximize Firebase)');
+
+      final needed = limit - selected.length;
+      var remaining =
+          baseQuestions.where((q) => !selected.contains(q)).toList();
+
+      remaining.shuffle();
       selected.addAll(remaining.take(needed));
 
       print(
-          '   ✅ Completadas $needed questões gerais para total de ${selected.length}');
+          '   ✅ Outras matérias Firebase: +${remaining.take(needed).length} questões');
     }
 
+    // ===== LAYER 5: FALLBACK LOCAL (Último Recurso) =====
+    if (selected.length < limit) {
+      print('\n📍 LAYER 5 - Fallback Local (último recurso)');
+
+      final needed = limit - selected.length;
+      final fallbackQuestions = await _getQuestionsFromLocalFallback(
+        user.schoolLevel,
+        needed,
+      );
+
+      // Evitar duplicatas
+      final fallbackFiltered = fallbackQuestions
+          .where((q) => !selected.any((s) => s.id == q.id))
+          .toList();
+
+      selected.addAll(fallbackFiltered);
+
+      print('   ✅ Fallback local: +${fallbackFiltered.length} questões');
+    }
+
+    // Embaralhar resultado final
     selected.shuffle();
-    print('✅ ALGORITMO FINAL: ${selected.length} questões selecionadas');
+
+    // ===== ESTATÍSTICAS FINAIS =====
+    print('\n📊 ESTATÍSTICAS FINAIS:');
+    print('   Total selecionado: ${selected.length}/$limit');
+
+    final distribuicao = <String, int>{};
+    final porMateria = <String, int>{};
+
+    for (final q in selected) {
+      distribuicao[q.difficulty] = (distribuicao[q.difficulty] ?? 0) + 1;
+      porMateria[q.subject] = (porMateria[q.subject] ?? 0) + 1;
+    }
+
+    print('   Por dificuldade: $distribuicao');
+    print('   Por matéria: $porMateria');
+
     return selected.take(limit).toList();
   }
 
-  // ===== MÉTODOS AUXILIARES CORRIGIDOS =====
+  // ===== MÉTODOS AUXILIARES MULTI-LAYER =====
 
-  /// Normalizar nomes de matérias para comparação
+  /// Verifica se matéria é relacionada (mesma área de conhecimento)
+  static bool _isRelatedSubject(
+      String subject, String mainSubject, String interestArea) {
+    final subjectNorm = _normalizarNomeMateria(subject);
+    final mainNorm = _normalizarNomeMateria(mainSubject);
+
+    // Já é a matéria principal ou de interesse
+    if (subjectNorm == mainNorm) return false;
+    if (_isSubjectOfInterest(subject, interestArea)) return false;
+
+    // Matérias relacionadas por área
+    const Map<String, List<String>> relatedAreas = {
+      'cienciasNatureza': [
+        'matematica',
+        'fisica',
+        'quimica',
+        'biologia',
+        'ciencias'
+      ],
+      'matematicaTecnologia': ['matematica', 'fisica', 'informatica'],
+      'linguagens': ['portugues', 'ingles', 'literatura', 'redacao'],
+      'humanas': ['historia', 'geografia', 'filosofia', 'sociologia'],
+    };
+
+    for (final area in relatedAreas.entries) {
+      if (area.value.contains(mainNorm) && area.value.contains(subjectNorm)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// Retorna níveis escolares adjacentes (±1)
+  static List<String> _getAdjacentLevels(String currentLevel) {
+    const levelSequence = [
+      'fundamental6',
+      '6ano',
+      'fundamental7',
+      '7ano',
+      'fundamental8',
+      '8ano',
+      'fundamental9',
+      '9ano',
+      'medio1',
+      'EM1',
+      'medio2',
+      'EM2',
+      'medio3',
+      'EM3',
+    ];
+
+    final currentIndex = levelSequence.indexOf(currentLevel);
+    if (currentIndex == -1) return [];
+
+    List<String> adjacent = [];
+
+    // Nível anterior
+    if (currentIndex > 0) {
+      adjacent.add(levelSequence[currentIndex - 1]);
+    }
+
+    // Nível seguinte
+    if (currentIndex < levelSequence.length - 1) {
+      adjacent.add(levelSequence[currentIndex + 1]);
+    }
+
+    return adjacent;
+  }
+
+  // ===== MÉTODOS AUXILIARES EXISTENTES (mantidos) =====
+
   static String _normalizarNomeMateria(String materia) {
     final normalizado = materia
         .toLowerCase()
@@ -164,14 +350,12 @@ class FirebaseService {
     return mapeamento[normalizado] ?? normalizado;
   }
 
-  /// Verificar se uma questão corresponde à matéria específica
   static bool _isSubjectMatch(String questionSubject, String targetSubject) {
     final questionNorm = _normalizarNomeMateria(questionSubject);
     final targetNorm = _normalizarNomeMateria(targetSubject);
 
     if (questionNorm == targetNorm) return true;
 
-    // Correspondências parciais comuns
     if (targetNorm.contains('portugues') && questionNorm.contains('portugues'))
       return true;
     if (targetNorm.contains('matematica') &&
@@ -223,7 +407,7 @@ class FirebaseService {
     return subjects.any((s) => _isSubjectMatch(normalizedSubject, s));
   }
 
-  // ===== INTEGRAÇÃO FIREBASE REAL =====
+  // ===== INTEGRAÇÃO FIREBASE (mantida) =====
 
   static Future<List<QuestionModel>> _getQuestionsFromFirestoreWithCache(
       String schoolLevel) async {
@@ -231,13 +415,12 @@ class FirebaseService {
     final cached = _questionsCache[cacheKey];
 
     if (cached != null && !cached.isExpired) {
-      print(
-          '✅ Cache hit para $schoolLevel: ${cached.questions.length} questões');
+      print('   💾 Cache hit: ${cached.questions.length} questões');
       return cached.questions;
     }
 
     try {
-      print('🔍 Buscando questões do Firebase para $schoolLevel...');
+      print('   🔍 Buscando Firebase: $schoolLevel...');
 
       final url = '$baseUrl/questions';
       final response = await http.get(Uri.parse(url));
@@ -260,14 +443,13 @@ class FirebaseService {
 
         _questionsCache[cacheKey] = CacheEntry(questions, DateTime.now());
 
-        print(
-            '✅ Firebase: ${questions.length} questões carregadas para $schoolLevel');
+        print('   ✅ Firebase: ${questions.length} questões');
         return questions;
       } else {
         throw Exception('Erro HTTP: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Erro Firebase: $e');
+      print('   ❌ Erro Firebase: $e');
       return [];
     }
   }
@@ -313,19 +495,19 @@ class FirebaseService {
 
   static Future<List<QuestionModel>> _getQuestionsFromLocalFallback(
       String schoolLevel, int limit) async {
-    print('🔄 Usando fallback local para $schoolLevel');
+    print('   🔄 Fallback local: $schoolLevel ($limit questões)');
 
     try {
       final questions =
           QuestionsDatabase.getQuestionsByLevel(schoolLevel, limit: limit);
       return questions;
     } catch (e) {
-      print('❌ Erro no fallback local: $e');
+      print('   ❌ Erro fallback: $e');
       return [];
     }
   }
 
-  // ===== MÉTODOS AUXILIARES EXISTENTES =====
+  // ===== MÉTODOS AUXILIARES EXISTENTES (mantidos) =====
 
   static Future<UserModel?> getCurrentUser() async {
     try {
@@ -364,24 +546,26 @@ class FirebaseService {
     if (questions.isEmpty) return {};
 
     final subjectCount = <String, int>{};
+    final difficultyCount = <String, int>{};
 
     for (final question in questions) {
       subjectCount[question.subject] =
           (subjectCount[question.subject] ?? 0) + 1;
+      difficultyCount[question.difficulty] =
+          (difficultyCount[question.difficulty] ?? 0) + 1;
     }
 
     return {
       'total_questions': questions.length,
       'user_level': nivelConhecimento?.nome ?? 'perfil usuário',
       'subject_distribution': subjectCount,
-      'algorithm_version': 'v6.8_materia_problema_final',
-      'source': 'firebase_com_algoritmo_materia_problema',
-      'correction': '70_percent_problem_subject_30_percent_interest',
-      'logic': '70% matéria com dificuldade + 30% área de interesse',
+      'difficulty_distribution': difficultyCount,
+      'algorithm_version': 'v7.0_multi_layer',
+      'source': 'firebase_multi_layer_intelligent',
+      'logic': '5 layers: primária → expansão → pool → adaptação → fallback',
     };
   }
 
-  // Métodos placeholder para compatibilidade
   static Future<String> createUser(Map<String, dynamic> userData) async {
     return 'user_${DateTime.now().millisecondsSinceEpoch}';
   }
@@ -398,7 +582,6 @@ class FirebaseService {
     print('📝 Resposta registrada: $questionId - ${wasCorrect ? "✅" : "❌"}');
   }
 
-  // Métodos para compatibilidade com personalization_provider
   static Future<List<QuestionModel>> getPersonalizedQuestions(
     UserModel user, {
     int limit = 20,

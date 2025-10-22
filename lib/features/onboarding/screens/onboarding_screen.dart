@@ -41,6 +41,7 @@ class OnboardingData {
   String? dreamUniversity;
   String? studyTime;
   String? mainDifficulty;
+  String? behavioralAspect; // 🆕 CAMPO NOVO ADICIONADO
   String? studyStyle;
   AvatarType? selectedAvatarType;
   AvatarGender? selectedAvatarGender;
@@ -57,6 +58,8 @@ class OnboardingData {
     String? dreamUniversity,
     String? studyTime,
     String? mainDifficulty,
+    String? behavioralAspect, // 🆕 PARÂMETRO NOVO
+
     String? studyStyle,
     AvatarType? selectedAvatarType,
     AvatarGender? selectedAvatarGender,
@@ -69,6 +72,9 @@ class OnboardingData {
     newState.dreamUniversity = dreamUniversity ?? this.dreamUniversity;
     newState.studyTime = studyTime ?? this.studyTime;
     newState.mainDifficulty = mainDifficulty ?? this.mainDifficulty;
+    newState.behavioralAspect =
+        behavioralAspect ?? this.behavioralAspect; // 🆕 LINHA NOVA
+
     newState.studyStyle = studyStyle ?? this.studyStyle;
     newState.selectedAvatarType = selectedAvatarType ?? this.selectedAvatarType;
     newState.selectedAvatarGender =
@@ -3676,17 +3682,56 @@ class _Tela6DificuldadeState extends ConsumerState<Tela6Dificuldade>
     super.dispose();
   }
 
+  // ===== CORREÇÃO: SALVAR SELEÇÃO SEPARADA =====
   void _saveSelection() {
-    final combinedDifficulty =
-        selectedSubject != null && selectedBehavior != null
-            ? '$selectedSubject + $selectedBehavior'
-            : selectedSubject ?? selectedBehavior ?? '';
+    // ✅ Normalizar matéria selecionada
+    final selectedSubjectNormalized = selectedSubject != null
+        ? _normalizeSubjectName(selectedSubject!)
+        : null;
 
+    // ✅ Normalizar aspecto comportamental selecionado
+    final selectedBehaviorNormalized = selectedBehavior != null
+        ? _normalizeBehaviorName(selectedBehavior!)
+        : null;
+
+    // ✅ Salvar SEPARADAMENTE no provider
     ref.read(onboardingProvider.notifier).update((state) {
       return state.copyWith(
-        mainDifficulty: combinedDifficulty,
+        mainDifficulty: selectedSubjectNormalized, // SÓ a matéria
+        behavioralAspect: selectedBehaviorNormalized, // SÓ o aspecto
       );
     });
+  }
+
+  // ===== MÉTODO AUXILIAR 1: Normalizar Matéria =====
+  String _normalizeSubjectName(String subject) {
+    const Map<String, String> materiaMapping = {
+      'Português e Literatura': 'portugues',
+      'Matemática': 'matematica',
+      'Física': 'fisica',
+      'Química': 'quimica',
+      'Biologia': 'biologia',
+      'História': 'historia',
+      'Geografia': 'geografia',
+      'Inglês': 'ingles',
+      'Não tenho dificuldade específica em matérias': 'geral',
+    };
+    return materiaMapping[subject] ?? subject.toLowerCase();
+  }
+
+  // ===== MÉTODO AUXILIAR 2: Normalizar Aspecto Comportamental =====
+  String _normalizeBehaviorName(String behavior) {
+    const Map<String, String> aspectMapping = {
+      'Foco e concentração': 'foco_concentracao',
+      'Memorização e fixação': 'memorizacao_fixacao',
+      'Motivação para estudar': 'motivacao_estudar',
+      'Ansiedade em provas': 'ansiedade_provas',
+      'Raciocínio lógico': 'raciocinio_logico',
+      'Organização dos estudos': 'organizacao_estudos',
+      'Interpretação de texto': 'interpretacao_texto',
+      'Não tenho dificuldades comportamentais': 'sem_dificuldade',
+    };
+    return aspectMapping[behavior] ?? behavior.toLowerCase();
   }
 
   @override
