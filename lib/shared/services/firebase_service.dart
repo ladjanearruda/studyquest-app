@@ -1,5 +1,6 @@
-// lib/shared/services/firebase_service.dart - V7.0 MULTI-LAYER
+// lib/shared/services/firebase_service.dart - V7.1 RETROCOMPATÍVEL
 // ✅ Algoritmo Híbrido Inteligente com 5 Layers de Personalização
+// ✅ CORREÇÃO CRÍTICA: Código retrocompatível PT/EN implementado
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -454,6 +455,7 @@ class FirebaseService {
     }
   }
 
+  // ===== ✅ CONVERSÃO FIREBASE → MODEL (RETROCOMPATÍVEL V7.1) =====
   static Map<String, dynamic> _convertFirestoreToQuestionModel(
       String docName, Map<String, dynamic> fields) {
     return {
@@ -462,9 +464,15 @@ class FirebaseService {
       'schoolLevel': _getFirestoreStringValue(fields['school_level']),
       'difficulty': _getFirestoreStringValue(fields['difficulty']),
       'theme': _getFirestoreStringValue(fields['theme']),
-      'enunciado': _getFirestoreStringValue(fields['enunciado']),
-      'alternativas': _getFirestoreArrayValue(fields['alternativas']),
-      'respostaCorreta': _getFirestoreIntValue(fields['resposta_correta']),
+
+      // ✅ RETROCOMPATÍVEL PT/EN:
+      'enunciado': _getFirestoreStringValueWithFallback(
+          fields, ['enunciado', 'question']),
+      'alternativas': _getFirestoreArrayValueWithFallback(
+          fields, ['alternativas', 'options']),
+      'respostaCorreta': _getFirestoreIntValueWithFallback(
+          fields, ['resposta_correta', 'correct_answer']),
+
       'explicacao': _getFirestoreStringValue(fields['explicacao']),
       'imagemEspecifica': _getFirestoreStringValue(fields['imagem_especifica']),
       'tags': _getFirestoreArrayValue(fields['tags']),
@@ -472,6 +480,8 @@ class FirebaseService {
       'createdAt': DateTime.now().toIso8601String(),
     };
   }
+
+  // ===== HELPERS BÁSICOS (mantidos) =====
 
   static String _getFirestoreStringValue(dynamic field) {
     return field?['stringValue'] ?? '';
@@ -489,6 +499,48 @@ class FirebaseService {
 
   static Map<String, dynamic> _getFirestoreMapValue(dynamic field) {
     return field?['mapValue']?['fields'] as Map<String, dynamic>? ?? {};
+  }
+
+  // ===== ✅ HELPERS RETROCOMPATÍVEIS (NOVOS V7.1) =====
+
+  /// Busca string com fallback para múltiplos campos
+  /// Aceita nomenclatura PT e EN
+  static String _getFirestoreStringValueWithFallback(
+      Map<String, dynamic> fields, List<String> fieldNames) {
+    for (final fieldName in fieldNames) {
+      final value = _getFirestoreStringValue(fields[fieldName]);
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  /// Busca array com fallback para múltiplos campos
+  /// Aceita nomenclatura PT e EN
+  static List<String> _getFirestoreArrayValueWithFallback(
+      Map<String, dynamic> fields, List<String> fieldNames) {
+    for (final fieldName in fieldNames) {
+      final value = _getFirestoreArrayValue(fields[fieldName]);
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return [];
+  }
+
+  /// Busca int com fallback para múltiplos campos
+  /// Aceita nomenclatura PT e EN
+  static int _getFirestoreIntValueWithFallback(
+      Map<String, dynamic> fields, List<String> fieldNames) {
+    for (final fieldName in fieldNames) {
+      final field = fields[fieldName];
+      if (field != null) {
+        final value = _getFirestoreIntValue(field);
+        return value;
+      }
+    }
+    return 0;
   }
 
   // ===== FALLBACK LOCAL =====
@@ -560,9 +612,10 @@ class FirebaseService {
       'user_level': nivelConhecimento?.nome ?? 'perfil usuário',
       'subject_distribution': subjectCount,
       'difficulty_distribution': difficultyCount,
-      'algorithm_version': 'v7.0_multi_layer',
+      'algorithm_version': 'v7.1_multi_layer_retrocompativel',
       'source': 'firebase_multi_layer_intelligent',
       'logic': '5 layers: primária → expansão → pool → adaptação → fallback',
+      'compatibility': 'PT + EN nomenclature supported',
     };
   }
 
