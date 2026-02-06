@@ -35,7 +35,7 @@ class QuestaoPersonalizada {
       enunciado: data['enunciado'] ?? '',
       alternativas: List<String>.from(data['alternativas'] ?? []),
       respostaCorreta: data['resposta_correta'] ?? 0,
-      explicacao: data['explicacao'] ?? '',
+      explicacao: data['explicacao'] ?? data['explanation'] ?? '',
       imagemEspecifica: data['imagem_especifica'],
       tags: List<String>.from(data['tags'] ?? []),
       metadata: data['metadata'] ?? {},

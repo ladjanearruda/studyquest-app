@@ -1,16 +1,14 @@
-// lib/features/questoes/providers/questao_personalizada_provider.dart
-// ✅ V7.1 - ATUALIZADO com Sistema de Recursos e XP
+// lib/features/questoes/providers/questao_personalizada_provider.dart - CORRIGIDO V6.7
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/questao_personalizada.dart';
 import '../../../shared/services/firebase_service.dart';
+import '../../../shared/providers/personalization_provider.dart';
 import '../../modo_descoberta/providers/modo_descoberta_provider.dart';
 import '../../../core/models/user_model.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
-import 'sessao_usuario_provider.dart';
-import 'recursos_provider_v71.dart';
 
-// ===== PROVIDER DO ESTADO DA SESSÃO DE QUESTÕES =====
+// Provider do estado da sessão
 final sessaoQuestoesProvider =
     StateNotifierProvider<SessaoQuestoesNotifier, SessaoQuestoes>(
   (ref) => SessaoQuestoesNotifier(ref),
@@ -22,7 +20,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   SessaoQuestoesNotifier(this.ref)
       : super(SessaoQuestoes(inicioSessao: DateTime.now()));
 
-  // ===== INICIAR SESSÃO =====
+  // Iniciar sessão com algoritmo personalizado - CORRIGIDO
   Future<void> iniciarSessao({String? modo}) async {
     try {
       // Obter dados do onboarding real
@@ -40,7 +38,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       final descobertaState = ref.read(descobertaNivelProvider);
       String userLevel = _getUserLevelFromOnboarding(descobertaState);
 
-      // Criar UserModel a partir do OnboardingData
+      // Criar UserModel a partir do OnboardingData - CORRIGIDO
       final user = UserModel(
         id: 'user_${onboardingData.name}',
         name: onboardingData.name!,
@@ -52,7 +50,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
         mainDifficulty: onboardingData.mainDifficulty ?? 'matematica',
         behavioralAspect: 'foco_concentracao',
         studyStyle: onboardingData.studyStyle ?? 'sozinho_meu_ritmo',
-        userLevel: userLevel,
+        userLevel: userLevel, // 🆕 INCLUIR NÍVEL DO USUÁRIO
         createdAt: DateTime.now(),
         lastLogin: DateTime.now(),
         totalXp: 0,
@@ -69,11 +67,12 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       print('   Área de interesse: ${user.interestArea}');
       print('   Nível do usuário: ${user.userLevel}');
 
-      // Chamar algoritmo personalizado do Firebase
+      // Chamar algoritmo personalizado do Firebase - AGORA CORRETO
       final questoes =
           await FirebaseService.getPersonalizedQuestionsFromOnboarding(
         user: user,
-        nivelConhecimento: null,
+        nivelConhecimento:
+            null, // Por enquanto null, será implementado quando Modo Descoberta estiver completo
         limit: 10,
       );
 
@@ -98,13 +97,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
               ))
           .toList();
 
-      // ✅ V7.1: Iniciar sessão no provider de usuário
-      ref.read(sessaoUsuarioProvider.notifier).iniciarSessao();
-
-      // ✅ V7.1: Iniciar recursos
-      ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
-
-      // Atualizar estado da sessão de questões
+      // Atualizar estado
       state = SessaoQuestoes(
         questoes: questoesPersonalizadas,
         questaoAtual: 0,
@@ -115,79 +108,27 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       );
 
       print('🎯 Sessão iniciada: ${questoesPersonalizadas.length} questões');
-      print('🔧 Algoritmo V7.1: recursos e XP integrados');
+      print('🔧 Algoritmo corrigido V6.7: dificuldade do perfil = $userLevel');
     } catch (e) {
       print('❌ Erro ao iniciar sessão: $e');
       rethrow;
     }
   }
 
-  // ===== RESPONDER QUESTÃO =====
-  void responderQuestao(int respostaIndex, {bool isTimeout = false}) {
-    final questaoAtual = state.questaoAtualObj;
-    if (questaoAtual == null) return;
-
-    final isCorreto = !isTimeout && respostaIndex == questaoAtual.respostaCorreta;
-
-    // Atualizar listas de respostas
-    final novasRespostas = [...state.respostasUsuario, respostaIndex];
-    final novosAcertos = [...state.acertos, isCorreto];
-
-    state = state.copyWith(
-      respostasUsuario: novasRespostas,
-      acertos: novosAcertos,
-    );
-
-    // ✅ V7.1: Registrar no provider de sessão do usuário
-    final sessaoNotifier = ref.read(sessaoUsuarioProvider.notifier);
-    final dificuldade = questaoAtual.difficulty;
-
-    if (isTimeout) {
-      sessaoNotifier.registrarTimeout();
-    } else if (isCorreto) {
-      // TODO: Implementar verificação de behavioralMatch
-      sessaoNotifier.registrarAcerto(dificuldade, behavioralMatch: false);
-    } else {
-      // V7.1: Erro sem reflexão (Diário vem na Sprint 9)
-      sessaoNotifier.registrarErro(dificuldade, comReflexao: false);
-    }
-  }
-
-  // ===== PRÓXIMA QUESTÃO =====
-  void proximaQuestao() {
-    if (state.temProximaQuestao) {
-      state = state.copyWith(questaoAtual: state.questaoAtual + 1);
-    } else {
-      // Finalizar sessão
-      finalizarSessao();
-    }
-  }
-
-  // ===== FINALIZAR SESSÃO =====
-  void finalizarSessao() {
-    state = state.copyWith(sessaoFinalizada: true);
-
-    // ✅ V7.1: Finalizar sessão no provider de usuário
-    ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
-  }
-
-  // ===== RESET =====
-  void resetSessao() {
-    state = SessaoQuestoes(inicioSessao: DateTime.now());
-  }
-
-  // ===== MÉTODOS AUXILIARES =====
-
+  // 🆕 NOVO MÉTODO - Extrair nível do usuário do onboarding
   String _getUserLevelFromOnboarding(DescobertaNivelState descobertaState) {
     print('🔍 Extraindo nível do usuário...');
 
+    // Verificar se escolheu o Modo Descoberta
     if (descobertaState.metodoEscolhido == MetodoNivelamento.descoberta) {
+      // Buscar resultado do Modo Descoberta
       final modoDescobertaState = ref.read(modoDescobertaProvider);
 
       if (modoDescobertaState.resultado != null) {
         final nivelDetectado = modoDescobertaState.resultado!.nivelDetectado;
         print('   Modo Descoberta resultado: ${nivelDetectado.titulo}');
 
+        // Converter NivelDetectado para dificuldade
         switch (nivelDetectado) {
           case NivelDetectado.iniciante:
           case NivelDetectado.iniciantePlus:
@@ -199,11 +140,13 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
             return 'dificil';
         }
       } else {
-        print('   Modo Descoberta: resultado ainda não disponível, usando medio');
+        print(
+            '   Modo Descoberta: resultado ainda não disponível, usando medio');
         return 'medio';
       }
     }
 
+    // Se escolheu manual, usar seleção
     if (descobertaState.nivelManual != null) {
       final nivel = descobertaState.nivelManual!;
       print('   Seleção manual: ${nivel.nome}');
@@ -217,10 +160,44 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       }
     }
 
+    // Fallback padrão
     print('   Fallback: nivel medio');
     return 'medio';
   }
 
+  // Responder questão atual
+  void responderQuestao(int respostaIndex) {
+    final questaoAtual = state.questaoAtualObj;
+    if (questaoAtual == null) return;
+
+    final isCorreto = respostaIndex == questaoAtual.respostaCorreta;
+
+    // Atualizar listas de respostas
+    final novasRespostas = [...state.respostasUsuario, respostaIndex];
+    final novosAcertos = [...state.acertos, isCorreto];
+
+    state = state.copyWith(
+      respostasUsuario: novasRespostas,
+      acertos: novosAcertos,
+    );
+  }
+
+  // Ir para próxima questão
+  void proximaQuestao() {
+    if (state.temProximaQuestao) {
+      state = state.copyWith(questaoAtual: state.questaoAtual + 1);
+    } else {
+      // Finalizar sessão
+      state = state.copyWith(sessaoFinalizada: true);
+    }
+  }
+
+  // Reset para nova sessão
+  void resetSessao() {
+    state = SessaoQuestoes(inicioSessao: DateTime.now());
+  }
+
+  // Métodos de conversão - MANTIDOS
   String _convertEducationLevel(EducationLevel level) {
     switch (level) {
       case EducationLevel.fundamental6:
@@ -271,12 +248,38 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   }
 }
 
-// ===== PROVIDER DE RECURSOS (COMPATIBILIDADE) =====
-// Exporta do arquivo recursos_provider_v71.dart
-// O recursosPersonalizadosProvider já está definido lá
-// Aqui apenas re-exportamos para manter compatibilidade de imports
+// Provider para recursos vitais da sessão atual - MANTIDO
+final recursosPersonalizadosProvider =
+    StateNotifierProvider<RecursosPersonalizadosNotifier, Map<String, double>>(
+  (ref) => RecursosPersonalizadosNotifier(),
+);
 
-// Se precisar importar em outros lugares, use:
-// import 'package:studyquest/features/questoes/providers/questao_personalizada_provider.dart';
-// ou
-// import 'package:studyquest/features/questoes/providers/recursos_provider_v71.dart';
+class RecursosPersonalizadosNotifier
+    extends StateNotifier<Map<String, double>> {
+  RecursosPersonalizadosNotifier()
+      : super({
+          'energia': 100.0,
+          'agua': 100.0,
+          'saude': 100.0,
+        });
+
+  void atualizarRecursos(bool acertou) {
+    final delta = acertou ? 5.0 : -10.0;
+
+    state = {
+      'energia': (state['energia']! + delta).clamp(0.0, 100.0),
+      'agua': (state['agua']! + delta).clamp(0.0, 100.0),
+      'saude': (state['saude']! + delta).clamp(0.0, 100.0),
+    };
+  }
+
+  void resetRecursos() {
+    state = {
+      'energia': 100.0,
+      'agua': 100.0,
+      'saude': 100.0,
+    };
+  }
+
+  bool get estaVivo => state.values.any((v) => v > 0);
+}

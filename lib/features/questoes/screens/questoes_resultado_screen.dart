@@ -10,6 +10,8 @@ import '../providers/questao_personalizada_provider.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../../core/models/avatar.dart';
 
+import '../providers/recursos_provider_v71.dart';
+
 class QuestoesResultadoScreen extends ConsumerStatefulWidget {
   const QuestoesResultadoScreen({super.key});
 
