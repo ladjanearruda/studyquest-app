@@ -16,7 +16,7 @@ dependencies:
   flutter_animate: ^4.2.0
   percent_indicator: ^4.2.1
   flutter_svg: ^2.0.7
-  confetti: ^0.7.0
+  confetti: ^0.8.0
   cached_network_image: ^3.2.3
   shared_preferences: ^2.2.2
   http: ^1.1.0

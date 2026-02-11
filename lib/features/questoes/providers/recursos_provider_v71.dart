@@ -1,11 +1,84 @@
 // lib/features/questoes/providers/recursos_provider_v71.dart
-// ✅ V7.1 - Sistema de Recursos com Fórmula Correta
-// SUBSTITUI: recursosPersonalizadosProvider no questao_personalizada_provider.dart
+// ✅ V7.3 - Sistema de Recursos ATUALIZADO
+// 📅 Atualizado: 10/02/2026
+//
+// ============================================
+// MUDANÇAS V7.3:
+// - Penalidade aumentada de -10% para -20%
+// - Checkpoint agora acontece com 5 erros (em vez de 10)
+// - Balanceamento para sessões de 10 questões
+// ============================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'sessao_usuario_provider.dart';
 
-// ===== ESTADO DOS RECURSOS V7.1 =====
+// ===== CONSTANTES DO JOGO V7.3 =====
+// ✅ Renomeado para evitar conflito com sessao_usuario_provider.dart
+class RecursosConstants {
+  // ✅ V7.3: PENALIDADES AUMENTADAS
+  static const double PERDA_ERRO_AGUA = 20.0; // Era 10.0 → Agora 20.0
+  static const double PERDA_TIMEOUT_ENERGIA = 20.0; // Era 10.0 → Agora 20.0
+
+  // Ganhos (mantidos)
+  static const double GANHO_ACERTO = 5.0; // +5% água e energia
+
+  // Pesos para cálculo de saúde (mantidos)
+  static const double PESO_AGUA_SAUDE = 14.0;
+  static const double PESO_ENERGIA_SAUDE = 4.0;
+
+  // XP por dificuldade (mantidos)
+  static const int XP_FACIL_ACERTO = 15;
+  static const int XP_MEDIO_ACERTO = 25;
+  static const int XP_DIFICIL_ACERTO = 40;
+
+  // ============================================
+  // DOCUMENTAÇÃO V7.3 - SISTEMA DE RECURSOS
+  // ============================================
+  //
+  // RECURSOS TEMPORÁRIOS (resetam por sessão):
+  // - Energia: 100% inicial, -20% por timeout, +5% por acerto
+  // - Água: 100% inicial, -20% por erro, +5% por acerto
+  //
+  // RECURSO PERSISTENTE (entre sessões):
+  // - Saúde: Calculada pela fórmula abaixo
+  //
+  // FÓRMULA DA SAÚDE:
+  // Saúde_perdida = (Água_perdida × 14 + Energia_perdida × 4) / 100
+  //
+  // EVENTOS:
+  // ┌─────────────────────────────────────────────────────────┐
+  // │ CHECKPOINT (Água OU Energia = 0)                        │
+  // ├─────────────────────────────────────────────────────────┤
+  // │ • Trigger: 5 erros (água) OU 5 timeouts (energia)       │
+  // │ • Água/Energia: Resetam para 100%                       │
+  // │ • Saúde: MANTÉM valor atual                             │
+  // │ • XP: Perde XP da sessão                                │
+  // │ • Nível: MANTÉM                                         │
+  // │ • Questões: REPETE as mesmas da sessão (volta questão 1)│
+  // └─────────────────────────────────────────────────────────┘
+  //
+  // ┌─────────────────────────────────────────────────────────┐
+  // │ GAME OVER (Saúde = 0)                                   │
+  // ├─────────────────────────────────────────────────────────┤
+  // │ • Trigger: Acumulou muitos erros/timeouts ao longo      │
+  // │            de várias sessões                            │
+  // │ • Todos recursos: Resetam para 100%                     │
+  // │ • XP: Volta ao início do NÍVEL atual                    │
+  // │ • Nível: MANTÉM (não perde nível)                       │
+  // │ • Questões: Busca NOVAS questões                        │
+  // └─────────────────────────────────────────────────────────┘
+  //
+  // BALANCEAMENTO V7.3:
+  // - Sessão de 10 questões
+  // - 5 erros → Checkpoint (água zera)
+  // - 5 timeouts → Checkpoint (energia zera)
+  // - ~5-7 checkpoints → Game Over (saúde zera)
+  // - Game Over é evento RARO (muitos erros acumulados)
+  //
+  // ============================================
+}
+
+// ===== ESTADO DOS RECURSOS V7.3 =====
 class RecursosState {
   // Recursos TEMPORÁRIOS (resetam por sessão)
   final double energia; // 0-100
@@ -45,9 +118,10 @@ class RecursosState {
   /// Calcula saúde atual baseado na fórmula V7.1
   /// Fórmula: Saúde_perdida = (Água_perdida × 14 + Energia_perdida × 4) / 100
   double calcularSaudeAtual() {
-    final saudePerdida = (aguaPerdidaSessao * GameConstants.PESO_AGUA_SAUDE +
-            energiaPerdidaSessao * GameConstants.PESO_ENERGIA_SAUDE) /
-        100;
+    final saudePerdida =
+        (aguaPerdidaSessao * RecursosConstants.PESO_AGUA_SAUDE +
+                energiaPerdidaSessao * RecursosConstants.PESO_ENERGIA_SAUDE) /
+            100;
 
     return (saudeInicioSessao - saudePerdida).clamp(0.0, 100.0);
   }
@@ -76,7 +150,7 @@ class RecursosState {
   }
 }
 
-// ===== NOTIFIER DOS RECURSOS V7.1 =====
+// ===== NOTIFIER DOS RECURSOS V7.3 =====
 class RecursosNotifier extends StateNotifier<RecursosState> {
   final Ref ref;
 
@@ -94,31 +168,33 @@ class RecursosNotifier extends StateNotifier<RecursosState> {
       saudeInicioSessao: saudeAtual,
     );
 
-    print('🎮 Recursos iniciados: E=100%, A=100%, S=${saudeAtual.toStringAsFixed(1)}%');
+    print(
+        '🎮 Recursos iniciados: E=100%, A=100%, S=${saudeAtual.toStringAsFixed(1)}%');
   }
 
-  // ===== AÇÕES V7.1 =====
+  // ===== AÇÕES V7.3 =====
 
   /// Registra um ACERTO
-  /// V7.1: +5% Água e +5% Energia (se < 100%)
+  /// V7.3: +5% Água e +5% Energia (se < 100%)
   void registrarAcerto() {
     final novaEnergia =
-        (state.energia + GameConstants.GANHO_ACERTO).clamp(0.0, 100.0);
+        (state.energia + RecursosConstants.GANHO_ACERTO).clamp(0.0, 100.0);
     final novaAgua =
-        (state.agua + GameConstants.GANHO_ACERTO).clamp(0.0, 100.0);
+        (state.agua + RecursosConstants.GANHO_ACERTO).clamp(0.0, 100.0);
 
     state = state.copyWith(
       energia: novaEnergia,
       agua: novaAgua,
     );
 
-    print('✅ Acerto: E=${novaEnergia.toStringAsFixed(0)}% A=${novaAgua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
+    print(
+        '✅ Acerto: E=${novaEnergia.toStringAsFixed(0)}% A=${novaAgua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
   }
 
   /// Registra um ERRO
-  /// V7.1: -10% Água apenas (NÃO afeta energia diretamente)
+  /// ✅ V7.3: -20% Água (era -10%)
   void registrarErro() {
-    final perdaAgua = GameConstants.PERDA_ERRO_AGUA;
+    final perdaAgua = RecursosConstants.PERDA_ERRO_AGUA; // 20%
     final novaAgua = (state.agua - perdaAgua).clamp(0.0, 100.0);
     final novaAguaPerdida = state.aguaPerdidaSessao + perdaAgua;
 
@@ -127,14 +203,16 @@ class RecursosNotifier extends StateNotifier<RecursosState> {
       aguaPerdidaSessao: novaAguaPerdida,
     );
 
-    print('❌ Erro: E=${state.energia.toStringAsFixed(0)}% A=${novaAgua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
-    print('   Água perdida sessão: ${novaAguaPerdida.toStringAsFixed(0)}%');
+    print(
+        '❌ Erro: E=${state.energia.toStringAsFixed(0)}% A=${novaAgua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
+    print(
+        '   Água perdida sessão: ${novaAguaPerdida.toStringAsFixed(0)}% (-${perdaAgua.toInt()}%)');
   }
 
   /// Registra um TIMEOUT
-  /// V7.1: -10% Energia apenas (NÃO afeta água diretamente)
+  /// ✅ V7.3: -20% Energia (era -10%)
   void registrarTimeout() {
-    final perdaEnergia = GameConstants.PERDA_TIMEOUT_ENERGIA;
+    final perdaEnergia = RecursosConstants.PERDA_TIMEOUT_ENERGIA; // 20%
     final novaEnergia = (state.energia - perdaEnergia).clamp(0.0, 100.0);
     final novaEnergiaPerdida = state.energiaPerdidaSessao + perdaEnergia;
 
@@ -143,8 +221,10 @@ class RecursosNotifier extends StateNotifier<RecursosState> {
       energiaPerdidaSessao: novaEnergiaPerdida,
     );
 
-    print('⏰ Timeout: E=${novaEnergia.toStringAsFixed(0)}% A=${state.agua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
-    print('   Energia perdida sessão: ${novaEnergiaPerdida.toStringAsFixed(0)}%');
+    print(
+        '⏰ Timeout: E=${novaEnergia.toStringAsFixed(0)}% A=${state.agua.toStringAsFixed(0)}% S=${state.calcularSaudeAtual().toStringAsFixed(1)}%');
+    print(
+        '   Energia perdida sessão: ${novaEnergiaPerdida.toStringAsFixed(0)}% (-${perdaEnergia.toInt()}%)');
   }
 
   // ===== CHECKPOINT =====
@@ -162,7 +242,8 @@ class RecursosNotifier extends StateNotifier<RecursosState> {
       saudeInicioSessao: saudeAtual, // Mantém a saúde atual
     );
 
-    print('⚠️ CHECKPOINT: Recursos resetados. Saúde mantida em ${saudeAtual.toStringAsFixed(1)}%');
+    print(
+        '⚠️ CHECKPOINT: Recursos resetados. Saúde mantida em ${saudeAtual.toStringAsFixed(1)}%');
   }
 
   // ===== GAME OVER =====
@@ -228,19 +309,18 @@ final recursosProvider =
 
 // ===== PROVIDER DE COMPATIBILIDADE =====
 // Para manter compatibilidade com o código antigo que usa Map<String, double>
-final recursosPersonalizadosProvider =
-    StateNotifierProvider<RecursosPersonalizadosNotifierV71, Map<String, double>>(
-        (ref) {
+final recursosPersonalizadosProvider = StateNotifierProvider<
+    RecursosPersonalizadosNotifierV71, Map<String, double>>((ref) {
   return RecursosPersonalizadosNotifierV71(ref);
 });
 
 /// Notifier de compatibilidade que mantém a interface Map<String, double>
-/// mas usa a lógica V7.1 internamente
+/// mas usa a lógica V7.3 internamente
 class RecursosPersonalizadosNotifierV71
     extends StateNotifier<Map<String, double>> {
   final Ref ref;
 
-  // Estado interno V7.1
+  // Estado interno V7.3
   double _energia = 100.0;
   double _agua = 100.0;
   double _energiaPerdidaSessao = 0.0;
@@ -282,14 +362,16 @@ class RecursosPersonalizadosNotifierV71
     _aguaPerdidaSessao = 0.0;
 
     _atualizarState();
-    print('🎮 Recursos V7.1 iniciados: E=100%, A=100%, S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
+    print(
+        '🎮 Recursos V7.3 iniciados: E=100%, A=100%, S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
   }
 
   /// Calcula saúde atual com fórmula V7.1
   double _calcularSaudeAtual() {
-    final saudePerdida = (_aguaPerdidaSessao * GameConstants.PESO_AGUA_SAUDE +
-            _energiaPerdidaSessao * GameConstants.PESO_ENERGIA_SAUDE) /
-        100;
+    final saudePerdida =
+        (_aguaPerdidaSessao * RecursosConstants.PESO_AGUA_SAUDE +
+                _energiaPerdidaSessao * RecursosConstants.PESO_ENERGIA_SAUDE) /
+            100;
 
     return (_saudeInicioSessao - saudePerdida).clamp(0.0, 100.0);
   }
@@ -303,26 +385,30 @@ class RecursosPersonalizadosNotifierV71
     };
   }
 
-  /// Método principal de atualização (compatibilidade + V7.1)
+  /// Método principal de atualização (compatibilidade + V7.3)
   void atualizarRecursos(bool acertou, {bool isTimeout = false}) {
     if (isTimeout) {
-      // TIMEOUT: -10% energia apenas
-      _energia = (_energia - GameConstants.PERDA_TIMEOUT_ENERGIA).clamp(0.0, 100.0);
-      _energiaPerdidaSessao += GameConstants.PERDA_TIMEOUT_ENERGIA;
+      // ✅ V7.3: TIMEOUT: -20% energia (era -10%)
+      _energia = (_energia - RecursosConstants.PERDA_TIMEOUT_ENERGIA)
+          .clamp(0.0, 100.0);
+      _energiaPerdidaSessao += RecursosConstants.PERDA_TIMEOUT_ENERGIA;
 
-      print('⏰ Timeout V7.1: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
+      print(
+          '⏰ Timeout V7.3: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}% (-20% energia)');
     } else if (acertou) {
       // ACERTO: +5% água e energia
-      _energia = (_energia + GameConstants.GANHO_ACERTO).clamp(0.0, 100.0);
-      _agua = (_agua + GameConstants.GANHO_ACERTO).clamp(0.0, 100.0);
+      _energia = (_energia + RecursosConstants.GANHO_ACERTO).clamp(0.0, 100.0);
+      _agua = (_agua + RecursosConstants.GANHO_ACERTO).clamp(0.0, 100.0);
 
-      print('✅ Acerto V7.1: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
+      print(
+          '✅ Acerto V7.3: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
     } else {
-      // ERRO: -10% água apenas
-      _agua = (_agua - GameConstants.PERDA_ERRO_AGUA).clamp(0.0, 100.0);
-      _aguaPerdidaSessao += GameConstants.PERDA_ERRO_AGUA;
+      // ✅ V7.3: ERRO: -20% água (era -10%)
+      _agua = (_agua - RecursosConstants.PERDA_ERRO_AGUA).clamp(0.0, 100.0);
+      _aguaPerdidaSessao += RecursosConstants.PERDA_ERRO_AGUA;
 
-      print('❌ Erro V7.1: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
+      print(
+          '❌ Erro V7.3: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}% (-20% água)');
     }
 
     _atualizarState();
@@ -334,7 +420,9 @@ class RecursosPersonalizadosNotifierV71
   /// Atualiza saúde no provider de sessão
   void _atualizarSaudeGlobal() {
     try {
-      ref.read(sessaoUsuarioProvider.notifier).atualizarSaude(_calcularSaudeAtual());
+      ref
+          .read(sessaoUsuarioProvider.notifier)
+          .atualizarSaude(_calcularSaudeAtual());
     } catch (e) {
       print('⚠️ Erro ao atualizar saúde global: $e');
     }
@@ -361,7 +449,8 @@ class RecursosPersonalizadosNotifierV71
     _aguaPerdidaSessao = 0.0;
 
     _atualizarState();
-    print('⚠️ CHECKPOINT V7.1: Recursos resetados. Saúde=${_saudeInicioSessao.toStringAsFixed(1)}%');
+    print(
+        '⚠️ CHECKPOINT V7.3: Recursos resetados. Saúde=${_saudeInicioSessao.toStringAsFixed(1)}%');
   }
 
   /// Aplica game over
@@ -381,7 +470,7 @@ class RecursosPersonalizadosNotifierV71
       print('⚠️ Erro ao resetar saúde global: $e');
     }
 
-    print('💀 GAME OVER V7.1: Todos recursos resetados para 100%');
+    print('💀 GAME OVER V7.3: Todos recursos resetados para 100%');
   }
 
   /// Reset recursos

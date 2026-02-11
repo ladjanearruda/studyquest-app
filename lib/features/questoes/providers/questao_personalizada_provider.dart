@@ -1,5 +1,6 @@
 // lib/features/questoes/providers/questao_personalizada_provider.dart
-// ✅ V7.1 - ATUALIZADO com Sistema de Recursos e XP
+// ✅ V7.3 - ATUALIZADO com método voltarParaInicio para Checkpoint
+// 📅 Atualizado: 10/02/2026
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/questao_personalizada.dart';
@@ -9,6 +10,52 @@ import '../../../core/models/user_model.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import 'sessao_usuario_provider.dart';
 import 'recursos_provider_v71.dart';
+
+// ===== CLASSE DE ESTADO DA SESSÃO =====
+class SessaoQuestoes {
+  final List<QuestaoPersonalizada> questoes;
+  final int questaoAtual;
+  final List<int> respostasUsuario;
+  final List<bool> acertos;
+  final DateTime inicioSessao;
+  final bool sessaoFinalizada;
+
+  SessaoQuestoes({
+    this.questoes = const [],
+    this.questaoAtual = 0,
+    this.respostasUsuario = const [],
+    this.acertos = const [],
+    required this.inicioSessao,
+    this.sessaoFinalizada = false,
+  });
+
+  // ✅ V7.3: Método copyWith para permitir atualizações parciais
+  SessaoQuestoes copyWith({
+    List<QuestaoPersonalizada>? questoes,
+    int? questaoAtual,
+    List<int>? respostasUsuario,
+    List<bool>? acertos,
+    DateTime? inicioSessao,
+    bool? sessaoFinalizada,
+  }) {
+    return SessaoQuestoes(
+      questoes: questoes ?? this.questoes,
+      questaoAtual: questaoAtual ?? this.questaoAtual,
+      respostasUsuario: respostasUsuario ?? this.respostasUsuario,
+      acertos: acertos ?? this.acertos,
+      inicioSessao: inicioSessao ?? this.inicioSessao,
+      sessaoFinalizada: sessaoFinalizada ?? this.sessaoFinalizada,
+    );
+  }
+
+  // Getters úteis
+  int get totalQuestoes => questoes.length;
+  bool get temProximaQuestao => questaoAtual < questoes.length - 1;
+  QuestaoPersonalizada? get questaoAtualObj =>
+      questoes.isNotEmpty && questaoAtual < questoes.length
+          ? questoes[questaoAtual]
+          : null;
+}
 
 // ===== PROVIDER DO ESTADO DA SESSÃO DE QUESTÕES =====
 final sessaoQuestoesProvider =
@@ -115,7 +162,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       );
 
       print('🎯 Sessão iniciada: ${questoesPersonalizadas.length} questões');
-      print('🔧 Algoritmo V7.1: recursos e XP integrados');
+      print('🔧 Algoritmo V7.3: recursos e XP integrados');
     } catch (e) {
       print('❌ Erro ao iniciar sessão: $e');
       rethrow;
@@ -127,7 +174,8 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
     final questaoAtual = state.questaoAtualObj;
     if (questaoAtual == null) return;
 
-    final isCorreto = !isTimeout && respostaIndex == questaoAtual.respostaCorreta;
+    final isCorreto =
+        !isTimeout && respostaIndex == questaoAtual.respostaCorreta;
 
     // Atualizar listas de respostas
     final novasRespostas = [...state.respostasUsuario, respostaIndex];
@@ -171,9 +219,25 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
     ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
   }
 
-  // ===== RESET =====
+  // ===== RESET COMPLETO =====
   void resetSessao() {
     state = SessaoQuestoes(inicioSessao: DateTime.now());
+  }
+
+  // ===== V7.3: VOLTAR PARA INÍCIO (CHECKPOINT) =====
+  /// Volta para o início da sessão SEM buscar novas questões
+  /// Usado no Checkpoint para repetir as mesmas questões
+  void voltarParaInicio() {
+    // Mantém as mesmas questões, apenas reseta o índice e respostas
+    state = state.copyWith(
+      questaoAtual: 0,
+      respostasUsuario: [],
+      acertos: [],
+      sessaoFinalizada: false,
+    );
+
+    print(
+        '🔄 CHECKPOINT: Sessão resetada para questão 1 (mesmas ${state.questoes.length} questões)');
   }
 
   // ===== MÉTODOS AUXILIARES =====
@@ -199,7 +263,8 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
             return 'dificil';
         }
       } else {
-        print('   Modo Descoberta: resultado ainda não disponível, usando medio');
+        print(
+            '   Modo Descoberta: resultado ainda não disponível, usando medio');
         return 'medio';
       }
     }

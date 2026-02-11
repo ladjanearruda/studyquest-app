@@ -1,21 +1,24 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
-// ✅ V7.1 - ATUALIZADO: Checkpoint, Game Over, Recursos Separados (Erro/Timeout)
+// ✅ V7.2.1 - CORRIGIDO: Loop do Game Over
+// 📅 Atualizado: 10/02/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
-import 'dart:math';
 
 import '../providers/questao_personalizada_provider.dart';
 import '../providers/sessao_usuario_provider.dart';
 import '../providers/recursos_provider_v71.dart';
-import '../models/questao_personalizada.dart';
 import '../widgets/checkpoint_modal.dart';
 import '../widgets/gameover_modal.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../../core/models/avatar.dart';
-import '../../avatar/providers/avatar_provider.dart';
+
+// ✅ V7.2: Imports do sistema de níveis
+import '../../niveis/models/nivel_model.dart';
+import '../../niveis/providers/nivel_provider.dart';
+import '../../niveis/widgets/level_up_modal.dart';
 
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
@@ -31,10 +34,13 @@ class _QuestaoPersonalizadaScreenState
   Timer? _timer;
   int _timeLeft = 45;
   bool _showFeedback = false;
-  bool _isProcessing = false; // Evita múltiplos cliques
+  bool _isProcessing = false;
 
   Avatar? _currentAvatar;
   AvatarEmotion _currentEmotion = AvatarEmotion.neutro;
+
+  // ✅ V7.2: Level up pendente
+  Map<String, dynamic>? _pendingLevelUp;
 
   @override
   void initState() {
@@ -58,14 +64,11 @@ class _QuestaoPersonalizadaScreenState
   }
 
   void _initializeSession() {
-    // ✅ CORREÇÃO: Usar addPostFrameCallback para não modificar provider durante build
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       try {
-        // ✅ V7.1: Inicializa recursos com saúde atual do usuário
         ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
-
         await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
       } catch (e) {
         if (mounted) {
@@ -78,6 +81,7 @@ class _QuestaoPersonalizadaScreenState
   }
 
   void _startTimer() {
+    _timer?.cancel(); // Cancela timer anterior se existir
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeLeft > 0 && !_showFeedback && mounted) {
         setState(() => _timeLeft--);
@@ -88,7 +92,6 @@ class _QuestaoPersonalizadaScreenState
     });
   }
 
-  // ✅ V7.1: Timeout agora afeta apenas ENERGIA
   void _handleTimeout() {
     if (!mounted || _showFeedback || _isProcessing) return;
 
@@ -98,7 +101,6 @@ class _QuestaoPersonalizadaScreenState
       _currentEmotion = AvatarEmotion.determinado;
     });
 
-    // ✅ V7.1: Registrar timeout (afeta só energia)
     ref
         .read(sessaoQuestoesProvider.notifier)
         .responderQuestao(-1, isTimeout: true);
@@ -115,8 +117,8 @@ class _QuestaoPersonalizadaScreenState
     super.dispose();
   }
 
-  // ✅ V7.1: Erro agora afeta apenas ÁGUA
-  void _selectOption(int index) {
+  // ✅ V7.2: Método atualizado com sistema de níveis
+  void _selectOption(int index) async {
     if (_showFeedback || _isProcessing) return;
 
     final sessao = ref.read(sessaoQuestoesProvider);
@@ -133,57 +135,81 @@ class _QuestaoPersonalizadaScreenState
 
     _timer?.cancel();
 
-    // ✅ V7.1: Registrar resposta
+    // Registrar resposta
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(index);
     ref
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(isCorrect);
 
+    // ✅ V7.2: ADICIONAR XP AO SISTEMA DE NÍVEIS
+    if (isCorrect && questao != null) {
+      final acertosConsecutivos = _contarAcertosConsecutivos();
+      final resultado =
+          await ref.read(nivelProvider.notifier).adicionarXpQuestao(
+                acertou: true,
+                dificuldade: questao.difficulty,
+                streakAtual: acertosConsecutivos,
+              );
+
+      // Verificar se subiu de nível
+      if (resultado['subiuNivel'] == true) {
+        _pendingLevelUp = resultado;
+        print(
+            '🎉 LEVEL UP PENDENTE: ${resultado['nivelAnterior']} → ${resultado['novoNivel']}');
+      }
+    }
+
     _showFeedbackAndCheckStatus(isCorrect);
   }
 
-  // ✅ V7.1: Verifica checkpoint e game over após cada resposta
+  // ✅ V7.2: Contar acertos consecutivos para streak
+  int _contarAcertosConsecutivos() {
+    final sessao = ref.read(sessaoQuestoesProvider);
+    int consecutivos = 0;
+    for (int i = sessao.acertos.length - 1; i >= 0; i--) {
+      if (sessao.acertos[i]) {
+        consecutivos++;
+      } else {
+        break;
+      }
+    }
+    return consecutivos;
+  }
+
   void _showFeedbackAndCheckStatus(bool isCorrect,
       {bool isTimeout = false}) async {
     if (!mounted) return;
 
     final recursosNotifier = ref.read(recursosPersonalizadosProvider.notifier);
-    final sessaoUsuario = ref.read(sessaoUsuarioProvider);
 
-    // ✅ Verificar GAME OVER primeiro (saúde = 0)
+    // ✅ Verificar Game Over PRIMEIRO (prioridade)
     if (recursosNotifier.deveAtivarGameOver) {
       await _handleGameOver();
       return;
     }
 
-    // ✅ Verificar CHECKPOINT (água OU energia = 0)
+    // ✅ Verificar Checkpoint
     if (recursosNotifier.deveAtivarCheckpoint) {
       final continuar = await _handleCheckpoint();
       if (!continuar) {
-        // Usuário desistiu - ir para tela de game over
         if (mounted) {
-          context.go('/questoes-gameover');
+          context.go('/modo-selection');
         }
         return;
       }
-      // Usuário quer continuar - recursos já foram resetados
-      // Reinicia a sessão de questões
       _reiniciarSessaoAposCheckpoint();
       return;
     }
 
-    // ✅ Mostrar feedback normal
     _showFeedbackModal(isCorrect, isTimeout: isTimeout);
   }
 
-  // ✅ V7.1: Handler de Checkpoint
   Future<bool> _handleCheckpoint() async {
     if (!mounted) return false;
 
     final recursos = ref.read(recursosPersonalizadosProvider);
     final sessaoUsuario = ref.read(sessaoUsuarioProvider);
 
-    // Determinar qual recurso zerou
     final recursoZerado = recursos['agua']! <= 0 ? 'agua' : 'energia';
     final xpPerdido = sessaoUsuario.xpGanhoSessao;
 
@@ -195,7 +221,6 @@ class _QuestaoPersonalizadaScreenState
     );
 
     if (continuar) {
-      // ✅ Aplicar checkpoint nos providers
       ref.read(recursosPersonalizadosProvider.notifier).aplicarCheckpoint();
       ref.read(sessaoUsuarioProvider.notifier).aplicarCheckpoint();
     }
@@ -203,41 +228,77 @@ class _QuestaoPersonalizadaScreenState
     return continuar;
   }
 
-  // ✅ V7.1: Handler de Game Over
+  // ✅ V7.2.2: CORRIGIDO - Loop do Game Over resolvido
   Future<void> _handleGameOver() async {
     if (!mounted) return;
 
-    final sessaoUsuario = ref.read(sessaoUsuarioProvider);
-    final xpPerdido = sessaoUsuario.xpNoNivelAtual;
+    final nivelUsuario = ref.read(nivelProvider);
+    final xpPerdido = nivelUsuario.xpNoNivel;
 
     final tentarNovamente = await showGameOverModal(
       context: context,
-      nivelAtual: sessaoUsuario.nivelAtual,
+      nivelAtual: nivelUsuario.nivel,
       xpPerdido: xpPerdido,
       avatar: _currentAvatar,
     );
 
-    // ✅ Aplicar game over nos providers
-    ref.read(recursosPersonalizadosProvider.notifier).aplicarGameOver();
+    // ✅ ORDEM CRÍTICA: Primeiro resetar a sessão do usuário (que guarda a saúde)
     ref.read(sessaoUsuarioProvider.notifier).aplicarGameOver();
 
-    if (mounted) {
-      if (tentarNovamente) {
-        // Reiniciar do zero
-        ref.read(sessaoQuestoesProvider.notifier).resetSessao();
-        context.go('/questoes-personalizada');
-      } else {
-        // Ir para tela de game over com resumo
-        context.go('/questoes-gameover');
+    // ✅ Depois resetar recursos (que vai ler a saúde zerada e resetar para 100%)
+    ref.read(recursosPersonalizadosProvider.notifier).aplicarGameOver();
+
+    // ✅ Voltar XP ao início do nível
+    await ref.read(nivelProvider.notifier).voltarInicioNivel();
+
+    if (!mounted) return;
+
+    if (tentarNovamente) {
+      // ✅ Reset da sessão de questões
+      ref.read(sessaoQuestoesProvider.notifier).resetSessao();
+
+      // ✅ Delay maior para garantir que SharedPreferences foi atualizado
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (mounted) {
+        // ✅ Resetar estado da tela
+        setState(() {
+          _selectedOption = null;
+          _showFeedback = false;
+          _isProcessing = false;
+          _timeLeft = 45;
+          _currentEmotion = AvatarEmotion.neutro;
+          _pendingLevelUp = null;
+        });
+
+        // ✅ CORREÇÃO PRINCIPAL: Não chamar _initializeSession() que recarrega tudo
+        // Em vez disso, apenas iniciar nova sessão de questões diretamente
+        try {
+          // Forçar recursos para 100% novamente (garantia)
+          ref.read(recursosPersonalizadosProvider.notifier).aplicarGameOver();
+
+          // Iniciar nova sessão de questões
+          await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
+
+          // Iniciar timer
+          _startTimer();
+
+          print('🔄 Nova sessão iniciada após Game Over');
+        } catch (e) {
+          print('❌ Erro ao reiniciar após Game Over: $e');
+          if (mounted) {
+            context.go('/modo-selection');
+          }
+        }
       }
+    } else {
+      context.go('/modo-selection');
     }
   }
 
-  // ✅ Reinicia após checkpoint
   void _reiniciarSessaoAposCheckpoint() {
     if (!mounted) return;
 
-    // Reset estado local
     setState(() {
       _selectedOption = null;
       _showFeedback = false;
@@ -246,10 +307,13 @@ class _QuestaoPersonalizadaScreenState
       _currentEmotion = AvatarEmotion.neutro;
     });
 
-    // Reiniciar sessão de questões
-    ref.read(sessaoQuestoesProvider.notifier).resetSessao();
-    _initializeSession();
+    // ✅ V7.3: CHECKPOINT repete as MESMAS questões
+    // Não busca novas questões, apenas volta para questão 0
+    ref.read(sessaoQuestoesProvider.notifier).voltarParaInicio();
+
     _startTimer();
+
+    print('🔄 CHECKPOINT: Voltando para questão 1 (mesmas questões)');
   }
 
   void _showFeedbackModal(bool isCorrect, {bool isTimeout = false}) {
@@ -258,6 +322,7 @@ class _QuestaoPersonalizadaScreenState
     final recursos = ref.read(recursosPersonalizadosProvider);
     final sessao = ref.read(sessaoQuestoesProvider);
     final sessaoUsuario = ref.read(sessaoUsuarioProvider);
+    final nivelUsuario = ref.read(nivelProvider);
 
     showDialog(
       context: context,
@@ -270,6 +335,7 @@ class _QuestaoPersonalizadaScreenState
         recursos: recursos,
         sessao: sessao,
         sessaoUsuario: sessaoUsuario,
+        nivelUsuario: nivelUsuario,
         currentAvatar: _currentAvatar,
         currentEmotion: _currentEmotion,
         onContinue: _nextQuestion,
@@ -277,9 +343,27 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  void _nextQuestion() {
+  // ✅ V7.2: Método atualizado para mostrar modal de level up
+  void _nextQuestion() async {
     if (!mounted) return;
     Navigator.of(context).pop();
+
+    // ✅ V7.2: Verificar se há level up pendente
+    if (_pendingLevelUp != null && _pendingLevelUp!['subiuNivel'] == true) {
+      await showLevelUpModal(
+        context: context,
+        nivelAnterior: _pendingLevelUp!['nivelAnterior'] as int,
+        novoNivel: _pendingLevelUp!['novoNivel'] as int,
+        tierAnterior: _pendingLevelUp!['tierAnterior'] as NivelTier,
+        novoTier: _pendingLevelUp!['novoTier'] as NivelTier,
+        desbloqueios: (_pendingLevelUp!['desbloqueios'] as List<dynamic>?)
+                ?.cast<Desbloqueio>() ??
+            [],
+        mensagem: _pendingLevelUp!['mensagem'] as String? ?? 'Parabéns!',
+        avatar: _currentAvatar,
+      );
+      _pendingLevelUp = null;
+    }
 
     final sessao = ref.read(sessaoQuestoesProvider);
 
@@ -294,7 +378,6 @@ class _QuestaoPersonalizadaScreenState
       });
       _startTimer();
     } else {
-      // ✅ Sessão completa com sucesso!
       ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
       context.go('/questoes-resultado');
     }
@@ -310,11 +393,6 @@ class _QuestaoPersonalizadaScreenState
     if (questao == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
-    // ✅ LOG DE DEBUG
-    print('🔍 RENDERIZANDO QUESTÃO ${sessao.questaoAtual + 1}:');
-    print(
-        '   Recursos: E=${recursos['energia']?.toStringAsFixed(0)}% A=${recursos['agua']?.toStringAsFixed(0)}% S=${recursos['saude']?.toStringAsFixed(1)}%');
 
     return Scaffold(
       body: Container(
@@ -354,15 +432,17 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  Widget _buildHeaderPrototipo(
-      OnboardingData onboardingData, SessaoQuestoes sessao) {
+  // ✅ V7.2: Header atualizado com mini barra de XP
+  Widget _buildHeaderPrototipo(OnboardingData onboardingData, dynamic sessao) {
     final avatarDisplay = _getAvatarShortDisplay(onboardingData);
+    final nivelUsuario = ref.watch(nivelProvider);
 
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
+          // Avatar
           if (_currentAvatar != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(32),
@@ -428,6 +508,8 @@ class _QuestaoPersonalizadaScreenState
               ),
             ),
           const SizedBox(width: 12),
+
+          // Info do usuário com nível
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,19 +528,56 @@ class _QuestaoPersonalizadaScreenState
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (onboardingData.mainDifficulty != null)
-                  Text(
-                    'Desafio: ${_formatMateria(onboardingData.mainDifficulty!)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange.shade700,
-                      fontWeight: FontWeight.w600,
+                // ✅ V7.2: Mini barra de XP e nível
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      nivelUsuario.tier.emoji,
+                      style: const TextStyle(fontSize: 12),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Nv.${nivelUsuario.nivel}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber[700],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        constraints: const BoxConstraints(maxWidth: 60),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: nivelUsuario.progresso,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.amber.shade400,
+                                  Colors.orange.shade500
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
+
+          // Timer
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -488,7 +607,6 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ V7.1: Barra de recursos atualizada com cores dinâmicas
   Widget _buildRecursosVitaisPrototipo(Map<String, double> recursos) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -527,7 +645,6 @@ class _QuestaoPersonalizadaScreenState
 
   Widget _buildRecursoItemPrototipo(
       IconData icon, String nome, double valor, Color cor) {
-    // ✅ V7.1: Cores dinâmicas baseadas no valor
     Color backgroundColor = Colors.white;
     Color borderColor = Colors.transparent;
 
@@ -574,7 +691,6 @@ class _QuestaoPersonalizadaScreenState
           ),
           const SizedBox(height: 4),
           Text(nome, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-          // ✅ V7.1: Mini barra de progresso
           const SizedBox(height: 4),
           Container(
             height: 4,
@@ -601,7 +717,7 @@ class _QuestaoPersonalizadaScreenState
   }
 
   Widget _buildQuestaoComAvatarProtagonista(
-      questao, OnboardingData onboardingData, SessaoQuestoes sessao) {
+      dynamic questao, OnboardingData onboardingData, dynamic sessao) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -747,11 +863,10 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  List<Widget> _buildAlternativas(questao) {
+  List<Widget> _buildAlternativas(dynamic questao) {
     if (questao?.alternativas == null ||
         questao.alternativas.isEmpty ||
         questao.alternativas.length < 2) {
-      print('⚠️ ERRO: Questão sem alternativas válidas!');
       return [
         Container(
           padding: const EdgeInsets.all(16),
@@ -843,7 +958,7 @@ class _QuestaoPersonalizadaScreenState
     }).toList();
   }
 
-  Widget _buildBarraProgresso(SessaoQuestoes sessao) {
+  Widget _buildBarraProgresso(dynamic sessao) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -916,24 +1031,9 @@ class _QuestaoPersonalizadaScreenState
         return isFeminino ? 'a equilibrada' : 'o equilibrado';
     }
   }
-
-  String _formatMateria(String materia) {
-    const materiaMap = {
-      'Português e Literatura': 'Português',
-      'Matemática': 'Matemática',
-      'Física': 'Física',
-      'Química': 'Química',
-      'Biologia': 'Biologia',
-      'História': 'História',
-      'Geografia': 'Geografia',
-      'Inglês': 'Inglês',
-      'Não tenho dificuldade específica em matérias': 'Geral',
-    };
-    return materiaMap[materia] ?? materia;
-  }
 }
 
-// ===== MODAL DE FEEDBACK ATUALIZADO V7.1 =====
+// ===== MODAL DE FEEDBACK V7.2 =====
 class FeedbackPersonalizadoModal extends StatelessWidget {
   final bool acertou;
   final bool isTimeout;
@@ -942,6 +1042,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   final Map<String, double> recursos;
   final dynamic sessao;
   final SessaoUsuarioState sessaoUsuario;
+  final NivelUsuario nivelUsuario;
   final Avatar? currentAvatar;
   final AvatarEmotion currentEmotion;
   final VoidCallback onContinue;
@@ -955,6 +1056,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     required this.recursos,
     required this.sessao,
     required this.sessaoUsuario,
+    required this.nivelUsuario,
     this.currentAvatar,
     this.currentEmotion = AvatarEmotion.neutro,
     required this.onContinue,
@@ -1081,6 +1183,16 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     );
   }
 
+  String _getExplicacaoTexto() {
+    if (questao?.explicacao?.isNotEmpty == true) {
+      return questao!.explicacao;
+    }
+    final respostaIndex = (questao?.respostaCorreta as num?)?.toInt() ?? 0;
+    final letra = String.fromCharCode(65 + respostaIndex);
+    final materia = questao?.subject ?? 'a matéria';
+    return 'A resposta correta é a alternativa $letra. Revise o conteúdo de $materia para entender melhor este conceito.';
+  }
+
   Widget _buildExplicacaoCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1117,7 +1229,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            questao?.explicacao ?? 'Explicação não disponível.',
+            _getExplicacaoTexto(),
             style: const TextStyle(
                 fontSize: 14, height: 1.5, color: Colors.black87),
           ),
@@ -1126,7 +1238,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     );
   }
 
-  // ✅ V7.1: Card de recursos atualizado
   Widget _buildRecursosCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1196,7 +1307,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   }
 
   Widget _buildRecursoItem(IconData icon, String nome, int valor, Color cor) {
-    // ✅ V7.1: Destaque visual quando crítico
     final isCritico = valor <= 20;
 
     return Row(
@@ -1222,13 +1332,12 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         ),
         if (isCritico) ...[
           const SizedBox(width: 4),
-          Icon(Icons.warning, size: 14, color: Colors.red),
+          const Icon(Icons.warning, size: 14, color: Colors.red),
         ],
       ],
     );
   }
 
-  // ✅ V7.1: Card de progresso com XP real
   Widget _buildProgressoCard() {
     final xpGanho = _calcularXpGanho();
 
@@ -1259,6 +1368,8 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           const SizedBox(height: 16),
           _buildProgressoItem('XP Ganho', '+$xpGanho'),
           const SizedBox(height: 8),
+          _buildProgressoItem('XP Total', '${nivelUsuario.xpTotal}'),
+          const SizedBox(height: 8),
           _buildProgressoItem(
             'Questão',
             '${(sessao?.questaoAtual ?? 0) + 1}/${sessao?.totalQuestoes ?? 10}',
@@ -1269,9 +1380,31 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             '${(sessaoUsuario.precisaoSessao * 100).toStringAsFixed(0)}%',
           ),
           const SizedBox(height: 8),
-          _buildProgressoItem(
-            'Nível',
-            '${sessaoUsuario.nivelAtual}',
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Nível',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+              Row(
+                children: [
+                  Text(
+                    nivelUsuario.tier.emoji,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${nivelUsuario.nivel}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber[800],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -1350,7 +1483,6 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     return 'Sua resposta: $suaResposta | Correta: $respostaCorreta';
   }
 
-  // ✅ V7.1: Texto de recurso atualizado
   String _getRecursoTexto() {
     if (acertou) {
       return 'Recursos Recuperados!';
@@ -1361,18 +1493,16 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     }
   }
 
-  // ✅ V7.1: Descrição de recurso atualizada
   String _getRecursoDescricao() {
     if (acertou) {
       return '+5% Água e Energia';
     } else if (isTimeout) {
-      return '-10% Energia (tempo esgotou)';
+      return '-20% Energia (tempo esgotou)';
     } else {
-      return '-10% Água (resposta incorreta)';
+      return '-20% Água (resposta incorreta)';
     }
   }
 
-  // ✅ V7.1: Calcula XP real baseado na dificuldade
   int _calcularXpGanho() {
     if (isTimeout || !acertou) return 0;
 

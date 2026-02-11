@@ -400,7 +400,7 @@ class _QuestoesGameOverScreenState
                       recursos['agua']?.toInt() ?? 0, aguaZero)),
               const SizedBox(width: 12),
               Expanded(
-                  child: _buildRecursoAnalysis(Icons.favorite, 'Saúde',
+                  child: _buildRecursoAnalysis(Icons.heart_broken, 'Saúde',
                       recursos['saude']?.toInt() ?? 0, saudeZero)),
             ],
           ),
