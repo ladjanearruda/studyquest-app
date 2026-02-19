@@ -1,11 +1,12 @@
-// lib/features/avatar/screens/avatar_selection_screen.dart - V6.9.3
-// ✅ CORRIGIDO: Borda verde quando selecionado (consistente com app)
+// lib/features/avatar/screens/avatar_selection_screen.dart - V8.1
+// ✅ Sprint 8: Removido badge "RECOMENDADO" incorreto
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/avatar.dart';
 import '../../../core/models/user_profile.dart';
+import '../../../core/services/firebase_rest_auth.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../providers/avatar_provider.dart';
 
@@ -116,12 +117,19 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
     setState(() => _isAnimatingSelection = false);
   }
 
-  void _confirmSelection() {
+  void _confirmSelection() async {
     if (_selectedType == null || _selectedGender == null || !mounted) return;
+
+    // Salvar avatar no provider do onboarding
     ref.read(onboardingProvider.notifier).update((state) => state.copyWith(
           selectedAvatarType: _selectedType,
           selectedAvatarGender: _selectedGender,
         ));
+
+    // Marcar onboarding como completo
+    await ref.read(authProvider.notifier).completeOnboarding();
+    print('✅ Onboarding marcado como completo!');
+
     if (mounted) context.go('/modo-selection');
   }
 
@@ -254,22 +262,16 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
     );
   }
 
+  // ✅ V8.1: Removido badge "RECOMENDADO"
   Widget _buildTypeSection(AvatarType type, List<Avatar> avatars) {
     final typeInfo = _getTypeInfo(type);
-    final recommendedType =
-        ref.watch(avatarProvider(_userProfile)).recommendedAvatarType;
-    final isRecommended = type == recommendedType;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.8),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: isRecommended
-                ? typeInfo['color'].withOpacity(0.3)
-                : Colors.grey.shade200,
-            width: 1),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -295,31 +297,11 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(typeInfo['title'],
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2E7D32))),
-                        if (isRecommended) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: typeInfo['color'],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('RECOMENDADO',
-                                style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                          ),
-                        ],
-                      ],
-                    ),
+                    Text(typeInfo['title'],
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E7D32))),
                     Text(typeInfo['subtitle'],
                         style:
                             const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -347,7 +329,6 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
     );
   }
 
-  // ✅ CORRIGIDO: Borda verde quando selecionado
   Widget _buildAvatarCard(Avatar avatar, bool isSelected) {
     final primaryColor = Color(Avatar.hexToColor(avatar.primaryColor));
     final onboardingData = ref.watch(onboardingProvider);
@@ -361,23 +342,19 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(colors: [
-                  Colors
-                      .green[100]!, // ✅ MUDANÇA: Verde ao invés de primaryColor
+                  Colors.green[100]!,
                   Colors.green[50]!,
                 ])
               : null,
           color: isSelected ? null : Colors.white.withOpacity(0.8),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isSelected
-                  ? Colors
-                      .green[600]! // ✅ MUDANÇA: Verde ao invés de primaryColor
-                  : Colors.grey.shade200,
+              color: isSelected ? Colors.green[600]! : Colors.grey.shade200,
               width: isSelected ? 3 : 1),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? Colors.green.withOpacity(0.4) // ✅ MUDANÇA: Verde
+                  ? Colors.green.withOpacity(0.4)
                   : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 15 : 5,
               offset: Offset(0, isSelected ? 6 : 5),
@@ -388,22 +365,18 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
           children: [
             Stack(
               children: [
-                // ✅ CORRIGIDO: Container duplo para sobrepor borda da imagem
                 Container(
                   width: isSelected ? 130 : 120,
                   height: isSelected ? 130 : 120,
-                  padding: const EdgeInsets.all(4), // Espaço para borda verde
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected
-                        ? Colors.green[600]! // Borda verde quando selecionado
-                        : Colors
-                            .transparent, // Sem borda quando não selecionado
+                    color: isSelected ? Colors.green[600]! : Colors.transparent,
                   ),
                   child: Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white, // Fundo branco interno
+                      color: Colors.white,
                     ),
                     child: ClipOval(
                       child: Image.asset(
@@ -435,7 +408,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: Colors.green[600]!, // ✅ MUDANÇA: Verde
+                            color: Colors.green[600]!,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 3),
                           ),
@@ -452,9 +425,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected
-                        ? Colors.green[800]! // ✅ MUDANÇA: Verde
-                        : Colors.black87),
+                    color: isSelected ? Colors.green[800]! : Colors.black87),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
@@ -462,9 +433,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
             Text(avatar.characteristics.take(2).join(', '),
                 style: TextStyle(
                     fontSize: 11,
-                    color: isSelected
-                        ? Colors.green[700]! // ✅ MUDANÇA: Verde
-                        : Colors.grey[600]),
+                    color: isSelected ? Colors.green[700]! : Colors.grey[600]),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
@@ -490,12 +459,11 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
-            Colors.green[100]!, // ✅ MUDANÇA: Verde
+            Colors.green[100]!,
             Colors.green[50]!,
           ]),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: Colors.green.withOpacity(0.3)), // ✅ MUDANÇA: Verde
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -528,8 +496,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                       Row(
                         children: [
                           Icon(Icons.check_circle,
-                              color: Colors.green[600]!, // ✅ MUDANÇA: Verde
-                              size: 20),
+                              color: Colors.green[600]!, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -537,7 +504,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green[700]!, // ✅ MUDANÇA: Verde
+                                color: Colors.green[700]!,
                               ),
                             ),
                           ),
@@ -548,7 +515,7 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
                         avatar.description,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.green[600]!, // ✅ MUDANÇA: Verde
+                          color: Colors.green[600]!,
                         ),
                       ),
                     ],

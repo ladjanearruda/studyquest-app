@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/avatar.dart';
+import 'dart:math' as math;
 
 // === ENUMS E MODELS ===
 
@@ -5533,10 +5534,9 @@ class _ResourceBar extends StatelessWidget {
   }
 }
 
-// ===== TELA 8 - REDESIGN UX COMPLETO =====
-// ===== TELA 8 - REDESIGN PREMIUM + PREPARAÇÃO LEONARDO AI =====
-// Corrige: Cards desbalanceados, CTA perdido, layout responsivo
-// Prepara: Espaços para avatares gerados e backgrounds do Leonardo AI
+// ✅ V8.2 - Sprint 8: Tela de Finalização com CONFETE + Nivelamento atualizado
+// 📅 Atualizado: 17/02/2026
+// 🎯 Foco: Clareza, motivação, confete celebratório e próximos passos
 
 class Tela8FinalizacaoPremium extends ConsumerStatefulWidget {
   const Tela8FinalizacaoPremium({super.key});
@@ -5549,898 +5549,284 @@ class Tela8FinalizacaoPremium extends ConsumerStatefulWidget {
 class _Tela8FinalizacaoPremiumState
     extends ConsumerState<Tela8FinalizacaoPremium>
     with TickerProviderStateMixin {
-  late AnimationController _celebrationController;
-  late AnimationController _contentController;
-  late AnimationController _ctaController;
-
-  late Animation<double> _celebrationAnimation;
-  late Animation<double> _contentAnimation;
-  late Animation<double> _ctaAnimation;
+  late AnimationController _mainController;
+  late AnimationController _confettiController;
+  late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // 🎊 Confete
+  final List<ConfettiPiece> _confettiPieces = [];
+  bool _showConfetti = true;
 
   @override
   void initState() {
     super.initState();
 
-    _celebrationController = AnimationController(
+    // Animação principal
+    _mainController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _contentController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _mainController, curve: Curves.easeOut),
     );
-
-    _ctaController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _celebrationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _celebrationController,
-      curve: Curves.easeOutBack,
-    ));
-
-    _contentAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _contentController,
-      curve: Curves.easeOut,
-    ));
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _contentController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _mainController, curve: Curves.easeOut));
 
-    _ctaAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _ctaController,
-      curve: Curves.easeOut,
-    ));
+    // 🎊 Animação do confete
+    _confettiController = AnimationController(
+      duration: const Duration(milliseconds: 3000),
+      vsync: this,
+    );
 
-    _startAnimationSequence();
+    // Gerar peças de confete
+    _generateConfetti();
+
+    // Iniciar animações
+    _mainController.forward();
+    _confettiController.forward();
+
+    // Esconder confete após 3 segundos
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      if (mounted) {
+        setState(() {
+          _showConfetti = false;
+        });
+      }
+    });
   }
 
-  void _startAnimationSequence() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _celebrationController.forward();
+  void _generateConfetti() {
+    final random = math.Random();
+    final colors = [
+      Colors.green,
+      Colors.amber,
+      Colors.blue,
+      Colors.pink,
+      Colors.purple,
+      Colors.orange,
+      Colors.teal,
+      Colors.red,
+    ];
 
-    await Future.delayed(const Duration(milliseconds: 500));
-    _contentController.forward();
-
-    await Future.delayed(const Duration(milliseconds: 800));
-    _ctaController.forward();
+    for (int i = 0; i < 50; i++) {
+      _confettiPieces.add(ConfettiPiece(
+        x: random.nextDouble(),
+        y: random.nextDouble() * -1, // Começa acima da tela
+        rotation: random.nextDouble() * 360,
+        color: colors[random.nextInt(colors.length)],
+        size: 8 + random.nextDouble() * 8,
+        speed: 0.5 + random.nextDouble() * 0.5,
+        rotationSpeed: random.nextDouble() * 10 - 5,
+      ));
+    }
   }
 
   @override
   void dispose() {
-    _celebrationController.dispose();
-    _contentController.dispose();
-    _ctaController.dispose();
+    _mainController.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth > 600;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8E9),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 📊 PROGRESS HEADER
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: () => context.go('/onboarding/7'),
-                        icon: Icon(
-                          Icons.arrow_back_ios,
-                          color: Colors.green[700]!,
-                          size: 20,
-                        ),
-                      ),
-                      Text(
-                        'Resumo para a Jornada',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green[700]!,
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.green[100]!,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeInOut,
-                        width:
-                            MediaQuery.of(context).size.width * 0.86, // 100%!
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.green[400]!,
-                              Colors.green[600]!,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: Stack(
+        children: [
+          // Conteúdo principal
+          SafeArea(
+            child: Column(
+              children: [
+                // Header com progresso
+                _buildHeader(context),
 
-            // 🎨 CONTEÚDO PRINCIPAL
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
+                // Conteúdo principal
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
 
-                    // 🎉 CELEBRAÇÃO PREMIUM
-                    AnimatedBuilder(
-                      animation: _celebrationAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _celebrationAnimation.value.clamp(0.0, 1.0),
-                          child: Opacity(
-                            opacity:
-                                _celebrationAnimation.value.clamp(0.0, 1.0),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    const Color(0xFF00C851)
-                                        .withValues(alpha: 0.15),
-                                    const Color(0xFF007BFF)
-                                        .withValues(alpha: 0.15),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: const Color(0xFF00C851)
-                                      .withValues(alpha: 0.3),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF00C851)
-                                        .withValues(alpha: 0.2),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
+                            // 🎉 Card de Celebração
+                            _buildCelebrationCard(
+                                onboarding.name ?? 'Explorador'),
+
+                            const SizedBox(height: 24),
+
+                            // Layout responsivo
+                            if (isDesktop)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text('🎉',
-                                          style: TextStyle(fontSize: 32)),
-                                      const SizedBox(width: 12),
-                                      Flexible(
-                                        child: Text(
-                                          'Parabéns, ${onboarding.name}!',
-                                          style: const TextStyle(
-                                            fontSize: 30,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF00C851),
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Text('🎉',
-                                          style: TextStyle(fontSize: 32)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Seu perfil de estudos foi criado com sucesso!\nVocê está pronto para sua jornada de aprendizado! 🚀',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFF007BFF),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
+                                  Expanded(
+                                      child: _buildProfileCard(onboarding)),
+                                  const SizedBox(width: 20),
+                                  Expanded(child: _buildNextStepsCard()),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  _buildProfileCard(onboarding),
+                                  const SizedBox(height: 20),
+                                  _buildNextStepsCard(),
                                 ],
                               ),
-                            ),
-                          ),
-                        );
-                      },
+
+                            const SizedBox(height: 32),
+
+                            // 🎁 Card de benefícios
+                            _buildBenefitsCard(),
+
+                            const SizedBox(height: 100), // Espaço para o botão
+                          ],
+                        ),
+                      ),
                     ),
-
-                    const SizedBox(height: 32),
-
-                    // 📊 LAYOUT RESPONSIVO COM CARDS BALANCEADOS
-                    AnimatedBuilder(
-                      animation: _contentAnimation,
-                      builder: (context, child) {
-                        return SlideTransition(
-                          position: _slideAnimation,
-                          child: Opacity(
-                            opacity: _contentAnimation.value.clamp(0.0, 1.0),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                if (constraints.maxWidth < 600) {
-                                  // 📱 MOBILE: Coluna única
-                                  return Column(
-                                    children: [
-                                      _buildProfileCard(onboarding),
-                                      const SizedBox(height: 24),
-                                      _buildAvatarCard(),
-                                    ],
-                                  );
-                                } else {
-                                  // 💻 DESKTOP: Duas colunas BALANCEADAS
-                                  return IntrinsicHeight(
-                                    // 🔑 CHAVE PARA MESMA ALTURA!
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                            child:
-                                                _buildProfileCard(onboarding)),
-                                        const SizedBox(width: 24),
-                                        Expanded(child: _buildAvatarCard()),
-                                      ],
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // 🗺️ TRILHAS EM DESTAQUE
-                    AnimatedBuilder(
-                      animation: _contentAnimation,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(
-                            0,
-                            30 * (1 - _contentAnimation.value.clamp(0.0, 1.0)),
-                          ),
-                          child: Opacity(
-                            opacity: _contentAnimation.value.clamp(0.0, 1.0),
-                            child: _buildTrailsSection(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 40),
-                  ],
+                  ),
                 ),
-              ),
+
+                // Botão fixo no rodapé
+                _buildBottomButton(context),
+              ],
             ),
+          ),
 
-            // 🚀 CTA PRIMÁRIO IMPACTANTE
+          // 🎊 Camada de confete
+          if (_showConfetti)
             AnimatedBuilder(
-              animation: _ctaAnimation,
+              animation: _confettiController,
               builder: (context, child) {
-                return Transform.translate(
-                  offset:
-                      Offset(0, 50 * (1 - _ctaAnimation.value.clamp(0.0, 1.0))),
-                  child: Opacity(
-                    opacity: _ctaAnimation.value.clamp(0.0, 1.0),
-                    child: Container(
-                      padding: const EdgeInsets.all(24.0),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F8E9),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 20,
-                            offset: const Offset(0, -10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // 🏆 ÍCONES MOTIVACIONAIS
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildMotivationIcon('🏆', 'Conquistas'),
-                              _buildMotivationIcon('⭐', 'Experiência'),
-                              _buildMotivationIcon('🎯', 'Objetivos'),
-                              _buildMotivationIcon('🎮', 'Diversão'),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // 🚀 BOTÃO SUPER IMPACTANTE
-                          // ✅ CORRIGIDO (padrão das outras telas)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () => _finalizarOnboarding(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green[
-                                    600]!, // ✅ CORRIGIDO - igual outras telas
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 4,
-                                shadowColor:
-                                    Colors.green[600]!.withValues(alpha: 0.3),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '🎭 Escolha seu Avatar!', // ✅ NOVO LABEL
-                                    style: TextStyle(
-                                      fontSize: 15, // ✅ Padrão das outras telas
-                                      fontWeight: FontWeight
-                                          .w600, // ✅ Padrão das outras telas
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('🌟', style: TextStyle(fontSize: 18)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                return CustomPaint(
+                  size: MediaQuery.of(context).size,
+                  painter: ConfettiPainter(
+                    pieces: _confettiPieces,
+                    progress: _confettiController.value,
                   ),
                 );
               },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  // 📊 PERFIL CARD BALANCEADO
-  Widget _buildProfileCard(OnboardingData onboarding) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFF00C851).withValues(alpha: 0.1),
-          width: 1,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // ✅ IMPORTANTE PARA INTRINSIC HEIGHT
         children: [
-          // Header do card
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00C851).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.person_outline,
-                  color: Color(0xFF00C851),
-                  size: 28,
+              IconButton(
+                onPressed: () => context.go('/onboarding/7'),
+                icon: Icon(Icons.arrow_back_ios,
+                    color: Colors.green[700], size: 20),
+              ),
+              Text(
+                'Tudo Pronto! 🎉',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green[700],
                 ),
               ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Text(
-                  'Seu Perfil de Estudos',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00C851),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Barra de progresso 100%
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.green[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green[400]!, Colors.green[600]!],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 24),
-
-          // Conteúdo do perfil
-          _buildProfileItem(
-              '📚', 'Nível', _getEducationLevelText(onboarding.educationLevel)),
-          _buildProfileItem(
-              '🎯', 'Objetivo', _getStudyGoalText(onboarding.studyGoal)),
-          _buildProfileItem(
-              '🧭', 'Interesse', _getInterestAreaText(onboarding.interestArea)),
-          _buildProfileItem(
-              '📖', 'Estilo', onboarding.studyStyle ?? 'Não informado'),
-
-          // ✅ Espaçador para igualar altura
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  // 🎯 _buildAvatarCard() FINAL: Todas as melhorias SEM botão
-  Widget _buildAvatarCard() {
+  Widget _buildCelebrationCard(String name) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF007BFF).withValues(alpha: 0.1),
-            const Color(0xFF6F42C1).withValues(alpha: 0.1),
+            Colors.green.shade400,
+            Colors.teal.shade500,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFF007BFF).withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 📝 1. HEADER COM COPY CORRIGIDA
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF007BFF).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Text('🎮', style: TextStyle(fontSize: 28)),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Text(
-                  'Preparando Seus Avatares...', // ✅ COPY CORRIGIDA
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF007BFF),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // 🎨 CONTEÚDO PRINCIPAL COM TODAS AS MELHORIAS
-          Container(
-            height: 280, // ✅ Altura adequada sem botão
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // 🎮 2. FIGURA CENTRAL DINÂMICA
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF007BFF),
-                          const Color(0xFF6F42C1),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF007BFF).withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // ✅ EMOJI GAMING no centro
-                        const Center(
-                          child: Text(
-                            '🎮', // ✅ EMOJI em vez de Icons.person
-                            style: TextStyle(fontSize: 48),
-                          ),
-                        ),
-                        // ✅ LOADING INDICATOR NO CANTO
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4.0),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF007BFF)),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Copy motivacional
-                  const Text(
-                    'Baseado no seu perfil, vamos personalizar sua experiência!',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF007BFF),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 🏷️ 3. TAGS GAMING EM ROW
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Tag 1: Determinado
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF007BFF).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          '🎯 Determinado',
-                          style: TextStyle(
-                            color: Color(0xFF007BFF),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 6),
-
-                      // Tag 2: Corajoso
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF007BFF).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          '🔥 Corajoso',
-                          style: TextStyle(
-                            color: Color(0xFF007BFF),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 6),
-
-                      // Tag 3: Ativo
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF007BFF).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          '⚡ Ativo',
-                          style: TextStyle(
-                            color: Color(0xFF007BFF),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ✅ 4. LOADING DOTS ANIMADOS (complexidade extra)
-                  TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 1500),
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    builder: (context, value, child) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Color.lerp(
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                                const Color(0xFF007BFF),
-                                (value + 0.0) % 1.0,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Color.lerp(
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                                const Color(0xFF007BFF),
-                                (value + 0.3) % 1.0,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Color.lerp(
-                                const Color(0xFF007BFF).withValues(alpha: 0.3),
-                                const Color(0xFF007BFF),
-                                (value + 0.6) % 1.0,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                    onEnd: () {
-                      // Loop automático
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ✅ Espaçador para igualar altura com o perfil card
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  // 🗺️ TRILHAS SECTION - PREPARADO PARA BACKGROUNDS LEONARDO AI
-  Widget _buildTrailsSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.green.withOpacity(0.3),
             blurRadius: 20,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('🗺️', style: TextStyle(fontSize: 32)),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Trilhas de Aventura Disponíveis',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00C851),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Layout responsivo para trilhas
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 400) {
-                return Column(
-                  children: [
-                    _buildTrailCard(
-                      '🌲',
-                      'Floresta Amazônica',
-                      'Sobrevivência e Matemática',
-                      const Color(0xFF00C851),
-                      'Explore a maior floresta do mundo!',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTrailCard(
-                      '🌊',
-                      'Oceano Profundo',
-                      'Exploração e Descobertas',
-                      const Color(0xFF007BFF),
-                      'Mergulhe nas profundezas marinhas!',
-                    ),
-                  ],
-                );
-              } else {
-                return Row(
-                  children: [
-                    Expanded(
-                      child: _buildTrailCard(
-                        '🌲',
-                        'Floresta\nAmazônica',
-                        'Sobrevivência e\nMatemática',
-                        const Color(0xFF00C851),
-                        'Explore a maior floresta do mundo!',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildTrailCard(
-                        '🌊',
-                        'Oceano\nProfundo',
-                        'Exploração e\nDescobertas',
-                        const Color(0xFF007BFF),
-                        'Mergulhe nas profundezas marinhas!',
-                      ),
-                    ),
-                  ],
-                );
-              }
+          // Emoji animado
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.8, end: 1.0),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: const Text('🎉', style: TextStyle(fontSize: 48)),
+              );
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🎨 TRAIL CARD - PREPARADO PARA BACKGROUNDS LEONARDO AI
-  Widget _buildTrailCard(String emoji, String title, String subtitle,
-      Color color, String description) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        // 🔮 FUTURO LEONARDO AI BACKGROUND:
-        // image: DecorationImage(
-        //   image: NetworkImage(trailBackgroundUrl),
-        //   fit: BoxFit.cover,
-        //   colorFilter: ColorFilter.mode(
-        //     color.withValues(alpha: 0.8),
-        //     BlendMode.multiply,
-        //   ),
-        // ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 36))),
           ),
           const SizedBox(height: 16),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
+            'Parabéns, $name!',
+            style: const TextStyle(
+              fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            subtitle,
+            'Seu perfil de estudos está completo!\nAgora é só escolher seu avatar e começar a jogar.',
             style: TextStyle(
               fontSize: 15,
-              color: color.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 13,
-              color: color.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.95),
+              height: 1.4,
             ),
             textAlign: TextAlign.center,
           ),
@@ -6449,23 +5835,84 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
-  // 📊 PROFILE ITEM
-  Widget _buildProfileItem(String emoji, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+  Widget _buildProfileCard(OnboardingData onboarding) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C851).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 18))),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.person_outline,
+                    color: Colors.green[700], size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Seu Perfil de Estudos',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 20),
+          _buildProfileItem(
+            '📚',
+            'Nível',
+            _getEducationLevelText(onboarding.educationLevel),
+          ),
+          _buildProfileItem(
+            '🎯',
+            'Objetivo',
+            _getStudyGoalText(onboarding.studyGoal),
+          ),
+          _buildProfileItem(
+            '🔬',
+            'Área de Interesse',
+            _getInterestAreaText(onboarding.interestArea),
+          ),
+          if (onboarding.studyTime != null)
+            _buildProfileItem(
+              '⏰',
+              'Tempo de Estudo',
+              onboarding.studyTime!,
+            ),
+          if (onboarding.mainDifficulty != null)
+            _buildProfileItem(
+              '💪',
+              'Foco Principal',
+              onboarding.mainDifficulty!,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileItem(String emoji, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -6474,17 +5921,17 @@ class _Tela8FinalizacaoPremiumState
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700]!,
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
-                    color: Colors.grey[800]!,
+                    color: Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -6496,35 +5943,265 @@ class _Tela8FinalizacaoPremiumState
     );
   }
 
-  // 🏆 MOTIVATION ICON
-  Widget _buildMotivationIcon(String emoji, String label) {
+  Widget _buildNextStepsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.rocket_launch,
+                    color: Colors.amber[700], size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Próximos Passos',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildStepItem(
+            1,
+            '🦸',
+            'Escolha seu Avatar',
+            'Personalize seu personagem',
+            true, // Próximo passo
+          ),
+          _buildStepItem(
+            2,
+            '🧭',
+            'Nivelamento',
+            'Rápido (5 questões) ou Manual',
+            false,
+          ),
+          _buildStepItem(
+            3,
+            '🎮',
+            'Primeira Missão',
+            'Comece sua aventura!',
+            false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem(
+      int number, String emoji, String title, String subtitle, bool isNext) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isNext ? Colors.green.shade50 : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border:
+            isNext ? Border.all(color: Colors.green.shade300, width: 2) : null,
+      ),
+      child: Row(
+        children: [
+          // Número do passo
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isNext ? Colors.green : Colors.grey[400],
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '$number',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Emoji
+          Text(emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          // Texto
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isNext ? Colors.green[800] : Colors.grey[700],
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isNext ? Colors.green[600] : Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Indicador de próximo
+          if (isNext)
+            Icon(Icons.arrow_forward_ios, color: Colors.green[600], size: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitsCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.purple.shade50,
+            Colors.blue.shade50,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.purple.shade100),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            '✨ O que você vai encontrar',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBenefitIcon('🏆', 'Conquistas'),
+              _buildBenefitIcon('📈', 'Progresso'),
+              _buildBenefitIcon('🎯', 'Desafios'),
+              _buildBenefitIcon('🎮', 'Diversão'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitIcon(String emoji, String label) {
     return Column(
       children: [
         Container(
-          width: 56,
-          height: 56,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
-            color: const Color(0xFF00C851).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child:
-              Center(child: Text(emoji, style: const TextStyle(fontSize: 28))),
+          child: Center(
+            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+          ),
         ),
         const SizedBox(height: 8),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF00C851),
+            color: Colors.grey[700],
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  // 🔧 HELPER METHODS
+  Widget _buildBottomButton(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: () => context.go('/avatar-selection'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[600],
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('🦸', style: TextStyle(fontSize: 22)),
+                SizedBox(width: 10),
+                Text(
+                  'Escolher meu Avatar!',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // === HELPER METHODS ===
+
   String _getEducationLevelText(EducationLevel? level) {
     switch (level) {
       case EducationLevel.fundamental6:
@@ -6555,9 +6232,9 @@ class _Tela8FinalizacaoPremiumState
       case StudyGoal.enemPrep:
         return 'Preparação ENEM';
       case StudyGoal.specificUniversity:
-        return 'Universidade específica';
+        return 'Vestibular específico';
       case StudyGoal.exploreAreas:
-        return 'Explorar áreas';
+        return 'Explorar áreas de conhecimento';
       case StudyGoal.undecided:
         return 'Ainda decidindo';
       default:
@@ -6568,7 +6245,7 @@ class _Tela8FinalizacaoPremiumState
   String _getInterestAreaText(ProfessionalTrail? area) {
     switch (area) {
       case ProfessionalTrail.linguagens:
-        return 'Linguagens';
+        return 'Linguagens e Códigos';
       case ProfessionalTrail.cienciasNatureza:
         return 'Ciências da Natureza';
       case ProfessionalTrail.matematicaTecnologia:
@@ -6576,16 +6253,85 @@ class _Tela8FinalizacaoPremiumState
       case ProfessionalTrail.humanas:
         return 'Ciências Humanas';
       case ProfessionalTrail.negocios:
-        return 'Negócios';
+        return 'Negócios e Gestão';
       case ProfessionalTrail.descobrindo:
         return 'Ainda descobrindo';
       default:
         return 'Não informado';
     }
   }
+}
 
-  void _finalizarOnboarding(BuildContext context) {
-    // 🚀 NAVEGAR PARA SELEÇÃO DE AVATAR
-    context.go('/avatar-selection'); // ✅ Vai para Avatar
+// ===== 🎊 CONFETTI SYSTEM =====
+
+class ConfettiPiece {
+  double x;
+  double y;
+  double rotation;
+  Color color;
+  double size;
+  double speed;
+  double rotationSpeed;
+
+  ConfettiPiece({
+    required this.x,
+    required this.y,
+    required this.rotation,
+    required this.color,
+    required this.size,
+    required this.speed,
+    required this.rotationSpeed,
+  });
+}
+
+class ConfettiPainter extends CustomPainter {
+  final List<ConfettiPiece> pieces;
+  final double progress;
+
+  ConfettiPainter({required this.pieces, required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var piece in pieces) {
+      final paint = Paint()
+        ..color = piece.color.withOpacity((1 - progress).clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill;
+
+      // Calcular posição atual
+      final currentY = piece.y + (progress * piece.speed * 2);
+      final currentX = piece.x + (math.sin(progress * math.pi * 4) * 0.05);
+
+      // Só desenhar se estiver na tela
+      if (currentY >= -0.1 && currentY <= 1.1) {
+        canvas.save();
+
+        // Posicionar
+        canvas.translate(
+          currentX * size.width,
+          currentY * size.height,
+        );
+
+        // Rotacionar
+        canvas.rotate((piece.rotation + progress * piece.rotationSpeed * 360) *
+            math.pi /
+            180);
+
+        // Desenhar retângulo (confete)
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: piece.size,
+            height: piece.size * 0.6,
+          ),
+          const Radius.circular(2),
+        );
+        canvas.drawRRect(rect, paint);
+
+        canvas.restore();
+      }
+    }
   }
+
+  @override
+  bool shouldRepaint(ConfettiPainter oldDelegate) => true;
 }

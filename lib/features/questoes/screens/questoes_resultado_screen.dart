@@ -1,6 +1,6 @@
 // lib/features/questoes/screens/questoes_resultado_screen.dart
-// ✅ V7.2 FINAL - Sistema de Níveis + Melhorias UX/Games
-// 📅 Atualizado: 09/02/2026
+// ✅ V8.0 - Sprint 8: Botão Menu corrigido para /home
+// 📅 Atualizado: 14/02/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -792,7 +792,7 @@ class _QuestoesResultadoScreenState
     ).animate().fadeIn(delay: 700.ms, duration: 400.ms);
   }
 
-  // ✅ UX: Botões com contexto de saúde
+  // ✅ V8.0: Botões CORRIGIDOS - Menu vai para /home
   Widget _buildActionButtons(
       BuildContext context, WidgetRef ref, bool saudeCritica) {
     return Column(
@@ -869,7 +869,8 @@ class _QuestoesResultadoScreenState
               child: SizedBox(
                 height: 46,
                 child: OutlinedButton(
-                  onPressed: () => context.go('/modo-selection'),
+                  // ✅ V8.0 CORREÇÃO: Agora vai para /home em vez de /modo-selection
+                  onPressed: () => context.go('/home'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: BorderSide(

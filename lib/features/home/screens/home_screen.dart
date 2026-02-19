@@ -1,7 +1,10 @@
 // lib/features/home/screens/home_screen.dart
+// ✅ V8.1 - Sprint 8: Aceita initialTab via extra do GoRouter
+// 📅 Atualizado: 17/02/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 // Imports das tabs
 import 'inicio_tab.dart';
@@ -19,11 +22,45 @@ final currentTabProvider = StateProvider<int>((ref) => 0);
 /// - Tab 1: Jogar (Questões)
 /// - Tab 2: Observatório (Rankings)
 /// - Tab 3: Perfil (Dados usuário)
-class HomeScreen extends ConsumerWidget {
+///
+/// ✅ V8.1: Aceita initialTab via extra para navegação de outras telas
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ V8.1: Verificar se há initialTab no extra após o build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialTab();
+    });
+  }
+
+  /// ✅ V8.1: Verifica se veio initialTab via GoRouter extra
+  void _checkInitialTab() {
+    try {
+      final extra = GoRouterState.of(context).extra;
+      if (extra != null && extra is Map<String, dynamic>) {
+        final initialTab = extra['initialTab'] as int?;
+        if (initialTab != null && initialTab >= 0 && initialTab <= 3) {
+          ref.read(currentTabProvider.notifier).state = initialTab;
+          print('📍 HomeScreen: Navegando para aba $initialTab');
+        }
+      }
+    } catch (e) {
+      // Se não conseguir ler o extra, mantém a aba atual
+      print('⚠️ HomeScreen: Não foi possível ler initialTab: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentTab = ref.watch(currentTabProvider);
 
     // Lista de telas correspondentes às tabs

@@ -1,12 +1,17 @@
-// main.dart - StudyQuest V7.0 - Arquitetura Completa com Bottom Navigation
+// main.dart - StudyQuest V8.0 - Sprint 8 Auth Completo
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/themes/app_theme.dart';
 
-// ===== IMPORTS TELAS PRINCIPAIS V7.0 =====
+// ===== IMPORTS TELAS AUTH - SPRINT 8 =====
 import 'features/auth/screens/welcome_screen.dart';
+import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/register_screen.dart';
+import 'features/auth/screens/forgot_password_screen.dart';
+
+// ===== IMPORTS TELAS PRINCIPAIS =====
 import 'features/home/screens/home_screen.dart';
 
 // ===== IMPORTS ONBOARDING =====
@@ -37,7 +42,7 @@ import 'features/trilha/screens/trilha_oceano_feedback_screen.dart';
 import 'features/trilha/screens/trilha_oceano_resultados_screen.dart';
 import 'features/trilha/screens/trilha_oceano_gameover_screen.dart';
 
-// ===== IMPORTS QUESTÕES PERSONALIZADAS - SPRINT 6 =====
+// ===== IMPORTS QUESTÕES PERSONALIZADAS =====
 import 'features/questoes/screens/questao_personalizada_screen.dart';
 import 'features/questoes/screens/questoes_gameover_screen.dart';
 import 'features/questoes/screens/questoes_resultado_screen.dart';
@@ -49,17 +54,29 @@ import 'features/trilha/models/recursos_vitais.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-// ===== ROUTER V7.0 =====
+// ===== ROUTER V8.0 - COM AUTH =====
 final router = GoRouter(
-  initialLocation: '/', // ← WelcomeScreen verifica se é novo/existente
+  initialLocation: '/', // WelcomeScreen verifica auth status
 
   routes: [
     // ========================================
-    // ROTA INICIAL: WELCOME SCREEN
+    // ROTAS DE AUTENTICAÇÃO - SPRINT 8
     // ========================================
     GoRoute(
       path: '/',
       builder: (_, __) => const WelcomeScreen(),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (_, __) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (_, __) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (_, __) => const ForgotPasswordScreen(),
     ),
 
     // ========================================
@@ -71,7 +88,7 @@ final router = GoRouter(
     ),
 
     // ========================================
-    // ROTAS DE ONBOARDING (8 telas)
+    // ROTAS DE ONBOARDING (9 telas)
     // ========================================
     GoRoute(
       path: '/onboarding/0',
@@ -123,7 +140,7 @@ final router = GoRouter(
     ),
 
     // ========================================
-    // ROTA SELEÇÃO DE MODOS (Placeholder)
+    // ROTA SELEÇÃO DE MODOS
     // ========================================
     GoRoute(
       path: '/modo-selection',
@@ -217,7 +234,7 @@ final router = GoRouter(
     ),
 
     // ========================================
-    // ROTAS QUESTÕES PERSONALIZADAS - SPRINT 6
+    // ROTAS QUESTÕES PERSONALIZADAS
     // ========================================
     GoRoute(
       path: '/questoes-personalizada',
