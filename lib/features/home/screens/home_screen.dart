@@ -1,6 +1,6 @@
 // lib/features/home/screens/home_screen.dart
-// ✅ V8.1 - Sprint 8: Aceita initialTab via extra do GoRouter
-// 📅 Atualizado: 17/02/2026
+// ✅ V9.0 - Sprint 9: 5 abas com Diário
+// 📅 Atualizado: 18/02/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,19 +11,21 @@ import 'inicio_tab.dart';
 import 'jogar_tab.dart';
 import 'observatorio_tab.dart';
 import 'perfil_tab.dart';
+import '../../diario/screens/diario_tab.dart';
 
 /// Provider para controlar a tab atual
 final currentTabProvider = StateProvider<int>((ref) => 0);
 
 /// HomeScreen - Container principal com Bottom Navigation
 ///
-/// Estrutura:
+/// Estrutura (V9.0 - 5 abas):
 /// - Tab 0: Início (Dashboard)
-/// - Tab 1: Jogar (Questões)
-/// - Tab 2: Observatório (Rankings)
-/// - Tab 3: Perfil (Dados usuário)
+/// - Tab 1: Diário (Anotações) ← NOVO
+/// - Tab 2: Jogar (Questões)
+/// - Tab 3: Observatório (Rankings)
+/// - Tab 4: Perfil (Dados usuário)
 ///
-/// ✅ V8.1: Aceita initialTab via extra para navegação de outras telas
+/// ✅ V9.0: Adicionada aba do Diário
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,25 +38,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
 
-    // ✅ V8.1: Verificar se há initialTab no extra após o build
+    // Verificar se há initialTab no extra após o build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialTab();
     });
   }
 
-  /// ✅ V8.1: Verifica se veio initialTab via GoRouter extra
+  /// Verifica se veio initialTab via GoRouter extra
   void _checkInitialTab() {
     try {
       final extra = GoRouterState.of(context).extra;
       if (extra != null && extra is Map<String, dynamic>) {
         final initialTab = extra['initialTab'] as int?;
-        if (initialTab != null && initialTab >= 0 && initialTab <= 3) {
+        if (initialTab != null && initialTab >= 0 && initialTab <= 4) {
           ref.read(currentTabProvider.notifier).state = initialTab;
           print('📍 HomeScreen: Navegando para aba $initialTab');
         }
       }
     } catch (e) {
-      // Se não conseguir ler o extra, mantém a aba atual
       print('⚠️ HomeScreen: Não foi possível ler initialTab: $e');
     }
   }
@@ -63,12 +64,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final currentTab = ref.watch(currentTabProvider);
 
-    // Lista de telas correspondentes às tabs
+    // Lista de telas correspondentes às tabs (V9.0 - 5 abas)
     final List<Widget> tabs = [
-      const InicioTab(),
-      const JogarTab(),
-      const ObservatorioTab(),
-      const PerfilTab(),
+      const InicioTab(), // 0
+      const DiarioTab(), // 1 ← NOVO
+      const JogarTab(), // 2
+      const ObservatorioTab(), // 3
+      const PerfilTab(), // 4
     ];
 
     return Scaffold(
@@ -78,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: tabs,
       ),
 
-      // Bottom Navigation Bar
+      // Bottom Navigation Bar (5 abas)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -98,35 +100,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           backgroundColor: Colors.white,
           selectedItemColor: Colors.green[700],
           unselectedItemColor: Colors.grey[600],
-          selectedFontSize: 12,
-          unselectedFontSize: 11,
+          selectedFontSize: 11,
+          unselectedFontSize: 10,
+          iconSize: 24,
           elevation: 0,
           items: const [
             // Tab 0: Início
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded, size: 26),
-              activeIcon: Icon(Icons.home, size: 28),
+              icon: Icon(Icons.home_outlined, size: 24),
+              activeIcon: Icon(Icons.home, size: 26),
               label: 'Início',
             ),
 
-            // Tab 1: Jogar
+            // Tab 1: Diário ← NOVO
             BottomNavigationBarItem(
-              icon: Icon(Icons.videogame_asset_rounded, size: 26),
-              activeIcon: Icon(Icons.videogame_asset, size: 28),
+              icon: Icon(Icons.book_outlined, size: 24),
+              activeIcon: Icon(Icons.book, size: 26),
+              label: 'Diário',
+            ),
+
+            // Tab 2: Jogar
+            BottomNavigationBarItem(
+              icon: Icon(Icons.play_circle_outline, size: 24),
+              activeIcon: Icon(Icons.play_circle_fill, size: 26),
               label: 'Jogar',
             ),
 
-            // Tab 2: Observatório
+            // Tab 3: Observatório
             BottomNavigationBarItem(
-              icon: Icon(Icons.emoji_events_rounded, size: 26),
-              activeIcon: Icon(Icons.emoji_events, size: 28),
+              icon: Icon(Icons.emoji_events_outlined, size: 24),
+              activeIcon: Icon(Icons.emoji_events, size: 26),
               label: 'Ranking',
             ),
 
-            // Tab 3: Perfil
+            // Tab 4: Perfil
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded, size: 26),
-              activeIcon: Icon(Icons.person, size: 28),
+              icon: Icon(Icons.person_outline, size: 24),
+              activeIcon: Icon(Icons.person, size: 26),
               label: 'Perfil',
             ),
           ],
