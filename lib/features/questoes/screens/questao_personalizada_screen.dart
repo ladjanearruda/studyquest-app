@@ -1,6 +1,7 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
-// ✅ V8.1 - Sprint 8: Bottom Nav com 3 botões (Sair, Ranking, Perfil)
-// 📅 Atualizado: 17/02/2026
+// ✅ V9.2 - Sprint 9 Fase 2: Hall da Fama + Firebase Persistência
+// 📅 Atualizado: 22/02/2026
+// 🎯 Detecta revanche, salva respostas, visual dourado
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,14 +13,21 @@ import '../providers/sessao_usuario_provider.dart';
 import '../providers/recursos_provider_v71.dart';
 import '../widgets/checkpoint_modal.dart';
 import '../widgets/gameover_modal.dart';
+import '../widgets/revanche_header.dart'; // ✅ V9.2: Header revanche
 import '../../onboarding/screens/onboarding_screen.dart';
-import '../../home/screens/home_screen.dart'; // ✅ V8.2: Para currentTabProvider
+import '../../home/screens/home_screen.dart';
 import '../../../core/models/avatar.dart';
 
 // Imports do sistema de níveis
 import '../../niveis/models/nivel_model.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/widgets/level_up_modal.dart';
+
+// ✅ V9.2: Imports do Diário e Firebase
+import '../../diario/widgets/anotar_erro_modal.dart';
+import '../../diario/providers/diary_provider.dart';
+import '../../../core/services/firebase_diary_service.dart';
+import '../../../core/services/firebase_rest_auth.dart';
 
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
@@ -37,17 +45,21 @@ class _QuestaoPersonalizadaScreenState
   int _timeLeft = 45;
   bool _showFeedback = false;
   bool _isProcessing = false;
-  bool _isPaused = false; // ✅ V8.1: Controle de pausa
+  bool _isPaused = false;
 
   Avatar? _currentAvatar;
   AvatarEmotion _currentEmotion = AvatarEmotion.neutro;
 
   Map<String, dynamic>? _pendingLevelUp;
 
+  // ✅ V9.2: Variáveis para Hall da Fama
+  bool _isRevanche = false;
+  String? _currentUserId;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // ✅ Para detectar quando volta
+    WidgetsBinding.instance.addObserver(this);
     _startTimer();
     _initializeSession();
     _loadAvatar();
@@ -60,7 +72,6 @@ class _QuestaoPersonalizadaScreenState
     super.dispose();
   }
 
-  // ✅ V8.1: Detectar quando o app volta ao foco (retorna de outra tela)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _isPaused) {
@@ -81,13 +92,27 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
+  // ✅ V9.2: Inicialização com userId e carregamento do diário
   void _initializeSession() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       try {
+        // ✅ V9.2: Carregar userId do auth
+        final user = await FirebaseRestAuth.getCurrentUser();
+        if (user != null) {
+          _currentUserId = user.uid;
+          print('👤 Usuário carregado: ${user.uid}');
+        }
+
         ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
         await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
+
+        // ✅ V9.2: Carregar anotações do diário para detectar revanches
+        await ref.read(diaryProvider.notifier).loadEntriesFromFirebase();
+
+        // ✅ V9.2: Verificar se a primeira questão é revanche
+        _checkIfRevanche();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -96,6 +121,27 @@ class _QuestaoPersonalizadaScreenState
         }
       }
     });
+  }
+
+  // ✅ V9.2: Verificar se questão atual é revanche
+  void _checkIfRevanche() {
+    final sessao = ref.read(sessaoQuestoesProvider);
+    final questao = sessao.questaoAtualObj;
+
+    if (questao != null) {
+      final diaryNotifier = ref.read(diaryProvider.notifier);
+      final isRevanche = diaryNotifier.isRevanche(questao.id);
+
+      if (mounted && _isRevanche != isRevanche) {
+        setState(() {
+          _isRevanche = isRevanche;
+        });
+
+        if (isRevanche) {
+          print('🔄 REVANCHE detectada: ${questao.id}');
+        }
+      }
+    }
   }
 
   void _startTimer() {
@@ -110,7 +156,6 @@ class _QuestaoPersonalizadaScreenState
     });
   }
 
-  // ✅ V8.1: Pausar o jogo
   void _pauseGame() {
     setState(() {
       _isPaused = true;
@@ -119,7 +164,6 @@ class _QuestaoPersonalizadaScreenState
     print('⏸️ Jogo pausado');
   }
 
-  // ✅ V8.1: Retomar o jogo
   void _resumeGame() {
     if (!_showFeedback && !_isProcessing) {
       setState(() {
@@ -130,7 +174,6 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
-  // ✅ V8.2: Abrir modal de Ranking ou Perfil (não sai do jogo)
   void _navigateWithPause(String route) {
     _pauseGame();
 
@@ -141,7 +184,6 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
-  // ✅ V8.2: Modal de Ranking
   void _showRankingModal() {
     showModalBottomSheet(
       context: context,
@@ -154,19 +196,17 @@ class _QuestaoPersonalizadaScreenState
         },
         onViewFull: () {
           Navigator.pop(context);
-          ref.read(currentTabProvider.notifier).state = 2;
+          ref.read(currentTabProvider.notifier).state = 3;
           context.go('/home');
         },
       ),
     ).whenComplete(() {
-      // Se fechou de outra forma (swipe down, tap fora)
       if (mounted && _isPaused) {
         _resumeGame();
       }
     });
   }
 
-  // ✅ V8.2: Modal de Perfil
   void _showPerfilModal() {
     final onboardingData = ref.read(onboardingProvider);
     final nivelUsuario = ref.read(nivelProvider);
@@ -187,7 +227,7 @@ class _QuestaoPersonalizadaScreenState
         },
         onViewFull: () {
           Navigator.pop(context);
-          ref.read(currentTabProvider.notifier).state = 3;
+          ref.read(currentTabProvider.notifier).state = 4;
           context.go('/home');
         },
       ),
@@ -201,11 +241,27 @@ class _QuestaoPersonalizadaScreenState
   void _handleTimeout() {
     if (!mounted || _showFeedback || _isProcessing) return;
 
+    final sessao = ref.read(sessaoQuestoesProvider);
+    final questao = sessao.questaoAtualObj;
+
     setState(() {
       _isProcessing = true;
       _showFeedback = true;
       _currentEmotion = AvatarEmotion.determinado;
     });
+
+    // ✅ V9.2: Salvar timeout no Firebase
+    if (_currentUserId != null && questao != null) {
+      FirebaseDiaryService.saveUserResponse(
+        userId: _currentUserId!,
+        questionId: questao.id,
+        wasCorrect: false,
+        selectedAnswer: -1,
+        timeSpent: 45,
+        subject: questao.subject,
+        difficulty: questao.difficulty,
+      );
+    }
 
     ref
         .read(sessaoQuestoesProvider.notifier)
@@ -217,12 +273,14 @@ class _QuestaoPersonalizadaScreenState
     _showFeedbackAndCheckStatus(false, isTimeout: true);
   }
 
+  // ✅ V9.2: _selectOption com salvamento Firebase e detecção de transformação
   void _selectOption(int index) async {
     if (_showFeedback || _isProcessing || _isPaused) return;
 
     final sessao = ref.read(sessaoQuestoesProvider);
     final questao = sessao.questaoAtualObj;
     final isCorrect = questao != null && index == questao.respostaCorreta;
+    final timeSpent = 45 - _timeLeft;
 
     setState(() {
       _isProcessing = true;
@@ -234,10 +292,45 @@ class _QuestaoPersonalizadaScreenState
 
     _timer?.cancel();
 
+    // ✅ V9.2: Salvar resposta no Firebase
+    if (_currentUserId != null && questao != null) {
+      FirebaseDiaryService.saveUserResponse(
+        userId: _currentUserId!,
+        questionId: questao.id,
+        wasCorrect: isCorrect,
+        selectedAnswer: index,
+        timeSpent: timeSpent,
+        subject: questao.subject,
+        difficulty: questao.difficulty,
+      );
+      print('💾 Resposta salva: ${questao.id} (${isCorrect ? "✓" : "✗"})');
+    }
+
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(index);
     ref
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(isCorrect);
+
+    // ✅ V9.2: Verificar se é transformação de erro (revanche acertada!)
+    if (isCorrect && _isRevanche && questao != null) {
+      final diaryNotifier = ref.read(diaryProvider.notifier);
+      final xpBonus = await diaryNotifier.transformarErro(questao.id);
+
+      if (xpBonus > 0 && mounted) {
+        print('🏆 ERRO TRANSFORMADO! +$xpBonus XP');
+
+        // Mostrar modal de celebração
+        await ErroTransformadoModal.show(
+          context: context,
+          materia: questao.subject,
+          xpGanho: xpBonus,
+          onContinue: () {},
+        );
+
+        // Adicionar XP bônus ao nível
+        await ref.read(nivelProvider.notifier).adicionarXp(xpBonus);
+      }
+    }
 
     if (isCorrect && questao != null) {
       final acertosConsecutivos = _contarAcertosConsecutivos();
@@ -353,11 +446,13 @@ class _QuestaoPersonalizadaScreenState
           _currentEmotion = AvatarEmotion.neutro;
           _pendingLevelUp = null;
           _isPaused = false;
+          _isRevanche = false; // ✅ V9.2: Reset revanche
         });
 
         try {
           ref.read(recursosPersonalizadosProvider.notifier).aplicarGameOver();
           await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
+          _checkIfRevanche(); // ✅ V9.2: Verificar revanche da nova questão
           _startTimer();
           print('🔄 Nova sessão iniciada após Game Over');
         } catch (e) {
@@ -382,9 +477,11 @@ class _QuestaoPersonalizadaScreenState
       _timeLeft = 45;
       _currentEmotion = AvatarEmotion.neutro;
       _isPaused = false;
+      _isRevanche = false; // ✅ V9.2: Reset revanche
     });
 
     ref.read(sessaoQuestoesProvider.notifier).voltarParaInicio();
+    _checkIfRevanche(); // ✅ V9.2: Verificar revanche
     _startTimer();
     print('🔄 CHECKPOINT: Voltando para questão 1 (mesmas questões)');
   }
@@ -440,6 +537,10 @@ class _QuestaoPersonalizadaScreenState
 
     if (sessao.temProximaQuestao) {
       ref.read(sessaoQuestoesProvider.notifier).proximaQuestao();
+
+      // ✅ V9.2: Verificar se próxima questão é revanche
+      _checkIfRevanche();
+
       setState(() {
         _selectedOption = null;
         _showFeedback = false;
@@ -454,9 +555,8 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
-  // ✅ V8.4: Dialog de confirmação para ir ao Início (pausar sessão)
   void _showExitConfirmation() {
-    _pauseGame(); // Pausa enquanto mostra o dialog
+    _pauseGame();
 
     showDialog(
       context: context,
@@ -481,13 +581,8 @@ class _QuestaoPersonalizadaScreenState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Sua missão ficará pausada.',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey[800],
-              ),
-            ),
+            Text('Sua missão ficará pausada.',
+                style: TextStyle(fontSize: 15, color: Colors.grey[800])),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -504,10 +599,7 @@ class _QuestaoPersonalizadaScreenState
                     child: Text(
                       'Para continuar depois:\nJogar → Continuar Sessão',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.blue[700],
-                        height: 1.4,
-                      ),
+                          fontSize: 13, color: Colors.blue[700], height: 1.4),
                     ),
                   ),
                 ],
@@ -519,7 +611,7 @@ class _QuestaoPersonalizadaScreenState
           TextButton.icon(
             onPressed: () {
               Navigator.pop(context);
-              _resumeGame(); // Retoma o jogo
+              _resumeGame();
             },
             icon: const Icon(Icons.play_arrow, size: 20),
             label: const Text('Continuar Jogando'),
@@ -543,30 +635,9 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ V8.3: Ir para Home na aba Início (NÃO reseta sessão - permite continuar)
   void _goToHome() {
-    // NÃO resetar sessão - usuário pode continuar depois na aba Jogar
-
-    // Definir a aba ANTES de navegar
-    ref.read(currentTabProvider.notifier).state = 0; // Aba Início
-
-    // Navegar para /home
+    ref.read(currentTabProvider.notifier).state = 0;
     context.go('/home');
-  }
-
-  Widget _buildExitInfoRow(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -592,7 +663,6 @@ class _QuestaoPersonalizadaScreenState
         child: SafeArea(
           child: Column(
             children: [
-              // ✅ Conteúdo scrollável
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -617,8 +687,6 @@ class _QuestaoPersonalizadaScreenState
                   ),
                 ),
               ),
-
-              // ✅ V8.1: Bottom Navigation fixa
               _buildBottomNavigation(),
             ],
           ),
@@ -627,7 +695,6 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ V8.1: Header LIMPO (sem ícone home)
   Widget _buildHeaderLimpo(OnboardingData onboardingData, dynamic sessao) {
     final nivelUsuario = ref.watch(nivelProvider);
 
@@ -636,22 +703,19 @@ class _QuestaoPersonalizadaScreenState
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          // Avatar
           if (_currentAvatar != null)
             Container(
               width: 56,
               height: 56,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green.shade400, Colors.green.shade600],
-                ),
+                    colors: [Colors.green.shade400, Colors.green.shade600]),
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3))
                 ],
               ),
               child: ClipRRect(
@@ -665,10 +729,9 @@ class _QuestaoPersonalizadaScreenState
                         onboardingData.name?.substring(0, 1).toUpperCase() ??
                             'U',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold),
                       ),
                     );
                   },
@@ -681,24 +744,20 @@ class _QuestaoPersonalizadaScreenState
               height: 56,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green.shade400, Colors.green.shade600],
-                ),
+                    colors: [Colors.green.shade400, Colors.green.shade600]),
                 borderRadius: BorderRadius.circular(28),
               ),
               child: Center(
                 child: Text(
                   onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
           const SizedBox(width: 12),
-
-          // Info do usuário
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -706,10 +765,9 @@ class _QuestaoPersonalizadaScreenState
                 Text(
                   _getAvatarShortDisplay(onboardingData),
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
@@ -717,40 +775,33 @@ class _QuestaoPersonalizadaScreenState
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 4),
-                // Mini barra de nível
                 Row(
                   children: [
                     Text(nivelUsuario.tier.emoji,
                         style: const TextStyle(fontSize: 12)),
                     const SizedBox(width: 4),
-                    Text(
-                      'Nv.${nivelUsuario.nivel}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.amber[700],
-                      ),
-                    ),
+                    Text('Nv.${nivelUsuario.nivel}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[700])),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(
                         height: 4,
                         constraints: const BoxConstraints(maxWidth: 60),
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(2)),
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor: nivelUsuario.progresso,
                           child: Container(
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.amber.shade400,
-                                  Colors.orange.shade500
-                                ],
-                              ),
+                              gradient: LinearGradient(colors: [
+                                Colors.amber.shade400,
+                                Colors.orange.shade500
+                              ]),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -762,8 +813,6 @@ class _QuestaoPersonalizadaScreenState
               ],
             ),
           ),
-
-          // Timer
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
@@ -805,17 +854,15 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ V8.1: Bottom Navigation com 3 botões
   Widget _buildBottomNavigation() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2))
         ],
       ),
       child: SafeArea(
@@ -826,23 +873,20 @@ class _QuestaoPersonalizadaScreenState
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(
-                icon: Icons.home,
-                label: 'Início',
-                onTap: _showExitConfirmation,
-                color: Colors.green.shade600,
-              ),
+                  icon: Icons.home,
+                  label: 'Início',
+                  onTap: _showExitConfirmation,
+                  color: Colors.green.shade600),
               _buildNavItem(
-                icon: Icons.emoji_events,
-                label: 'Ranking',
-                onTap: () => _navigateWithPause('ranking'),
-                color: Colors.amber.shade600,
-              ),
+                  icon: Icons.emoji_events,
+                  label: 'Ranking',
+                  onTap: () => _navigateWithPause('ranking'),
+                  color: Colors.amber.shade600),
               _buildNavItem(
-                icon: Icons.person,
-                label: 'Perfil',
-                onTap: () => _navigateWithPause('perfil'),
-                color: Colors.blue.shade600,
-              ),
+                  icon: Icons.person,
+                  label: 'Perfil',
+                  onTap: () => _navigateWithPause('perfil'),
+                  color: Colors.blue.shade600),
             ],
           ),
         ),
@@ -850,12 +894,11 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
+  Widget _buildNavItem(
+      {required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      required Color color}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -866,14 +909,9 @@ class _QuestaoPersonalizadaScreenState
           children: [
             Icon(icon, color: color, size: 26),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600, color: color)),
           ],
         ),
       ),
@@ -886,31 +924,16 @@ class _QuestaoPersonalizadaScreenState
       child: Row(
         children: [
           Expanded(
-            child: _buildRecursoItem(
-              Icons.flash_on,
-              'Energia',
-              recursos['energia'] ?? 100.0,
-              Colors.yellow[700]!,
-            ),
-          ),
+              child: _buildRecursoItem(Icons.flash_on, 'Energia',
+                  recursos['energia'] ?? 100.0, Colors.yellow[700]!)),
           const SizedBox(width: 8),
           Expanded(
-            child: _buildRecursoItem(
-              Icons.water_drop,
-              'Água',
-              recursos['agua'] ?? 100.0,
-              Colors.blue[700]!,
-            ),
-          ),
+              child: _buildRecursoItem(Icons.water_drop, 'Água',
+                  recursos['agua'] ?? 100.0, Colors.blue[700]!)),
           const SizedBox(width: 8),
           Expanded(
-            child: _buildRecursoItem(
-              Icons.favorite,
-              'Saúde',
-              recursos['saude'] ?? 100.0,
-              Colors.red[700]!,
-            ),
-          ),
+              child: _buildRecursoItem(Icons.favorite, 'Saúde',
+                  recursos['saude'] ?? 100.0, Colors.red[700]!)),
         ],
       ),
     );
@@ -939,10 +962,9 @@ class _QuestaoPersonalizadaScreenState
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Column(
@@ -952,14 +974,11 @@ class _QuestaoPersonalizadaScreenState
             children: [
               Icon(icon, size: 16, color: cor),
               const SizedBox(width: 4),
-              Text(
-                '${valor.toInt()}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: valor <= 20 ? Colors.red[700] : cor,
-                ),
-              ),
+              Text('${valor.toInt()}%',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: valor <= 20 ? Colors.red[700] : cor)),
             ],
           ),
           const SizedBox(height: 4),
@@ -968,9 +987,8 @@ class _QuestaoPersonalizadaScreenState
           Container(
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(2),
-            ),
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(2)),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: (valor / 100).clamp(0.0, 1.0),
@@ -989,146 +1007,149 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
+  // ✅ V9.2: Card de questão com visual de revanche
   Widget _buildQuestaoCard(
       dynamic questao, OnboardingData onboardingData, dynamic sessao) {
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        // ✅ V9.2: Borda dourada se revanche
+        border: _isRevanche
+            ? Border.all(color: Colors.amber.shade400, width: 3)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            color: _isRevanche
+                ? Colors.amber.withOpacity(0.3)
+                : Colors.black.withOpacity(0.1),
+            blurRadius: _isRevanche ? 15 : 10,
             offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          // Avatar na questão
-          if (_currentAvatar != null)
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.shade300, Colors.green.shade500],
-                ),
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: ClipOval(
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  color: Colors.white,
-                  child: Image.asset(
-                    _currentAvatar!.getPath(_currentEmotion),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Text(
-                          onboardingData.name?.substring(0, 1).toUpperCase() ??
-                              'U',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade600,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.shade300, Colors.green.shade500],
-                ),
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.white,
-                child: Text(
-                  onboardingData.name?.substring(0, 1).toUpperCase() ?? 'U',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade600,
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(width: 16),
+          // ✅ V9.2: Header de revanche
+          if (_isRevanche) const RevancheHeader(xpBonus: 15),
 
-          // Conteúdo da questão
-          Expanded(
-            child: Column(
+          // Conteúdo do card
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tags
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        questao.subject.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
+                if (_currentAvatar != null)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [
+                        _isRevanche
+                            ? Colors.amber.shade300
+                            : Colors.green.shade300,
+                        _isRevanche
+                            ? Colors.orange.shade400
+                            : Colors.green.shade500
+                      ]),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: ClipOval(
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        color: Colors.white,
+                        child: Image.asset(
+                          _currentAvatar!.getPath(_currentEmotion),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Text(
+                                onboardingData.name
+                                        ?.substring(0, 1)
+                                        .toUpperCase() ??
+                                    'U',
+                                style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade600),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [
+                        Colors.green.shade300,
+                        Colors.green.shade500
+                      ]),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white,
                       child: Text(
-                        questao.difficulty.toUpperCase(),
+                        onboardingData.name?.substring(0, 1).toUpperCase() ??
+                            'U',
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
-                        ),
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade600),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Título
-                Text(
-                  'Sobrevivência na Amazônia - Questão ${sessao.questaoAtual + 1}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade800,
                   ),
-                ),
-                const SizedBox(height: 12),
-
-                // Enunciado
-                Text(
-                  questao.enunciado,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: Colors.black87,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Text(questao.subject.toUpperCase(),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade800)),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: Colors.blue.shade100,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Text(questao.difficulty.toUpperCase(),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade800)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                          'Sobrevivência na Amazônia - Questão ${sessao.questaoAtual + 1}',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800)),
+                      const SizedBox(height: 12),
+                      Text(questao.enunciado,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: Colors.black87)),
+                    ],
                   ),
                 ),
               ],
@@ -1155,7 +1176,7 @@ class _QuestaoPersonalizadaScreenState
             children: [
               Icon(Icons.error_outline, color: Colors.red, size: 24),
               SizedBox(width: 12),
-              Text('Erro ao carregar alternativas'),
+              Text('Erro ao carregar alternativas')
             ],
           ),
         ),
@@ -1183,10 +1204,9 @@ class _QuestaoPersonalizadaScreenState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color:
-                    isSelected ? Colors.green.shade400 : Colors.grey.shade300,
-                width: isSelected ? 2 : 1,
-              ),
+                  color:
+                      isSelected ? Colors.green.shade400 : Colors.grey.shade300,
+                  width: isSelected ? 2 : 1),
             ),
           ),
           child: Row(
@@ -1195,14 +1215,11 @@ class _QuestaoPersonalizadaScreenState
                 backgroundColor:
                     isSelected ? Colors.green.shade600 : Colors.grey.shade100,
                 radius: 16,
-                child: Text(
-                  letra,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
+                child: Text(letra,
+                    style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey.shade600,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1222,10 +1239,9 @@ class _QuestaoPersonalizadaScreenState
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Column(
@@ -1233,22 +1249,16 @@ class _QuestaoPersonalizadaScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Progresso da Sessão',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                '${sessao.questaoAtual + 1}/${sessao.totalQuestoes}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade600,
-                ),
-              ),
+              Text('Progresso da Sessão',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600)),
+              Text('${sessao.questaoAtual + 1}/${sessao.totalQuestoes}',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade600)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1289,8 +1299,8 @@ class _QuestaoPersonalizadaScreenState
   }
 }
 
-// ===== MODAL DE FEEDBACK =====
-class FeedbackPersonalizadoModal extends StatelessWidget {
+// ===== MODAL DE FEEDBACK V9.2 - COM DIÁRIO =====
+class FeedbackPersonalizadoModal extends ConsumerStatefulWidget {
   final bool acertou;
   final bool isTimeout;
   final int? selectedOption;
@@ -1319,6 +1329,15 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   });
 
   @override
+  ConsumerState<FeedbackPersonalizadoModal> createState() =>
+      _FeedbackPersonalizadoModalState();
+}
+
+class _FeedbackPersonalizadoModalState
+    extends ConsumerState<FeedbackPersonalizadoModal> {
+  bool _annotationSaved = false;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black54,
@@ -1327,29 +1346,36 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           width: MediaQuery.of(context).size.width * 0.95,
           height: MediaQuery.of(context).size.height * 0.85,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
+              color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
               _buildHeader(),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
                     children: [
-                      Expanded(flex: 1, child: _buildExplicacaoCard()),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          children: [
-                            _buildRecursosCard(),
-                            const SizedBox(height: 16),
-                            _buildProgressoCard(),
-                          ],
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 1, child: _buildExplicacaoCard()),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 1, child: _buildRecursosCard()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: !widget.acertou
+                                ? _buildAnotarCard()
+                                : const SizedBox(),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 1, child: _buildProgressoCard()),
+                        ],
                       ),
                     ],
                   ),
@@ -1367,26 +1393,24 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: acertou ? Colors.green.shade400 : Colors.red.shade400,
+        color: widget.acertou ? Colors.green.shade400 : Colors.red.shade400,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+            topLeft: Radius.circular(20), topRight: Radius.circular(20)),
       ),
       child: Row(
         children: [
-          if (currentAvatar != null)
+          if (widget.currentAvatar != null)
             ClipOval(
               child: Container(
                 width: 60,
                 height: 60,
                 color: Colors.white,
                 child: Image.asset(
-                  currentAvatar!.getPath(currentEmotion),
+                  widget.currentAvatar!.getPath(widget.currentEmotion),
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Icon(
-                    acertou ? Icons.check_circle : Icons.cancel,
-                    color: acertou ? Colors.green : Colors.red,
+                    widget.acertou ? Icons.check_circle : Icons.cancel,
+                    color: widget.acertou ? Colors.green : Colors.red,
                     size: 32,
                   ),
                 ),
@@ -1394,9 +1418,9 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             )
           else
             Icon(
-              isTimeout
+              widget.isTimeout
                   ? Icons.schedule
-                  : (acertou ? Icons.check_circle : Icons.cancel),
+                  : (widget.acertou ? Icons.check_circle : Icons.cancel),
               color: Colors.white,
               size: 40,
             ),
@@ -1406,19 +1430,17 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isTimeout
+                  widget.isTimeout
                       ? 'Tempo Esgotado!'
-                      : (acertou ? 'Excelente!' : 'Quase lá!'),
+                      : (widget.acertou ? 'Excelente!' : 'Quase lá!'),
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  _buildSubtitle(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                Text(_buildSubtitle(),
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
@@ -1428,24 +1450,24 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   }
 
   String _buildSubtitle() {
-    final respostaCorreta = questao?.respostaCorreta ?? 0;
+    final respostaCorreta = widget.questao?.respostaCorreta ?? 0;
     final idx = respostaCorreta is int
         ? respostaCorreta
         : (respostaCorreta as num).toInt();
     final letraCorreta = String.fromCharCode(65 + idx);
 
-    if (isTimeout) return 'O tempo esgotou | Correta: $letraCorreta';
+    if (widget.isTimeout) return 'O tempo esgotou | Correta: $letraCorreta';
 
-    final suaResposta = selectedOption != null
-        ? String.fromCharCode(65 + selectedOption!)
+    final suaResposta = widget.selectedOption != null
+        ? String.fromCharCode(65 + widget.selectedOption!)
         : 'Nenhuma';
     return 'Sua resposta: $suaResposta | Correta: $letraCorreta';
   }
 
   Widget _buildExplicacaoCard() {
-    String explicacao = questao?.explicacao ?? '';
+    String explicacao = widget.questao?.explicacao ?? '';
     if (explicacao.isEmpty) {
-      final idx = (questao?.respostaCorreta as num?)?.toInt() ?? 0;
+      final idx = (widget.questao?.respostaCorreta as num?)?.toInt() ?? 0;
       final letra = String.fromCharCode(65 + idx);
       explicacao = 'A resposta correta é a alternativa $letra.';
     }
@@ -1464,10 +1486,8 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             children: [
               Icon(Icons.lightbulb, color: Colors.amber[700], size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'Explicação',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              const Text('Explicação',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1484,38 +1504,37 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: acertou ? Colors.green[200]! : Colors.red[200]!,
-          width: 2,
-        ),
+            color: widget.acertou ? Colors.green[200]! : Colors.red[200]!,
+            width: 2),
       ),
       child: Column(
         children: [
           Row(
             children: [
               Icon(
-                acertou ? Icons.trending_up : Icons.trending_down,
-                color: acertou ? Colors.green[600] : Colors.red[600],
+                widget.acertou ? Icons.trending_up : Icons.trending_down,
+                color: widget.acertou ? Colors.green[600] : Colors.red[600],
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                acertou
+                widget.acertou
                     ? 'Recursos Recuperados!'
-                    : (isTimeout ? 'Energia Perdida!' : 'Água Perdida!'),
+                    : (widget.isTimeout ? 'Energia Perdida!' : 'Água Perdida!'),
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: acertou ? Colors.green[700] : Colors.red[700],
-                ),
+                    fontWeight: FontWeight.bold,
+                    color:
+                        widget.acertou ? Colors.green[700] : Colors.red[700]),
               ),
             ],
           ),
           const SizedBox(height: 12),
           _buildRecursoRow(Icons.flash_on, 'Energia',
-              recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
+              widget.recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
           _buildRecursoRow(Icons.water_drop, 'Água',
-              recursos['agua']?.toInt() ?? 100, Colors.blue[700]!),
+              widget.recursos['agua']?.toInt() ?? 100, Colors.blue[700]!),
           _buildRecursoRow(Icons.favorite, 'Saúde',
-              recursos['saude']?.toInt() ?? 100, Colors.red[700]!),
+              widget.recursos['saude']?.toInt() ?? 100, Colors.red[700]!),
         ],
       ),
     );
@@ -1531,14 +1550,13 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
           const SizedBox(width: 8),
           Text(nome, style: TextStyle(color: critico ? Colors.red : null)),
           const Spacer(),
-          Text(
-            '$valor%',
-            style: TextStyle(
-                fontWeight: FontWeight.bold, color: critico ? Colors.red : cor),
-          ),
+          Text('$valor%',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: critico ? Colors.red : cor)),
           if (critico) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.warning, size: 14, color: Colors.red),
+            const Icon(Icons.warning, size: 14, color: Colors.red)
           ],
         ],
       ),
@@ -1565,13 +1583,13 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _buildStatRow('XP Total', '${nivelUsuario.xpTotal}'),
+          _buildStatRow('XP Total', '${widget.nivelUsuario.xpTotal}'),
           _buildStatRow('Questão',
-              '${(sessao?.questaoAtual ?? 0) + 1}/${sessao?.totalQuestoes ?? 10}'),
+              '${(widget.sessao?.questaoAtual ?? 0) + 1}/${widget.sessao?.totalQuestoes ?? 10}'),
           _buildStatRow('Precisão',
-              '${(sessaoUsuario.precisaoSessao * 100).toStringAsFixed(0)}%'),
-          _buildStatRow(
-              'Nível', '${nivelUsuario.tier.emoji} ${nivelUsuario.nivel}'),
+              '${(widget.sessaoUsuario.precisaoSessao * 100).toStringAsFixed(0)}%'),
+          _buildStatRow('Nível',
+              '${widget.nivelUsuario.tier.emoji} ${widget.nivelUsuario.nivel}'),
         ],
       ),
     );
@@ -1594,6 +1612,168 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
     );
   }
 
+  Widget _buildAnotarCard() {
+    if (_annotationSaved) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.green.shade300),
+        ),
+        child: Row(
+          children: [
+            const Text('✅', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Anotação salva!',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700)),
+                  Text('+25 XP ganhos 🎉',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.green.shade600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient:
+            LinearGradient(colors: [Colors.green.shade50, Colors.teal.shade50]),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Text('🌱', style: TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Plantar essa lição?',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text('Anote no Diário e ganhe +25 XP',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _openAnotarModal,
+              icon: const Icon(Icons.edit_note, size: 18),
+              label: const Text('Anotar no Diário'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ V9.2: Abrir modal de anotar erro com questionId real
+  Future<void> _openAnotarModal() async {
+    final questao = widget.questao;
+    if (questao == null) return;
+
+    final respostaCorretaIdx = (questao.respostaCorreta as num?)?.toInt() ?? 0;
+    final letraCorreta = String.fromCharCode(65 + respostaCorretaIdx);
+    String textoCorreto = letraCorreta;
+
+    try {
+      if (questao.alternativas != null &&
+          questao.alternativas.length > respostaCorretaIdx) {
+        textoCorreto =
+            '($letraCorreta) ${questao.alternativas[respostaCorretaIdx]}';
+      }
+    } catch (e) {
+      textoCorreto = letraCorreta;
+    }
+
+    String textoUsuario = 'Nenhuma';
+    if (widget.isTimeout) {
+      textoUsuario = 'Tempo esgotado';
+    } else if (widget.selectedOption != null && widget.selectedOption! >= 0) {
+      final letraUsuario = String.fromCharCode(65 + widget.selectedOption!);
+      try {
+        if (questao.alternativas != null &&
+            questao.alternativas.length > widget.selectedOption!) {
+          textoUsuario =
+              '($letraUsuario) ${questao.alternativas[widget.selectedOption!]}';
+        } else {
+          textoUsuario = letraUsuario;
+        }
+      } catch (e) {
+        textoUsuario = letraUsuario;
+      }
+    }
+
+    // ✅ V9.2: Passar questionId real
+    final annotation = await AnotarErroModal.show(
+      context: context,
+      questionId: questao.id, // ✅ ID real do Firebase
+      questionText: questao.enunciado ?? 'Questão',
+      correctAnswer: textoCorreto,
+      userAnswer: textoUsuario,
+      subject: questao.subject ?? 'Geral',
+      explicacao: questao.explicacao,
+    );
+
+    if (annotation != null) {
+      // ✅ V9.2: Salvar com questionId
+      final xpGanho = await ref.read(diaryProvider.notifier).addAnnotation(
+            annotation,
+            questionId: questao.id,
+          );
+
+      if (xpGanho > 0) {
+        setState(() {
+          _annotationSaved = true;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Text('🌱', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 12),
+                  Text('Lição plantada! +$xpGanho XP'),
+                ],
+              ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildBotaoContinuar() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -1601,7 +1781,7 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
         width: double.infinity,
         height: 50,
         child: ElevatedButton.icon(
-          onPressed: onContinue,
+          onPressed: widget.onContinue,
           icon: const Icon(Icons.arrow_forward),
           label: const Text('Próxima Questão',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1617,38 +1797,29 @@ class FeedbackPersonalizadoModal extends StatelessWidget {
   }
 }
 
-// ===== 🏆 MODAL DE RANKING (V8.2) =====
+// ===== 🏆 MODAL DE RANKING =====
 class _RankingModalContent extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onViewFull;
 
-  const _RankingModalContent({
-    required this.onClose,
-    required this.onViewFull,
-  });
+  const _RankingModalContent({required this.onClose, required this.onViewFull});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       child: Column(
         children: [
-          // Handle bar
           Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // Header
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2))),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -1656,11 +1827,11 @@ class _RankingModalContent extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.amber.shade400, Colors.orange.shade500],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                      gradient: LinearGradient(colors: [
+                        Colors.amber.shade400,
+                        Colors.orange.shade500
+                      ]),
+                      borderRadius: BorderRadius.circular(16)),
                   child: const Icon(Icons.emoji_events,
                       color: Colors.white, size: 28),
                 ),
@@ -1669,91 +1840,67 @@ class _RankingModalContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Ranking',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Jogo pausado',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
+                      Text('Ranking',
+                          style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                      Text('Jogo pausado',
+                          style: TextStyle(fontSize: 13, color: Colors.grey)),
                     ],
                   ),
                 ),
                 IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                ),
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close, color: Colors.grey)),
               ],
             ),
           ),
-
           const Divider(height: 1),
-
-          // Conteúdo do Ranking (Preview)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Top 3 Preview
                   _buildRankingPreviewItem(
                       1, '🥇', 'Lucas Silva', 2500, Colors.amber),
                   _buildRankingPreviewItem(
                       2, '🥈', 'Maria Santos', 2350, Colors.grey.shade400),
                   _buildRankingPreviewItem(
                       3, '🥉', 'Pedro Costa', 2100, Colors.orange.shade300),
-
                   const SizedBox(height: 16),
-
-                  // Sua posição
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.green.shade200)),
                     child: Row(
                       children: [
                         Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(10)),
                           child: const Center(
-                            child: Text(
-                              '#7',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                              child: Text('#7',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold))),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Sua posição',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                              Text(
-                                'Continue jogando para subir!',
-                                style:
-                                    TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
+                              Text('Sua posição',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green)),
+                              Text('Continue jogando para subir!',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -1765,8 +1912,6 @@ class _RankingModalContent extends StatelessWidget {
               ),
             ),
           ),
-
-          // Botões
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -1775,18 +1920,14 @@ class _RankingModalContent extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onViewFull,
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.amber.shade600),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Ver Completo',
-                      style: TextStyle(
-                          color: Colors.amber.shade700,
-                          fontWeight: FontWeight.bold),
-                    ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.amber.shade600),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    child: Text('Ver Completo',
+                        style: TextStyle(
+                            color: Colors.amber.shade700,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1797,13 +1938,11 @@ class _RankingModalContent extends StatelessWidget {
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Voltar ao Jogo'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
                   ),
                 ),
               ],
@@ -1820,35 +1959,29 @@ class _RankingModalContent extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3))),
       child: Row(
         children: [
           Text(medal, style: const TextStyle(fontSize: 24)),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-          ),
-          Text(
-            '$points pts',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color.withOpacity(0.8),
-              fontSize: 15,
-            ),
-          ),
+              child: Text(name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15))),
+          Text('$points pts',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: color.withOpacity(0.8),
+                  fontSize: 15)),
         ],
       ),
     );
   }
 }
 
-// ===== 👤 MODAL DE PERFIL (V8.2) =====
+// ===== 👤 MODAL DE PERFIL =====
 class _PerfilModalContent extends StatelessWidget {
   final String userName;
   final int nivel;
@@ -1858,52 +1991,44 @@ class _PerfilModalContent extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onViewFull;
 
-  const _PerfilModalContent({
-    required this.userName,
-    required this.nivel,
-    required this.xpTotal,
-    required this.tier,
-    this.avatar,
-    required this.onClose,
-    required this.onViewFull,
-  });
+  const _PerfilModalContent(
+      {required this.userName,
+      required this.nivel,
+      required this.xpTotal,
+      required this.tier,
+      this.avatar,
+      required this.onClose,
+      required this.onViewFull});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.65,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       child: Column(
         children: [
-          // Handle bar
           Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // Header
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2))),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                // Avatar
                 Container(
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.green.shade400, Colors.teal.shade500],
-                    ),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
+                      gradient: LinearGradient(colors: [
+                        Colors.green.shade400,
+                        Colors.teal.shade500
+                      ]),
+                      borderRadius: BorderRadius.circular(30)),
                   child: avatar != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(30),
@@ -1911,79 +2036,63 @@ class _PerfilModalContent extends StatelessWidget {
                             avatar!.getPath(AvatarEmotion.feliz),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Center(
-                              child: Text(
-                                userName.isNotEmpty
-                                    ? userName[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                                child: Text(
+                                    userName.isNotEmpty
+                                        ? userName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold))),
                           ),
                         )
                       : Center(
                           child: Text(
-                            userName.isNotEmpty
-                                ? userName[0].toUpperCase()
-                                : 'U',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                              userName.isNotEmpty
+                                  ? userName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold))),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        userName,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const Text(
-                        'Jogo pausado',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
+                      Text(userName,
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87)),
+                      const Text('Jogo pausado',
+                          style: TextStyle(fontSize: 13, color: Colors.grey)),
                     ],
                   ),
                 ),
                 IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                ),
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close, color: Colors.grey)),
               ],
             ),
           ),
-
           const Divider(height: 1),
-
-          // Conteúdo do Perfil (Preview)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Card de Nível
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.amber.shade100, Colors.orange.shade100],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.amber.shade300),
-                    ),
+                        gradient: LinearGradient(colors: [
+                          Colors.amber.shade100,
+                          Colors.orange.shade100
+                        ]),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.amber.shade300)),
                     child: Column(
                       children: [
                         Row(
@@ -1995,22 +2104,16 @@ class _PerfilModalContent extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Nível $nivel',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                Text(
-                                  tier.nome,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.amber.shade800,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                Text('Nível $nivel',
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87)),
+                                Text(tier.nome,
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.amber.shade800,
+                                        fontWeight: FontWeight.w500)),
                               ],
                             ),
                           ],
@@ -2022,36 +2125,26 @@ class _PerfilModalContent extends StatelessWidget {
                             const Icon(Icons.star,
                                 color: Colors.amber, size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              '$xpTotal XP Total',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
+                            Text('$xpTotal XP Total',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87)),
                           ],
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Stats rápidos
-                  Row(
-                    children: [
-                      _buildStatCard('🎯', 'Precisão', '85%'),
-                      const SizedBox(width: 12),
-                      _buildStatCard('🔥', 'Sequência', '3 dias'),
-                    ],
-                  ),
+                  Row(children: [
+                    _buildStatCard('🎯', 'Precisão', '85%'),
+                    const SizedBox(width: 12),
+                    _buildStatCard('🔥', 'Sequência', '3 dias')
+                  ]),
                 ],
               ),
             ),
           ),
-
-          // Botões
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -2060,18 +2153,14 @@ class _PerfilModalContent extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onViewFull,
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.green.shade600),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Ver Completo',
-                      style: TextStyle(
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.bold),
-                    ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.green.shade600),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    child: Text('Ver Completo',
+                        style: TextStyle(
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2082,13 +2171,11 @@ class _PerfilModalContent extends StatelessWidget {
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Voltar ao Jogo'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
                   ),
                 ),
               ],
@@ -2104,26 +2191,20 @@ class _PerfilModalContent extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200)),
         child: Column(
           children: [
             Text(emoji, style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87)),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ],
         ),
       ),
