@@ -1,6 +1,6 @@
 // lib/features/questoes/widgets/gameover_modal.dart
-// ✅ V7.1 - Modal de Game Over (Saúde = 0)
-// ✅ CORRIGIDO: Overflow com SingleChildScrollView e altura máxima
+// ✅ V9.4 - Modal de Game Over (CORAÇÃO QUEBRADO + SEM DICA)
+// 📅 Atualizado: 25/02/2026
 
 import 'package:flutter/material.dart';
 import '../../../core/models/avatar.dart';
@@ -23,17 +23,11 @@ class GameOverModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
-        constraints: BoxConstraints(
-          maxWidth: 400,
-          maxHeight: screenHeight * 0.85, // ✅ Limita altura máxima
-        ),
+        constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -48,61 +42,55 @@ class GameOverModal extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header vermelho (fixo no topo)
+            // Header vermelho com coração quebrado 💔
             _buildHeader(),
 
-            // Conteúdo com scroll
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Avatar triste
-                    _buildAvatar(),
+            // Conteúdo
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  // Avatar
+                  _buildAvatar(),
 
-                    const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                    // Mensagem principal
-                    const Text(
-                      'Sua saúde zerou!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                      textAlign: TextAlign.center,
+                  // Mensagem principal
+                  const Text(
+                    'Sua saúde zerou!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
+                    textAlign: TextAlign.center,
+                  ),
 
-                    const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                    // Explicação
-                    Text(
-                      'Você acumulou muitos erros e timeouts.\nPrecisa voltar ao início do nível $nivelAtual.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                        height: 1.5,
-                      ),
-                      textAlign: TextAlign.center,
+                  // Explicação
+                  Text(
+                    'Você acumulou muitos erros e timeouts.\nPrecisa voltar ao início do nível $nivelAtual.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      height: 1.5,
                     ),
+                    textAlign: TextAlign.center,
+                  ),
 
-                    const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                    // Card de consequências
-                    _buildConsequenciasCard(),
+                  // Card de consequências
+                  _buildConsequenciasCard(),
 
-                    const SizedBox(height: 20),
+                  // ❌ SEM DICA DO EXPLORADOR (resolve overflow)
 
-                    // Dica motivacional
-                    _buildDicaMotivacional(),
+                  const SizedBox(height: 24),
 
-                    const SizedBox(height: 24),
-
-                    // Botões
-                    _buildBotoes(context),
-                  ],
-                ),
+                  // Botões
+                  _buildBotoes(context),
+                ],
               ),
             ),
           ],
@@ -128,9 +116,10 @@ class GameOverModal extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // 💔 CORAÇÃO QUEBRADO
           Icon(
-            Icons.favorite_border,
-            color: Colors.white.withOpacity(0.8),
+            Icons.heart_broken,
+            color: Colors.white.withOpacity(0.9),
             size: 28,
           ),
           const SizedBox(width: 12),
@@ -144,9 +133,10 @@ class GameOverModal extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          // 💔 CORAÇÃO QUEBRADO
           Icon(
-            Icons.favorite_border,
-            color: Colors.white.withOpacity(0.8),
+            Icons.heart_broken,
+            color: Colors.white.withOpacity(0.9),
             size: 28,
           ),
         ],
@@ -237,7 +227,7 @@ class GameOverModal extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildConsequenciaItem(
-            Icons.remove_circle_outline,
+            Icons.heart_broken,
             'XP do nível: perdido (-$xpPerdido XP)',
           ),
           const SizedBox(height: 8),
@@ -282,47 +272,6 @@ class GameOverModal extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildDicaMotivacional() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.amber[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber[200]!, width: 1),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.lightbulb, color: Colors.amber[700], size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dica do Explorador:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber[800],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Leia com calma e gerencie seu tempo. Cada erro é uma chance de aprender!',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.amber[900],
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 

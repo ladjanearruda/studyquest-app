@@ -19,6 +19,8 @@ class SessaoQuestoes {
   final List<bool> acertos;
   final DateTime inicioSessao;
   final bool sessaoFinalizada;
+  /// Tempo restante salvo ao pausar (restaurado ao voltar)
+  final int timeLeft;
 
   SessaoQuestoes({
     this.questoes = const [],
@@ -27,9 +29,9 @@ class SessaoQuestoes {
     this.acertos = const [],
     required this.inicioSessao,
     this.sessaoFinalizada = false,
+    this.timeLeft = 45,
   });
 
-  // ✅ V7.3: Método copyWith para permitir atualizações parciais
   SessaoQuestoes copyWith({
     List<QuestaoPersonalizada>? questoes,
     int? questaoAtual,
@@ -37,6 +39,7 @@ class SessaoQuestoes {
     List<bool>? acertos,
     DateTime? inicioSessao,
     bool? sessaoFinalizada,
+    int? timeLeft,
   }) {
     return SessaoQuestoes(
       questoes: questoes ?? this.questoes,
@@ -45,8 +48,12 @@ class SessaoQuestoes {
       acertos: acertos ?? this.acertos,
       inicioSessao: inicioSessao ?? this.inicioSessao,
       sessaoFinalizada: sessaoFinalizada ?? this.sessaoFinalizada,
+      timeLeft: timeLeft ?? this.timeLeft,
     );
   }
+
+  /// Sessão ativa = tem questões carregadas e não foi finalizada
+  bool get isAtiva => questoes.isNotEmpty && !sessaoFinalizada;
 
   // Getters úteis
   int get totalQuestoes => questoes.length;
@@ -217,6 +224,11 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
 
     // ✅ V7.1: Finalizar sessão no provider de usuário
     ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
+  }
+
+  /// Salvar tempo restante ao pausar (para restaurar ao voltar)
+  void salvarTimeLeft(int timeLeft) {
+    state = state.copyWith(timeLeft: timeLeft);
   }
 
   // ===== RESET COMPLETO =====

@@ -1,7 +1,10 @@
 // lib/features/diario/providers/diary_provider.dart
-// ✅ V9.2 - Sprint 9 Fase 2: Provider do Diário com Firebase
-// 📅 Atualizado: 22/02/2026
-// 🎯 Persiste anotações no Firebase + detecta revanche
+// ✅ V9.4 - Sprint 9 Fase 3: Revanche para TODOS os erros + Anotação 1:1
+// 📅 Atualizado: 27/02/2026
+// 🎯 Mudanças:
+//    - errosQuestionIds: TODOS os erros (anotados ou não)
+//    - anotacoesQuestionIds: só os que têm anotação (para badge Transformador)
+//    - Anotação 1:1: editar se já existe
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/diary_entry_model.dart';
@@ -15,38 +18,49 @@ class DiaryState {
   final List<DiaryEntry> entries;
   final List<DiaryEmotion> emotions;
   final bool isLoading;
+  final bool isInitialized;
   final String? error;
   final DiaryStats stats;
   final String? userId;
-  final Set<String> revancheQuestionIds; // IDs de questões que são revanche
+
+  // ✅ V9.4: Separação de erros e anotações
+  final Set<String> errosQuestionIds; // TODOS os erros (para borda dourada)
+  final Set<String>
+      anotacoesQuestionIds; // Só com anotação (para badge Transformador)
 
   DiaryState({
     this.entries = const [],
     this.emotions = const [],
     this.isLoading = false,
+    this.isInitialized = false,
     this.error,
     DiaryStats? stats,
     this.userId,
-    this.revancheQuestionIds = const {},
+    this.errosQuestionIds = const {},
+    this.anotacoesQuestionIds = const {},
   }) : stats = stats ?? DiaryStats();
 
   DiaryState copyWith({
     List<DiaryEntry>? entries,
     List<DiaryEmotion>? emotions,
     bool? isLoading,
+    bool? isInitialized,
     String? error,
     DiaryStats? stats,
     String? userId,
-    Set<String>? revancheQuestionIds,
+    Set<String>? errosQuestionIds,
+    Set<String>? anotacoesQuestionIds,
   }) {
     return DiaryState(
       entries: entries ?? this.entries,
       emotions: emotions ?? this.emotions,
       isLoading: isLoading ?? this.isLoading,
+      isInitialized: isInitialized ?? this.isInitialized,
       error: error,
       stats: stats ?? this.stats,
       userId: userId ?? this.userId,
-      revancheQuestionIds: revancheQuestionIds ?? this.revancheQuestionIds,
+      errosQuestionIds: errosQuestionIds ?? this.errosQuestionIds,
+      anotacoesQuestionIds: anotacoesQuestionIds ?? this.anotacoesQuestionIds,
     );
   }
 }
@@ -100,20 +114,67 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
 
   /// Inicializar usuário e carregar dados
   Future<void> _initializeUser() async {
+    if (state.isInitialized && state.userId != null) {
+      print('📒 DiaryProvider já inicializado, pulando...');
+      return;
+    }
+
     try {
       final user = await FirebaseRestAuth.getCurrentUser();
       if (user != null) {
         state = state.copyWith(userId: user.uid);
         await loadEntriesFromFirebase();
+        await _loadErrosFromFirebase(); // ✅ V9.4: Carregar erros
+        state = state.copyWith(isInitialized: true);
       }
     } catch (e) {
       print('❌ Erro ao inicializar DiaryProvider: $e');
     }
   }
 
+  /// Método público para garantir inicialização
+  Future<void> ensureInitialized() async {
+    if (!state.isInitialized || state.userId == null) {
+      await _initializeUser();
+    } else if (state.entries.isEmpty && state.userId != null) {
+      await loadEntriesFromFirebase();
+      await _loadErrosFromFirebase();
+    }
+  }
+
+  /// ✅ V9.4: Carregar TODOS os erros do Firebase (user_responses onde was_correct = false)
+  Future<void> _loadErrosFromFirebase() async {
+    if (state.userId == null) return;
+
+    try {
+      final responses =
+          await FirebaseDiaryService.getUserResponses(state.userId!);
+
+      // Filtrar apenas erros
+      final erros = responses
+          .where((r) => r['was_correct'] == false)
+          .map((r) => r['question_id'] as String)
+          .toSet();
+
+      state = state.copyWith(errosQuestionIds: erros);
+      print('📒 Erros carregados: ${erros.length} questões');
+    } catch (e) {
+      print('❌ Erro ao carregar erros: $e');
+    }
+  }
+
   /// Carregar anotações do Firebase
   Future<void> loadEntriesFromFirebase() async {
-    if (state.userId == null) return;
+    if (state.userId == null) {
+      print('⚠️ userId null, tentando obter...');
+      final user = await FirebaseRestAuth.getCurrentUser();
+      if (user != null) {
+        state = state.copyWith(userId: user.uid);
+      } else {
+        print('❌ Não foi possível obter userId');
+        return;
+      }
+    }
 
     try {
       state = state.copyWith(isLoading: true);
@@ -121,8 +182,9 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       final entries =
           await FirebaseDiaryService.getUserDiaryEntries(state.userId!);
 
-      // Identificar questões que são revanche (não mastered)
-      final revancheIds =
+      // ✅ V9.4: Separar IDs
+      // Anotações = questões que têm entrada no diário E não estão mastered
+      final anotacoesIds =
           entries.where((e) => !e.mastered).map((e) => e.questionId).toSet();
 
       // Calcular stats
@@ -135,12 +197,13 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       state = state.copyWith(
         entries: entries,
         stats: stats,
-        revancheQuestionIds: revancheIds,
+        anotacoesQuestionIds: anotacoesIds,
         isLoading: false,
+        isInitialized: true,
       );
 
       print(
-          '📒 Diário carregado: ${entries.length} anotações, ${revancheIds.length} revanches');
+          '📒 Diário carregado: ${entries.length} anotações, ${anotacoesIds.length} pendentes');
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       print('❌ Erro ao carregar diário: $e');
@@ -148,30 +211,28 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   }
 
   // ========================================
-  // ✅ V9.2: MÉTODOS DE REVANCHE
+  // ✅ V9.4: MÉTODOS DE REVANCHE ATUALIZADOS
   // ========================================
 
-  /// Verificar se uma questão é revanche (usuário errou e anotou antes)
+  /// Verificar se uma questão é revanche (usuário ERROU antes - anotou ou não)
   bool isRevanche(String questionId) {
-    return state.revancheQuestionIds.contains(questionId);
+    return state.errosQuestionIds.contains(questionId);
   }
 
-  /// Verificar revanche diretamente no Firebase (para sessão nova)
-  Future<bool> checkRevancheFromFirebase(String questionId) async {
-    if (state.userId == null) return false;
-
-    try {
-      final entry = await FirebaseDiaryService.getAnnotationForQuestion(
-        userId: state.userId!,
-        questionId: questionId,
-      );
-      return entry != null;
-    } catch (e) {
-      return false;
-    }
+  /// Verificar se uma questão tem anotação (para badge Transformador)
+  bool temAnotacao(String questionId) {
+    return state.anotacoesQuestionIds.contains(questionId);
   }
 
-  /// Obter anotação de uma questão (se existir)
+  /// ✅ V9.4: Registrar erro (chamado quando usuário erra qualquer questão)
+  void registrarErro(String questionId) {
+    final novosErros = Set<String>.from(state.errosQuestionIds);
+    novosErros.add(questionId);
+    state = state.copyWith(errosQuestionIds: novosErros);
+    print('📝 Erro registrado: $questionId (total: ${novosErros.length})');
+  }
+
+  /// Obter anotação de uma questão (se existir e não estiver mastered)
   DiaryEntry? getAnnotationForQuestion(String questionId) {
     try {
       return state.entries.firstWhere(
@@ -182,13 +243,25 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
     }
   }
 
-  /// Transformar erro (usuário acertou questão que tinha errado)
+  /// Obter TODAS as anotações de uma questão (incluindo mastered)
+  List<DiaryEntry> getAllAnnotationsForQuestion(String questionId) {
+    return state.entries
+        .where((entry) => entry.questionId == questionId)
+        .toList();
+  }
+
+  /// Transformar erro (usuário acertou questão que tinha ANOTADO)
   /// Retorna XP bônus ganho
   Future<int> transformarErro(String questionId) async {
     if (state.userId == null) return 0;
 
+    // ✅ V9.4: Só transforma se tinha anotação
+    if (!temAnotacao(questionId)) {
+      print('ℹ️ Questão $questionId não tinha anotação, não é transformação');
+      return 0;
+    }
+
     try {
-      // Encontrar a entrada
       final entryIndex = state.entries.indexWhere(
         (entry) => entry.questionId == questionId && !entry.mastered,
       );
@@ -196,7 +269,7 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       if (entryIndex == -1) return 0;
 
       final entry = state.entries[entryIndex];
-      const xpBonus = 15;
+      const xpBonus = 15; // XP por transformar erro
 
       // Marcar como dominada no Firebase
       final success = await FirebaseDiaryService.markAsMastered(entry.id);
@@ -211,9 +284,13 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
         final newEntries = [...state.entries];
         newEntries[entryIndex] = updatedEntry;
 
-        // Remover da lista de revanches
-        final newRevancheIds = Set<String>.from(state.revancheQuestionIds);
-        newRevancheIds.remove(questionId);
+        // Remover da lista de anotações pendentes
+        final newAnotacoesIds = Set<String>.from(state.anotacoesQuestionIds);
+        newAnotacoesIds.remove(questionId);
+
+        // Remover da lista de erros (já dominou)
+        final newErrosIds = Set<String>.from(state.errosQuestionIds);
+        newErrosIds.remove(questionId);
 
         // Atualizar stats
         final newStats = state.stats.copyWith(
@@ -224,10 +301,12 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
         state = state.copyWith(
           entries: newEntries,
           stats: newStats,
-          revancheQuestionIds: newRevancheIds,
+          anotacoesQuestionIds: newAnotacoesIds,
+          errosQuestionIds: newErrosIds,
         );
 
         print('🏆 ERRO TRANSFORMADO: $questionId (+$xpBonus XP)');
+        print('   Total transformações: ${newStats.totalTransformations}');
         return xpBonus;
       }
 
@@ -239,41 +318,74 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   }
 
   // ========================================
-  // 📝 ADICIONAR ANOTAÇÃO
+  // 📝 ADICIONAR/EDITAR ANOTAÇÃO (1:1)
   // ========================================
 
-  /// Adicionar anotação a partir do modal
-  Future<int> addAnnotation(DiaryAnnotation annotation,
+  /// ✅ V9.4: Adicionar OU editar anotação (1 questão = 1 anotação)
+  Future<int> addOrUpdateAnnotation(DiaryAnnotation annotation,
       {String? questionId}) async {
-    // ✅ DEBUG
-    print('🔍 DEBUG addAnnotation INICIOU');
-    print('🔍 DEBUG userId atual: ${state.userId}');
-
     if (state.userId == null) {
-      print('🔍 DEBUG userId null, tentando inicializar...');
-
-      // Tentar inicializar
-      await _initializeUser();
-
-      print('🔍 DEBUG após init, userId: ${state.userId}');
-
-      if (state.userId == null) {
+      final user = await FirebaseRestAuth.getCurrentUser();
+      if (user != null) {
+        state = state.copyWith(userId: user.uid);
+      } else {
         print('❌ Usuário não autenticado para salvar anotação');
         return 0;
       }
     }
 
+    final finalQuestionId = questionId ?? annotation.questionId;
+
+    // ✅ V9.4: Verificar se já existe anotação para esta questão
+    final existingEntry = getAnnotationForQuestion(finalQuestionId);
+
+    if (existingEntry != null) {
+      // EDITAR anotação existente
+      print('✏️ Anotação já existe para $finalQuestionId, editando...');
+
+      final success = await FirebaseDiaryService.updateEntry(
+        existingEntry.id,
+        userNote: annotation.learning,
+        userStrategy: annotation.strategy,
+      );
+
+      if (success) {
+        // Atualizar na lista local
+        final entryIndex =
+            state.entries.indexWhere((e) => e.id == existingEntry.id);
+        if (entryIndex != -1) {
+          final updatedEntry = existingEntry.copyWith(
+            userNote: annotation.learning,
+            userStrategy: annotation.strategy,
+            difficultyRating: annotation.difficulty,
+            emotion: annotation.emotion.emoji,
+          );
+
+          final newEntries = [...state.entries];
+          newEntries[entryIndex] = updatedEntry;
+          state = state.copyWith(entries: newEntries);
+        }
+
+        print('✏️ Anotação atualizada: ${existingEntry.id}');
+        return 10; // XP menor por edição
+      }
+      return 0;
+    }
+
+    // CRIAR nova anotação
+    return await _createNewAnnotation(annotation, finalQuestionId);
+  }
+
+  /// Criar nova anotação (método interno)
+  Future<int> _createNewAnnotation(
+      DiaryAnnotation annotation, String questionId) async {
     try {
       state = state.copyWith(isLoading: true);
-
-      // Gerar questionId se não foi passado
-      final finalQuestionId =
-          questionId ?? annotation.questionText.hashCode.toString();
 
       // Salvar no Firebase
       final docId = await FirebaseDiaryService.saveDiaryEntry(
         userId: state.userId!,
-        questionId: finalQuestionId,
+        questionId: questionId,
         questionText: annotation.questionText,
         correctAnswer: annotation.correctAnswer,
         userAnswer: annotation.userAnswer,
@@ -293,7 +405,7 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       final entry = DiaryEntry(
         id: docId,
         userId: state.userId!,
-        questionId: finalQuestionId,
+        questionId: questionId,
         questionText: annotation.questionText,
         correctAnswer: annotation.correctAnswer,
         userAnswer: annotation.userAnswer,
@@ -310,9 +422,9 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       // Adicionar à lista local
       final updatedEntries = [entry, ...state.entries];
 
-      // Adicionar aos IDs de revanche
-      final newRevancheIds = Set<String>.from(state.revancheQuestionIds);
-      newRevancheIds.add(finalQuestionId);
+      // Adicionar aos IDs de anotações
+      final newAnotacoesIds = Set<String>.from(state.anotacoesQuestionIds);
+      newAnotacoesIds.add(questionId);
 
       // Atualizar stats
       final updatedStats = state.stats.copyWith(
@@ -323,16 +435,105 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
       state = state.copyWith(
         entries: updatedEntries,
         stats: updatedStats,
-        revancheQuestionIds: newRevancheIds,
+        anotacoesQuestionIds: newAnotacoesIds,
         isLoading: false,
       );
 
-      print('📝 Anotação salva no Firebase: $docId');
+      print('📝 Nova anotação salva: $docId');
+      print('📒 Total anotações: ${updatedEntries.length}');
       return 25; // XP ganho
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
-      print('❌ Erro ao adicionar anotação: $e');
+      print('❌ Erro ao criar anotação: $e');
       return 0;
+    }
+  }
+
+  /// ✅ Método de compatibilidade (chama addOrUpdateAnnotation)
+  Future<int> addAnnotation(DiaryAnnotation annotation,
+      {String? questionId}) async {
+    return await addOrUpdateAnnotation(annotation, questionId: questionId);
+  }
+
+  // ========================================
+  // ✅ V9.3: EDITAR E EXCLUIR ANOTAÇÃO
+  // ========================================
+
+  /// Excluir anotação
+  Future<bool> deleteAnnotation(String entryId) async {
+    if (state.userId == null) return false;
+
+    try {
+      final success = await FirebaseDiaryService.deleteEntry(entryId);
+
+      if (success) {
+        final entry = state.entries.firstWhere((e) => e.id == entryId);
+        final updatedEntries =
+            state.entries.where((e) => e.id != entryId).toList();
+
+        // Remover da lista de anotações se não estava mastered
+        final newAnotacoesIds = Set<String>.from(state.anotacoesQuestionIds);
+        if (!entry.mastered) {
+          newAnotacoesIds.remove(entry.questionId);
+        }
+
+        final updatedStats = state.stats.copyWith(
+          totalEntries: state.stats.totalEntries - 1,
+          totalTransformations: entry.mastered
+              ? state.stats.totalTransformations - 1
+              : state.stats.totalTransformations,
+        );
+
+        state = state.copyWith(
+          entries: updatedEntries,
+          stats: updatedStats,
+          anotacoesQuestionIds: newAnotacoesIds,
+        );
+
+        print('🗑️ Anotação excluída: $entryId');
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Erro ao excluir anotação: $e');
+      return false;
+    }
+  }
+
+  /// Editar anotação (nota e estratégia)
+  Future<bool> editAnnotation(
+      String entryId, String newNote, String newStrategy) async {
+    if (state.userId == null) return false;
+
+    try {
+      final success = await FirebaseDiaryService.updateEntry(
+        entryId,
+        userNote: newNote,
+        userStrategy: newStrategy,
+      );
+
+      if (success) {
+        final entryIndex = state.entries.indexWhere((e) => e.id == entryId);
+        if (entryIndex != -1) {
+          final updatedEntry = state.entries[entryIndex].copyWith(
+            userNote: newNote,
+            userStrategy: newStrategy,
+          );
+
+          final newEntries = [...state.entries];
+          newEntries[entryIndex] = updatedEntry;
+
+          state = state.copyWith(entries: newEntries);
+          print('✏️ Anotação editada: $entryId');
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ Erro ao editar anotação: $e');
+      return false;
     }
   }
 
@@ -340,7 +541,6 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   // 📊 EMOÇÕES E SESSÕES
   // ========================================
 
-  /// Adicionar emoção de sessão
   Future<void> addSessionEmotion(
       EmotionLevel emotion, double accuracy, int questionsAnswered) async {
     try {
@@ -368,7 +568,6 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   // 📅 REVISÕES
   // ========================================
 
-  /// Buscar revisões pendentes
   Future<List<DiaryEntry>> getPendingReviews() async {
     if (state.userId == null) return [];
 
@@ -380,7 +579,6 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
     }
   }
 
-  /// Contar revisões pendentes (para badge na tab)
   int get pendingReviewsCount {
     final now = DateTime.now();
     return state.entries
@@ -392,15 +590,16 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   // 🔧 UTILITÁRIOS
   // ========================================
 
-  /// Recarregar dados do Firebase
   Future<void> refresh() async {
+    print('🔄 Forçando recarga do Diário...');
     await loadEntriesFromFirebase();
+    await _loadErrosFromFirebase();
   }
 
-  /// Atualizar userId (quando usuário faz login)
   Future<void> updateUserId(String userId) async {
-    state = state.copyWith(userId: userId);
+    state = state.copyWith(userId: userId, isInitialized: false);
     await loadEntriesFromFirebase();
+    await _loadErrosFromFirebase();
   }
 }
 
@@ -410,4 +609,31 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
 
 final diaryProvider = StateNotifierProvider<DiaryNotifier, DiaryState>((ref) {
   return DiaryNotifier();
+});
+
+// ========================================
+// 📦 PROVIDERS AUXILIARES
+// ========================================
+
+/// Provider para verificar se questão é revanche
+final isRevancheProvider = Provider.family<bool, String>((ref, questionId) {
+  return ref.watch(diaryProvider).errosQuestionIds.contains(questionId);
+});
+
+/// Provider para verificar se questão tem anotação
+final temAnotacaoProvider = Provider.family<bool, String>((ref, questionId) {
+  return ref.watch(diaryProvider).anotacoesQuestionIds.contains(questionId);
+});
+
+/// Provider para obter anotação de uma questão
+final anotacaoQuestaoProvider =
+    Provider.family<DiaryEntry?, String>((ref, questionId) {
+  final entries = ref.watch(diaryProvider).entries;
+  try {
+    return entries.firstWhere(
+      (entry) => entry.questionId == questionId && !entry.mastered,
+    );
+  } catch (e) {
+    return null;
+  }
 });

@@ -1,10 +1,11 @@
 // lib/features/niveis/services/nivel_persistence.dart
-// ✅ Sprint 7 Parte 2 - Persistência Local de Níveis
-// 📅 Criado: 06/02/2026
-// ⚠️ MVP: SharedPreferences (local)
-// 🔄 Sprint 8: Migrar para Firebase (com Auth)
+// ✅ Sprint 9 - Sincronização Firebase de XP
+// 📅 Atualizado: 08/03/2026
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/firebase_rest_auth.dart';
 
 /// Serviço de persistência local para o sistema de níveis
 ///
@@ -13,6 +14,70 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - Se usuário limpar dados do app, perde progresso
 /// - Migração para Firebase na Sprint 8 (com Auth)
 class NivelPersistence {
+  // ===== FIREBASE =====
+  static const String _baseUrl =
+      'https://firestore.googleapis.com/v1/projects/studyquest-app-banco/databases/(default)/documents';
+
+  /// Salva XP no Firestore (coleção user_xp, doc = userId)
+  static Future<bool> salvarXpFirebase(String userId, int xp) async {
+    try {
+      final url = '$_baseUrl/user_xp/$userId?updateMask.fieldPaths=xp_total';
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode({
+          'fields': {
+            'xp_total': {'integerValue': xp.toString()},
+          }
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('⚠️ Erro ao salvar XP no Firebase: $e');
+      return false;
+    }
+  }
+
+  /// Carrega XP do Firestore. Retorna null se não existir ou falhar.
+  static Future<int?> carregarXpFirebase(String userId) async {
+    try {
+      final url = '$_baseUrl/user_xp/$userId';
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+
+      // 🔍 DEBUG
+      print('📡 [carregarXpFirebase] URL: $url');
+      final authHeader = headers['Authorization'];
+      if (authHeader != null) {
+        print('📡 [carregarXpFirebase] Authorization: ${authHeader.substring(0, authHeader.length.clamp(0, 27))}... (${authHeader.length} chars)');
+      } else {
+        print('📡 [carregarXpFirebase] Authorization: AUSENTE ⚠️');
+      }
+
+      final response = await http.get(Uri.parse(url), headers: headers);
+
+      // 🔍 DEBUG
+      print('📡 [carregarXpFirebase] statusCode: ${response.statusCode}');
+      final bodyPreview = response.body.length > 500
+          ? '${response.body.substring(0, 500)}...'
+          : response.body;
+      print('📡 [carregarXpFirebase] body: $bodyPreview');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final fields = data['fields'] as Map<String, dynamic>?;
+        final xpField = fields?['xp_total'];
+        if (xpField != null) {
+          return int.parse(xpField['integerValue'].toString());
+        }
+      }
+      return null;
+    } catch (e) {
+      print('⚠️ Erro ao carregar XP do Firebase: $e');
+      return null;
+    }
+  }
+
   // ===== CHAVES DO SHAREDPREFERENCES =====
   static const String _keyXpTotal = 'studyquest_xp_total';
   static const String _keyNivel = 'studyquest_nivel';

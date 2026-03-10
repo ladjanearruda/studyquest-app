@@ -1,15 +1,21 @@
 // lib/features/home/screens/perfil_tab.dart
-// ✅ V8.2 - Sprint 8: Redesign com Avatar real + Nome do onboarding
-// 📅 Atualizado: 17/02/2026
+// ✅ V9.4 - Sprint 9: Correção logout + mostrar dados usuário logado
+// 📅 Atualizado: 04/03/2026
+// 🎯 Correções:
+//    - Logout limpa TODOS os dados
+//    - Mostra email do usuário se logado
+//    - Redireciona para tela de welcome após logout
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/models/avatar.dart';
 import '../../../core/services/firebase_rest_auth.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/models/nivel_model.dart';
+import '../../diario/providers/diary_provider.dart';
 
 class PerfilTab extends ConsumerWidget {
   const PerfilTab({super.key});
@@ -21,8 +27,9 @@ class PerfilTab extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final userName = onboarding.name ?? 'Explorador';
 
-    // ✅ CORRIGIDO: Acessar isAnonymous via user
+    // ✅ V9.4: Verificar se é anônimo
     final isAnonymous = authState.user?.isAnonymous ?? true;
+    final userEmail = authState.user?.email;
 
     // Obter avatar
     Avatar? avatar;
@@ -41,10 +48,17 @@ class PerfilTab extends ConsumerWidget {
           // Header com Avatar grande
           SliverToBoxAdapter(
             child: _buildHeader(
-                context, userName, avatar, nivelUsuario, isAnonymous, ref),
+              context,
+              userName,
+              avatar,
+              nivelUsuario,
+              isAnonymous,
+              userEmail,
+              ref,
+            ),
           ),
 
-          // Aviso conta temporária
+          // ✅ V9.4: Aviso conta temporária SÓ se anônimo
           if (isAnonymous)
             SliverToBoxAdapter(
               child: _buildAvisoContaTemporaria(context),
@@ -52,12 +66,12 @@ class PerfilTab extends ConsumerWidget {
 
           // Estatísticas
           SliverToBoxAdapter(
-            child: _buildEstatisticas(),
+            child: _buildEstatisticas(ref),
           ),
 
           // Menu de opções
           SliverToBoxAdapter(
-            child: _buildMenuOpcoes(context, ref),
+            child: _buildMenuOpcoes(context, ref, isAnonymous),
           ),
 
           // Espaço no final
@@ -69,8 +83,15 @@ class PerfilTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, String userName, Avatar? avatar,
-      NivelUsuario nivelUsuario, bool isAnonymous, WidgetRef ref) {
+  Widget _buildHeader(
+    BuildContext context,
+    String userName,
+    Avatar? avatar,
+    NivelUsuario nivelUsuario,
+    bool isAnonymous,
+    String? userEmail,
+    WidgetRef ref,
+  ) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -100,7 +121,7 @@ class PerfilTab extends ConsumerWidget {
                   ),
                   IconButton(
                     onPressed: () {
-                      // TODO: Configurações
+                      _showSettingsModal(context, ref);
                     },
                     icon: const Icon(Icons.settings, color: Colors.white),
                   ),
@@ -152,32 +173,36 @@ class PerfilTab extends ConsumerWidget {
 
               const SizedBox(height: 8),
 
-              // Badge de conta
-              if (isAnonymous)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.person_outline,
-                          color: Colors.white.withOpacity(0.9), size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Conta temporária',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+              // ✅ V9.4: Badge de conta - mostrar email se logado
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isAnonymous ? Icons.person_outline : Icons.verified_user,
+                      color: Colors.white.withOpacity(0.9),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isAnonymous
+                          ? 'Conta temporária'
+                          : userEmail ?? 'Conta verificada',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               const SizedBox(height: 12),
 
@@ -194,7 +219,6 @@ class PerfilTab extends ConsumerWidget {
                     ),
                     child: Row(
                       children: [
-                        // ✅ CORRIGIDO: Acessar emoji via extension
                         Text(
                           nivelUsuario.tier.emoji,
                           style: const TextStyle(fontSize: 18),
@@ -325,7 +349,15 @@ class PerfilTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildEstatisticas() {
+  // ✅ V9.4: Estatísticas com dados reais do diário
+  Widget _buildEstatisticas(WidgetRef ref) {
+    final diaryState = ref.watch(diaryProvider);
+    final nivelUsuario = ref.watch(nivelProvider);
+
+    // Calcular estatísticas reais
+    final totalAnotacoes = diaryState.entries.length;
+    final totalTransformacoes = diaryState.stats.totalTransformations;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
@@ -355,17 +387,34 @@ class PerfilTab extends ConsumerWidget {
           Row(
             children: [
               _buildStatItem(
-                  Icons.check_circle, '45', 'Questões', Colors.green),
-              _buildStatItem(Icons.local_fire_department, '7 dias', 'Sequência',
-                  Colors.orange),
+                Icons.book,
+                '$totalAnotacoes',
+                'Anotações',
+                Colors.green,
+              ),
+              _buildStatItem(
+                Icons.transform,
+                '$totalTransformacoes',
+                'Transformados',
+                Colors.orange,
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               _buildStatItem(
-                  Icons.trending_up, '85%', 'Taxa Acerto', Colors.blue),
-              _buildStatItem(Icons.emoji_events, '8', 'Badges', Colors.amber),
+                Icons.star,
+                '${nivelUsuario.xpTotal}',
+                'XP Total',
+                Colors.amber,
+              ),
+              _buildStatItem(
+                Icons.emoji_events,
+                '${nivelUsuario.nivel}',
+                'Nível',
+                Colors.purple,
+              ),
             ],
           ),
         ],
@@ -412,7 +461,9 @@ class PerfilTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildMenuOpcoes(BuildContext context, WidgetRef ref) {
+  // ✅ V9.4: Menu com opções diferentes para anônimo vs logado
+  Widget _buildMenuOpcoes(
+      BuildContext context, WidgetRef ref, bool isAnonymous) {
     return Container(
       margin: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -479,13 +530,16 @@ class PerfilTab extends ConsumerWidget {
             },
           ),
           _buildDivider(),
+          // ✅ V9.4: Botão diferente para anônimo vs logado
           _buildMenuItem(
             icon: Icons.logout,
             iconColor: Colors.red,
-            title: 'Sair e Limpar Dados',
-            subtitle: 'Seu progresso será perdido',
+            title: isAnonymous ? 'Sair e Limpar Dados' : 'Sair da Conta',
+            subtitle: isAnonymous
+                ? 'Seu progresso será perdido'
+                : 'Seus dados serão mantidos na nuvem',
             titleColor: Colors.red,
-            onTap: () => _showLogoutConfirmation(context, ref),
+            onTap: () => _showLogoutConfirmation(context, ref, isAnonymous),
           ),
         ],
       ),
@@ -554,10 +608,59 @@ class PerfilTab extends ConsumerWidget {
     );
   }
 
-  void _showLogoutConfirmation(BuildContext context, WidgetRef ref) {
+  // ✅ V9.4: Modal de configurações
+  void _showSettingsModal(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Configurações',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.dark_mode, color: Colors.purple),
+              title: const Text('Tema Escuro'),
+              subtitle: const Text('Em breve'),
+              trailing: Switch(value: false, onChanged: null),
+            ),
+            ListTile(
+              leading: const Icon(Icons.volume_up, color: Colors.blue),
+              title: const Text('Sons'),
+              subtitle: const Text('Efeitos sonoros'),
+              trailing: Switch(value: true, onChanged: (v) {}),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ V9.4: Logout com limpeza completa de dados
+  void _showLogoutConfirmation(
+      BuildContext context, WidgetRef ref, bool isAnonymous) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -570,23 +673,61 @@ class PerfilTab extends ConsumerWidget {
               child: Icon(Icons.logout, color: Colors.red.shade700, size: 24),
             ),
             const SizedBox(width: 12),
-            const Text('Sair da conta?'),
+            Text(isAnonymous ? 'Sair e limpar?' : 'Sair da conta?'),
           ],
         ),
-        content: const Text(
-          'Se você sair, todo o seu progresso será perdido permanentemente.\n\nTem certeza?',
+        content: Text(
+          isAnonymous
+              ? 'Se você sair, todo o seu progresso será perdido permanentemente.\n\nTem certeza?'
+              : 'Você será desconectado. Seus dados serão mantidos e você poderá fazer login novamente.\n\nDeseja continuar?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
-              await ref.read(authProvider.notifier).signOut();
-              if (context.mounted) {
-                context.go('/welcome');
+              Navigator.pop(dialogContext);
+
+              // ✅ V9.4: Mostrar loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                // ✅ V9.4: Limpar TODOS os dados
+                await _clearAllData(ref, isAnonymous);
+
+                // Fechar loading
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+
+                // ✅ V9.4: Redirecionar para tela de login
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              } catch (e) {
+                // Fechar loading
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+
+                print('❌ Erro ao fazer logout: $e');
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erro ao sair: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -601,5 +742,27 @@ class PerfilTab extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _clearAllData(WidgetRef ref, bool isAnonymous) async {
+    print('🧹 Iniciando limpeza de dados...');
+
+    if (isAnonymous) {
+      // Anônimo: limpar TUDO (dados não estão salvos na nuvem)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      print('🧹 SharedPreferences limpo completamente');
+    }
+    // Logado: NÃO apagar dados locais (onboarding_complete, perfil, etc.)
+    // O signOut() já remove apenas o token de sessão (firebase_user)
+
+    // Fazer signOut no auth provider
+    await ref.read(authProvider.notifier).signOut();
+    print('🧹 Auth signOut realizado');
+
+    // Invalidar providers para forçar recarga com o novo usuário
+    ref.invalidate(diaryProvider);
+    ref.invalidate(nivelProvider);
+    print('✅ Limpeza de dados concluída!');
   }
 }

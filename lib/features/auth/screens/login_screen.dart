@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/firebase_rest_auth.dart';
+import '../../diario/providers/diary_provider.dart';
+import '../../diario/providers/diary_badges_provider.dart';
+import '../../niveis/providers/nivel_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -61,6 +64,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (!mounted) return;
 
     if (success) {
+      // Forçar recarga dos providers com o novo usuário logado.
+      // diaryProvider: estava com isInitialized=false após logout (sem user),
+      //   precisa reinicializar para buscar anotações do Firebase.
+      // nivelProvider: já escuta authProvider via ref.listen, mas invalidar
+      //   garante que o XP local de sessão anterior não persista incorretamente.
+      ref.invalidate(diaryProvider);
+      ref.invalidate(nivelProvider);
+      ref.invalidate(diaryBadgesProvider);
+
       final authState = ref.read(authProvider);
       if (authState.hasCompletedOnboarding) {
         context.go('/home');

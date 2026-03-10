@@ -156,6 +156,62 @@ class FirebaseRestAuth {
     return null;
   }
 
+  /// Retorna headers HTTP com Content-Type e Authorization (idToken renovado se necessário)
+  /// Use em todas as chamadas REST ao Firestore para respeitar Security Rules.
+  static Future<Map<String, String>> getAuthHeaders() async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    try {
+      var user = await getCurrentUser();
+      if (user != null) {
+        // Renovar token se expirado ou prestes a expirar
+        if (user.isTokenExpired && user.refreshToken != null) {
+          print('🔄 Token expirado, renovando...');
+          user = await _refreshToken(user) ?? user;
+        }
+        if (user.idToken != null) {
+          headers['Authorization'] = 'Bearer ${user.idToken!}';
+        }
+      }
+    } catch (_) {}
+    return headers;
+  }
+
+  /// Renovar idToken usando o refreshToken
+  static Future<FirebaseUser?> _refreshToken(FirebaseUser user) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            'https://securetoken.googleapis.com/v1/token?key=$_apiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'grant_type': 'refresh_token',
+          'refresh_token': user.refreshToken,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final expiresIn = int.tryParse(data['expires_in'].toString()) ?? 3600;
+        final refreshed = FirebaseUser(
+          uid: user.uid,
+          email: user.email,
+          isAnonymous: user.isAnonymous,
+          idToken: data['id_token'],
+          refreshToken: data['refresh_token'],
+          tokenExpiry: DateTime.now().add(Duration(seconds: expiresIn)),
+        );
+        await _saveUserLocally(refreshed);
+        print('✅ Token renovado com sucesso');
+        return refreshed;
+      } else {
+        print('❌ Falha ao renovar token: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Exceção ao renovar token: $e');
+    }
+    return null;
+  }
+
   /// Logout
   static Future<void> signOut() async {
     final prefs = await SharedPreferences.getInstance();
@@ -307,6 +363,7 @@ class FirebaseUser {
   final bool isAnonymous;
   final String? idToken;
   final String? refreshToken;
+  final DateTime? tokenExpiry;
 
   FirebaseUser({
     required this.uid,
@@ -314,15 +371,31 @@ class FirebaseUser {
     this.isAnonymous = false,
     this.idToken,
     this.refreshToken,
+    this.tokenExpiry,
   });
 
+  /// Token está expirado ou expira nos próximos 5 minutos
+  bool get isTokenExpired {
+    if (tokenExpiry == null) return true;
+    return DateTime.now()
+        .isAfter(tokenExpiry!.subtract(const Duration(minutes: 5)));
+  }
+
   factory FirebaseUser.fromJson(Map<String, dynamic> json) {
+    DateTime? expiry;
+    if (json['expiresIn'] != null) {
+      final seconds = int.tryParse(json['expiresIn'].toString()) ?? 3600;
+      expiry = DateTime.now().add(Duration(seconds: seconds));
+    } else if (json['tokenExpiry'] != null) {
+      expiry = DateTime.tryParse(json['tokenExpiry'].toString());
+    }
     return FirebaseUser(
       uid: json['localId'] ?? json['uid'] ?? '',
       email: json['email'],
       isAnonymous: json['email'] == null,
       idToken: json['idToken'],
       refreshToken: json['refreshToken'],
+      tokenExpiry: expiry,
     );
   }
 
@@ -334,6 +407,7 @@ class FirebaseUser {
       'isAnonymous': isAnonymous,
       'idToken': idToken,
       'refreshToken': refreshToken,
+      'tokenExpiry': tokenExpiry?.toIso8601String(),
     };
   }
 

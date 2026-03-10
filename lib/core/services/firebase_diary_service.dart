@@ -6,6 +6,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../features/diario/models/diary_entry_model.dart';
+import '../../features/diario/models/diary_badge_model.dart';
+import 'firebase_rest_auth.dart';
 
 class FirebaseDiaryService {
   static const String _baseUrl =
@@ -45,9 +47,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.patch(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -93,9 +96,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -165,9 +169,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -234,9 +239,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.patch(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -280,11 +286,29 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+
+      // 🔍 DEBUG
+      print('📡 [getUserDiaryEntries] URL: $url');
+      final authHeader = headers['Authorization'];
+      if (authHeader != null) {
+        print('📡 [getUserDiaryEntries] Authorization: ${authHeader.substring(0, authHeader.length.clamp(0, 27))}... (${authHeader.length} chars)');
+      } else {
+        print('📡 [getUserDiaryEntries] Authorization: AUSENTE ⚠️');
+      }
+
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
+
+      // 🔍 DEBUG
+      print('📡 [getUserDiaryEntries] statusCode: ${response.statusCode}');
+      final bodyPreview = response.body.length > 500
+          ? '${response.body.substring(0, 500)}...'
+          : response.body;
+      print('📡 [getUserDiaryEntries] body: $bodyPreview');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
@@ -355,9 +379,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -386,8 +411,11 @@ class FirebaseDiaryService {
           '$_baseUrl/diary_entries/$entryId?updateMask.fieldPaths=mastered&updateMask.fieldPaths=times_reviewed';
 
       // Primeiro, buscar o documento atual para pegar times_reviewed
-      final getResponse =
-          await http.get(Uri.parse('$_baseUrl/diary_entries/$entryId'));
+      final authHeaders = await FirebaseRestAuth.getAuthHeaders();
+      final getResponse = await http.get(
+        Uri.parse('$_baseUrl/diary_entries/$entryId'),
+        headers: authHeaders,
+      );
 
       int currentReviews = 0;
       if (getResponse.statusCode == 200) {
@@ -409,7 +437,7 @@ class FirebaseDiaryService {
 
       final response = await http.patch(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: authHeaders,
         body: json.encode(body),
       );
 
@@ -475,9 +503,10 @@ class FirebaseDiaryService {
         }
       };
 
+      final headers = await FirebaseRestAuth.getAuthHeaders();
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: json.encode(body),
       );
 
@@ -563,5 +592,175 @@ class FirebaseDiaryService {
       return DateTime.tryParse(value.toString()) ?? DateTime.now();
     }
     return DateTime.now();
+  }
+
+  // ========================================
+  // 🏅 USER BADGES (Badges Desbloqueadas)
+  // ========================================
+
+  /// Salvar badge desbloqueada no Firebase
+  static Future<bool> saveUnlockedBadge({
+    required String userId,
+    required String badgeId,
+    required int xpEarned,
+  }) async {
+    try {
+      final docId = '${userId}_$badgeId';
+      final url = '$_baseUrl/user_badges/$docId';
+
+      final body = {
+        'fields': {
+          'user_id': {'stringValue': userId},
+          'badge_id': {'stringValue': badgeId},
+          'unlocked_at': {
+            'timestampValue': DateTime.now().toUtc().toIso8601String()
+          },
+          'xp_earned': {'integerValue': xpEarned.toString()},
+        }
+      };
+
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 200) {
+        print('🏅 Badge salva no Firebase: $badgeId');
+        return true;
+      }
+      print('❌ Erro ao salvar badge: ${response.statusCode}');
+      return false;
+    } catch (e) {
+      print('❌ Exceção ao salvar badge: $e');
+      return false;
+    }
+  }
+
+  /// Carregar badges desbloqueadas do Firebase
+  static Future<List<UnlockedBadge>> getUnlockedBadges(String userId) async {
+    try {
+      final url = '$_baseUrl:runQuery';
+
+      final body = {
+        'structuredQuery': {
+          'from': [
+            {'collectionId': 'user_badges'}
+          ],
+          'where': {
+            'fieldFilter': {
+              'field': {'fieldPath': 'user_id'},
+              'op': 'EQUAL',
+              'value': {'stringValue': userId}
+            }
+          },
+        }
+      };
+
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        final badges = <UnlockedBadge>[];
+
+        for (final item in data) {
+          if (item['document'] != null) {
+            final fields = item['document']['fields'] as Map<String, dynamic>;
+            badges.add(UnlockedBadge(
+              badgeId: _getString(fields['badge_id']),
+              odId: _getString(fields['user_id']),
+              unlockedAt: _getTimestamp(fields['unlocked_at']),
+              xpEarned: _getInt(fields['xp_earned']),
+            ));
+          }
+        }
+
+        print('🏅 ${badges.length} badges carregadas do Firebase para $userId');
+        return badges;
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Erro ao carregar badges: $e');
+      return [];
+    }
+  }
+
+  // ========================================
+  // 🗑️ DELETE ENTRY
+  // ========================================
+
+  /// Excluir uma anotação
+  static Future<bool> deleteEntry(String docId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/diary_entries/$docId');
+
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.delete(url, headers: headers);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        print('🗑️ Anotação excluída: $docId');
+        return true;
+      }
+
+      print('❌ Erro ao excluir: ${response.statusCode}');
+      return false;
+    } catch (e) {
+      print('❌ Erro ao excluir anotação: $e');
+      return false;
+    }
+  }
+
+  // ========================================
+  // ✏️ UPDATE ENTRY
+  // ========================================
+
+  /// Atualizar nota e estratégia de uma anotação
+  static Future<bool> updateEntry(
+    String docId, {
+    String? userNote,
+    String? userStrategy,
+  }) async {
+    try {
+      final updateMasks = <String>[];
+      final fields = <String, dynamic>{};
+
+      if (userNote != null) {
+        updateMasks.add('user_note');
+        fields['user_note'] = {'stringValue': userNote};
+      }
+      if (userStrategy != null) {
+        updateMasks.add('user_strategy');
+        fields['user_strategy'] = {'stringValue': userStrategy};
+      }
+
+      final maskParams =
+          updateMasks.map((m) => 'updateMask.fieldPaths=$m').join('&');
+      final url = Uri.parse('$_baseUrl/diary_entries/$docId?$maskParams');
+
+      final patchHeaders = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.patch(
+        url,
+        headers: patchHeaders,
+        body: json.encode({'fields': fields}),
+      );
+
+      if (response.statusCode == 200) {
+        print('✏️ Anotação atualizada: $docId');
+        return true;
+      }
+
+      print('❌ Erro ao atualizar: ${response.statusCode}');
+      return false;
+    } catch (e) {
+      print('❌ Erro ao atualizar anotação: $e');
+      return false;
+    }
   }
 }

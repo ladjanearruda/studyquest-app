@@ -1,60 +1,336 @@
 // lib/features/diario/screens/diario_conquistas_tab.dart
-// ✅ V9.0 - Sprint 9: Tab de Conquistas e Hall da Fama
-// 📅 Criado: 18/02/2026
+// ✅ V9.3 - Sprint 9 Fase 3: Tab de Conquistas/Badges
+// 📅 Atualizado: 24/02/2026
+// 🎯 Visualização de todas as badges com filtros
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/diary_badge_model.dart';
+import '../providers/diary_badges_provider.dart';
+import '../widgets/badge_unlock_modal.dart';
 
-class DiarioConquistasTab extends ConsumerWidget {
+class DiarioConquistasTab extends ConsumerStatefulWidget {
   const DiarioConquistasTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DiarioConquistasTab> createState() =>
+      _DiarioConquistasTabState();
+}
+
+class _DiarioConquistasTabState extends ConsumerState<DiarioConquistasTab> {
+  BadgeCategory? _selectedCategory;
+  bool _showOnlyUnlocked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final badgesState = ref.watch(diaryBadgesProvider);
+    final allBadges =
+        ref.read(diaryBadgesProvider.notifier).getAllBadgesWithStatus();
+
+    // Filtrar badges
+    var filteredBadges = allBadges;
+
+    if (_selectedCategory != null) {
+      filteredBadges = filteredBadges
+          .where((b) => b.badge.categoria == _selectedCategory)
+          .toList();
+    }
+
+    if (_showOnlyUnlocked) {
+      filteredBadges = filteredBadges.where((b) => b.unlocked).toList();
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Hall da Fama dos Erros
-          _buildHallDaFama(),
+          // Header com progresso
+          _buildProgressHeader(badgesState),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Badges conquistadas
-          _buildTituloSecao('🏆 Badges Conquistadas', '3/15'),
-          const SizedBox(height: 12),
-          _buildBadgesConquistadas(),
+          // Filtros
+          _buildFilters(),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Próximas badges
-          _buildTituloSecao('🎯 Próximas Conquistas', ''),
-          const SizedBox(height: 12),
-          _buildProximasBadges(),
+          // Grid de badges
+          _buildBadgesGrid(filteredBadges),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
+
+          // Hall da Fama (erros transformados)
+          _buildHallOfFame(badgesState),
         ],
       ),
     );
   }
 
-  Widget _buildHallDaFama() {
+  Widget _buildProgressHeader(DiaryBadgesState state) {
+    final totalBadges = DiaryBadgeCatalog.totalBadges;
+    final unlocked = state.totalUnlocked;
+    final progress = state.progressPercentage;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.amber.shade400, Colors.orange.shade500],
+          colors: [Colors.amber.shade100, Colors.orange.shade100],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Ícone
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.amber.shade400, Colors.orange.shade500],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Center(
+                  child: Text('🏆', style: TextStyle(fontSize: 30)),
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Texto
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Suas Conquistas',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$unlocked de $totalBadges badges',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // XP total
+              Column(
+                children: [
+                  Text(
+                    '${state.totalXpFromBadges}',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade800,
+                    ),
+                  ),
+                  Text(
+                    'XP ganhos',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Barra de progresso
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Progresso total',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  Text(
+                    '${(progress * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 10,
+                  backgroundColor: Colors.white,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(Colors.amber.shade600),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Toggle desbloqueadas
+        Row(
+          children: [
+            const Text(
+              'Filtrar por:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            FilterChip(
+              label: const Text('Só desbloqueadas'),
+              selected: _showOnlyUnlocked,
+              onSelected: (value) {
+                setState(() {
+                  _showOnlyUnlocked = value;
+                });
+              },
+              selectedColor: Colors.green.shade100,
+              checkmarkColor: Colors.green,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Categorias
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildCategoryChip(null, '🎖️ Todas'),
+              _buildCategoryChip(BadgeCategory.anotacao, '📝 Anotação'),
+              _buildCategoryChip(
+                  BadgeCategory.transformacao, '🔄 Transformação'),
+              _buildCategoryChip(BadgeCategory.consistencia, '📅 Consistência'),
+              _buildCategoryChip(BadgeCategory.emocao, '😊 Emoção'),
+              _buildCategoryChip(BadgeCategory.revisao, '📖 Revisão'),
+              _buildCategoryChip(BadgeCategory.especial, '👑 Especial'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryChip(BadgeCategory? categoria, String label) {
+    final isSelected = _selectedCategory == categoria;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (value) {
+          setState(() {
+            _selectedCategory = value ? categoria : null;
+          });
+        },
+        selectedColor: Colors.amber.shade100,
+        checkmarkColor: Colors.amber.shade800,
+      ),
+    );
+  }
+
+  Widget _buildBadgesGrid(
+    List<({DiaryBadge badge, bool unlocked, DateTime? unlockedAt})> badges,
+  ) {
+    if (badges.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        child: Center(
+          child: Column(
+            children: [
+              const Text('🔍', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 12),
+              Text(
+                'Nenhuma badge encontrada',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: badges.length,
+      itemBuilder: (context, index) {
+        final item = badges[index];
+        return BadgeGridItem(
+          badge: item.badge,
+          unlocked: item.unlocked,
+          unlockedAt: item.unlockedAt,
+          onTap: () {
+            BadgeDetailModal.show(
+              context: context,
+              badge: item.badge,
+              unlocked: item.unlocked,
+              unlockedAt: item.unlockedAt,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHallOfFame(DiaryBadgesState state) {
+    final transformacoes = state.stats.totalTransformacoes;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade50, Colors.indigo.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.purple.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,422 +340,102 @@ class DiarioConquistasTab extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  gradient: LinearGradient(
+                    colors: [Colors.purple.shade400, Colors.indigo.shade500],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('🦋', style: TextStyle(fontSize: 28)),
+                child: const Text('🏅', style: TextStyle(fontSize: 24)),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Hall da Fama dos Erros',
+                    Text(
+                      'Hall da Fama',
                       style: TextStyle(
-                        color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      'Erros transformados em aprendizado',
+                      'Erros transformados em acertos',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 13,
+                        fontSize: 12,
+                        color: Colors.grey,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Contador de transformações
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildTransformacaoStat('5', 'Erros\nTransformados'),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-                _buildTransformacaoStat('+250', 'XP\nGanho'),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-                _buildTransformacaoStat('3', 'Matérias\nDominadas'),
-              ],
-            ),
           ),
 
           const SizedBox(height: 16),
 
-          // Último erro transformado
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Text('✨', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Última transformação',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
-                        ),
+          // Contador de transformações
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildHallStat('🔄', transformacoes.toString(), 'Transformações'),
+              _buildHallStat(
+                  '📚', state.stats.topicosDominados.toString(), 'Tópicos'),
+              _buildHallStat(
+                  '🔥', '${state.stats.streakDias}', 'Dias seguidos'),
+            ],
+          ),
+
+          if (transformacoes == 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Text('💡', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Erre uma questão, anote no Diário, e depois acerte ela para transformar seu erro!',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
                       ),
-                      const Text(
-                        'Regra de três composta',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '+50 XP',
-                    style: TextStyle(
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildTransformacaoStat(String valor, String label) {
+  Widget _buildHallStat(String emoji, String value, String label) {
     return Column(
       children: [
+        Text(emoji, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 4),
         Text(
-          valor,
+          value,
           style: const TextStyle(
-            color: Colors.white,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           label,
-          textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 10,
-            height: 1.2,
+            fontSize: 11,
+            color: Colors.grey.shade600,
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTituloSecao(String titulo, String contador) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          titulo,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if (contador.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              contador,
-              style: TextStyle(
-                color: Colors.grey.shade700,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildBadgesConquistadas() {
-    final badges = [
-      {
-        'emoji': '🌱',
-        'nome': 'Primeira Anotação',
-        'data': '15/02/2026',
-        'xp': 50
-      },
-      {'emoji': '📚', 'nome': 'Estudioso', 'data': '16/02/2026', 'xp': 100},
-      {'emoji': '🔄', 'nome': 'Transformador', 'data': '17/02/2026', 'xp': 150},
-    ];
-
-    return Column(
-      children: badges
-          .map((badge) => _buildBadgeCard(
-                emoji: badge['emoji'] as String,
-                nome: badge['nome'] as String,
-                data: badge['data'] as String,
-                xp: badge['xp'] as int,
-                conquistada: true,
-              ))
-          .toList(),
-    );
-  }
-
-  Widget _buildProximasBadges() {
-    final badges = [
-      {
-        'emoji': '🔬',
-        'nome': 'Cientista',
-        'descricao': 'Fazer 50 anotações',
-        'progresso': 0.2,
-        'atual': '10/50'
-      },
-      {
-        'emoji': '⚡',
-        'nome': 'Metamorfose',
-        'descricao': 'Transformar 10 erros',
-        'progresso': 0.5,
-        'atual': '5/10'
-      },
-      {
-        'emoji': '📅',
-        'nome': 'Consistente',
-        'descricao': '7 dias seguidos de anotação',
-        'progresso': 0.43,
-        'atual': '3/7'
-      },
-      {
-        'emoji': '😊',
-        'nome': 'Bem-Estar',
-        'descricao': '5 sessões felizes seguidas',
-        'progresso': 0.6,
-        'atual': '3/5'
-      },
-    ];
-
-    return Column(
-      children: badges
-          .map((badge) => _buildBadgeProximaCard(
-                emoji: badge['emoji'] as String,
-                nome: badge['nome'] as String,
-                descricao: badge['descricao'] as String,
-                progresso: badge['progresso'] as double,
-                atual: badge['atual'] as String,
-              ))
-          .toList(),
-    );
-  }
-
-  Widget _buildBadgeCard({
-    required String emoji,
-    required String nome,
-    required String data,
-    required int xp,
-    required bool conquistada,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.amber.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 28)),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  nome,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Conquistada em $data',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Text('⭐', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 4),
-                Text(
-                  '+$xp',
-                  style: TextStyle(
-                    color: Colors.amber.shade700,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadgeProximaCard({
-    required String emoji,
-    required String nome,
-    required String descricao,
-    required double progresso,
-    required String atual,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    emoji,
-                    style: TextStyle(
-                      fontSize: 28,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nome,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      descricao,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                atual,
-                style: TextStyle(
-                  color: Colors.green.shade600,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progresso,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade500),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

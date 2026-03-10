@@ -1,7 +1,11 @@
 // lib/features/questoes/screens/questao_personalizada_screen.dart
-// ✅ V9.2 - Sprint 9 Fase 2: Hall da Fama + Firebase Persistência
-// 📅 Atualizado: 22/02/2026
-// 🎯 Detecta revanche, salva respostas, visual dourado
+// ✅ V9.4 - Sprint 9 Fase 3: Revanche TODOS os erros + Anotação 1:1 + Badge Transformador
+// 📅 Atualizado: 27/02/2026
+// 🎯 Mudanças:
+//    - Revanche aparece para TODOS os erros (anotados ou não)
+//    - Modal de feedback mostra anotação existente
+//    - Badge Transformador dispara automaticamente
+//    - Anotação 1:1 (editar se existe)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +17,7 @@ import '../providers/sessao_usuario_provider.dart';
 import '../providers/recursos_provider_v71.dart';
 import '../widgets/checkpoint_modal.dart';
 import '../widgets/gameover_modal.dart';
-import '../widgets/revanche_header.dart'; // ✅ V9.2: Header revanche
+import '../widgets/revanche_header.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../home/screens/home_screen.dart';
 import '../../../core/models/avatar.dart';
@@ -23,9 +27,12 @@ import '../../niveis/models/nivel_model.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/widgets/level_up_modal.dart';
 
-// ✅ V9.2: Imports do Diário e Firebase
+// ✅ V9.4: Imports do Diário, Badges e Firebase
 import '../../diario/widgets/anotar_erro_modal.dart';
 import '../../diario/providers/diary_provider.dart';
+import '../../diario/providers/diary_badges_provider.dart';
+import '../../diario/widgets/badge_unlock_modal.dart';
+import '../../diario/models/diary_entry_model.dart';
 import '../../../core/services/firebase_diary_service.dart';
 import '../../../core/services/firebase_rest_auth.dart';
 
@@ -52,15 +59,20 @@ class _QuestaoPersonalizadaScreenState
 
   Map<String, dynamic>? _pendingLevelUp;
 
-  // ✅ V9.2: Variáveis para Hall da Fama
+  // ✅ V9.4: Variáveis para Revanche expandida
   bool _isRevanche = false;
+  bool _temAnotacao =
+      false; // ✅ V9.4: Se tem anotação (para badge Transformador)
+  DiaryEntry?
+      _anotacaoExistente; // ✅ V9.4: Anotação existente (para mostrar no modal)
   String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _startTimer();
+    // NÃO iniciar timer aqui — sessão ainda não foi carregada
+    // Timer será iniciado ao final de _initializeSession()
     _initializeSession();
     _loadAvatar();
   }
@@ -74,7 +86,11 @@ class _QuestaoPersonalizadaScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _isPaused) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _pauseGame();
+    } else if (state == AppLifecycleState.resumed && _isPaused) {
       _resumeGame();
     }
   }
@@ -92,27 +108,48 @@ class _QuestaoPersonalizadaScreenState
     }
   }
 
-  // ✅ V9.2: Inicialização com userId e carregamento do diário
+  // ✅ V9.4: Inicialização com userId e carregamento do diário
   void _initializeSession() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       try {
-        // ✅ V9.2: Carregar userId do auth
+        // Carregar userId do auth
         final user = await FirebaseRestAuth.getCurrentUser();
         if (user != null) {
           _currentUserId = user.uid;
           print('👤 Usuário carregado: ${user.uid}');
         }
 
+        // ── VERIFICAR SE HÁ SESSÃO PAUSADA ──────────────────────────────
+        final sessaoAtual = ref.read(sessaoQuestoesProvider);
+        if (sessaoAtual.isAtiva) {
+          // Sessão pausada: restaurar tempo e continuar de onde parou
+          print('▶️ Retomando sessão pausada: '
+              'questão ${sessaoAtual.questaoAtual + 1}/${sessaoAtual.totalQuestoes}, '
+              'tempo: ${sessaoAtual.timeLeft}s');
+
+          if (mounted) {
+            setState(() => _timeLeft = sessaoAtual.timeLeft);
+            await ref.read(diaryProvider.notifier).ensureInitialized();
+            await _checkIfRevanche();
+            _startTimer();
+          }
+          return; // Não iniciar nova sessão
+        }
+
+        // ── NOVA SESSÃO ──────────────────────────────────────────────────
         ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
         await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
 
-        // ✅ V9.2: Carregar anotações do diário para detectar revanches
-        await ref.read(diaryProvider.notifier).loadEntriesFromFirebase();
+        // ✅ V9.4: Garantir que diário está inicializado
+        await ref.read(diaryProvider.notifier).ensureInitialized();
 
-        // ✅ V9.2: Verificar se a primeira questão é revanche
-        _checkIfRevanche();
+        // ✅ V9.4: Verificar se a primeira questão é revanche
+        await _checkIfRevanche();
+
+        // Iniciar timer APÓS sessão carregada (evita mostrar questão errada)
+        if (mounted) _startTimer();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -123,22 +160,33 @@ class _QuestaoPersonalizadaScreenState
     });
   }
 
-  // ✅ V9.2: Verificar se questão atual é revanche
-  void _checkIfRevanche() {
+  // ✅ V9.4: Verificar se questão atual é revanche (TODOS os erros)
+  Future<void> _checkIfRevanche() async {
     final sessao = ref.read(sessaoQuestoesProvider);
     final questao = sessao.questaoAtualObj;
 
     if (questao != null) {
       final diaryNotifier = ref.read(diaryProvider.notifier);
+
+      // ✅ V9.4: Verificar se é revanche (errou antes - com ou sem anotação)
       final isRevanche = diaryNotifier.isRevanche(questao.id);
 
-      if (mounted && _isRevanche != isRevanche) {
+      // ✅ V9.4: Verificar se tem anotação (para badge Transformador)
+      final temAnotacao = diaryNotifier.temAnotacao(questao.id);
+
+      // ✅ V9.4: Obter anotação existente (para mostrar no modal)
+      final anotacao = diaryNotifier.getAnnotationForQuestion(questao.id);
+
+      if (mounted) {
         setState(() {
           _isRevanche = isRevanche;
+          _temAnotacao = temAnotacao;
+          _anotacaoExistente = anotacao;
         });
 
         if (isRevanche) {
           print('🔄 REVANCHE detectada: ${questao.id}');
+          print('   Tem anotação: $temAnotacao');
         }
       }
     }
@@ -196,6 +244,8 @@ class _QuestaoPersonalizadaScreenState
         },
         onViewFull: () {
           Navigator.pop(context);
+          _timer?.cancel();
+          ref.read(sessaoQuestoesProvider.notifier).salvarTimeLeft(_timeLeft);
           ref.read(currentTabProvider.notifier).state = 3;
           context.go('/home');
         },
@@ -227,6 +277,8 @@ class _QuestaoPersonalizadaScreenState
         },
         onViewFull: () {
           Navigator.pop(context);
+          _timer?.cancel();
+          ref.read(sessaoQuestoesProvider.notifier).salvarTimeLeft(_timeLeft);
           ref.read(currentTabProvider.notifier).state = 4;
           context.go('/home');
         },
@@ -250,7 +302,7 @@ class _QuestaoPersonalizadaScreenState
       _currentEmotion = AvatarEmotion.determinado;
     });
 
-    // ✅ V9.2: Salvar timeout no Firebase
+    // ✅ V9.4: Salvar timeout no Firebase E registrar erro
     if (_currentUserId != null && questao != null) {
       FirebaseDiaryService.saveUserResponse(
         userId: _currentUserId!,
@@ -261,6 +313,9 @@ class _QuestaoPersonalizadaScreenState
         subject: questao.subject,
         difficulty: questao.difficulty,
       );
+
+      // ✅ V9.4: Registrar erro no diary provider (para revanche futura)
+      ref.read(diaryProvider.notifier).registrarErro(questao.id);
     }
 
     ref
@@ -273,7 +328,7 @@ class _QuestaoPersonalizadaScreenState
     _showFeedbackAndCheckStatus(false, isTimeout: true);
   }
 
-  // ✅ V9.2: _selectOption com salvamento Firebase e detecção de transformação
+  // ✅ V9.4: _selectOption com salvamento Firebase, registro de erro e transformação
   void _selectOption(int index) async {
     if (_showFeedback || _isProcessing || _isPaused) return;
 
@@ -292,7 +347,7 @@ class _QuestaoPersonalizadaScreenState
 
     _timer?.cancel();
 
-    // ✅ V9.2: Salvar resposta no Firebase
+    // Salvar resposta no Firebase
     if (_currentUserId != null && questao != null) {
       FirebaseDiaryService.saveUserResponse(
         userId: _currentUserId!,
@@ -304,6 +359,11 @@ class _QuestaoPersonalizadaScreenState
         difficulty: questao.difficulty,
       );
       print('💾 Resposta salva: ${questao.id} (${isCorrect ? "✓" : "✗"})');
+
+      // ✅ V9.4: Se ERROU, registrar erro (para revanche futura)
+      if (!isCorrect) {
+        ref.read(diaryProvider.notifier).registrarErro(questao.id);
+      }
     }
 
     ref.read(sessaoQuestoesProvider.notifier).responderQuestao(index);
@@ -311,24 +371,19 @@ class _QuestaoPersonalizadaScreenState
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(isCorrect);
 
-    // ✅ V9.2: Verificar se é transformação de erro (revanche acertada!)
-    if (isCorrect && _isRevanche && questao != null) {
+    // ✅ V9.4: Verificar se é transformação de erro (revanche COM ANOTAÇÃO acertada!)
+    if (isCorrect && _isRevanche && _temAnotacao && questao != null) {
       final diaryNotifier = ref.read(diaryProvider.notifier);
       final xpBonus = await diaryNotifier.transformarErro(questao.id);
 
       if (xpBonus > 0 && mounted) {
         print('🏆 ERRO TRANSFORMADO! +$xpBonus XP');
 
-        // Mostrar modal de celebração
-        await ErroTransformadoModal.show(
-          context: context,
-          materia: questao.subject,
-          xpGanho: xpBonus,
-          onContinue: () {},
-        );
-
         // Adicionar XP bônus ao nível
         await ref.read(nivelProvider.notifier).adicionarXp(xpBonus);
+
+        // ✅ V9.4: Verificar badges de transformação
+        ref.read(diaryBadgesProvider.notifier).checkBadges();
       }
     }
 
@@ -446,13 +501,15 @@ class _QuestaoPersonalizadaScreenState
           _currentEmotion = AvatarEmotion.neutro;
           _pendingLevelUp = null;
           _isPaused = false;
-          _isRevanche = false; // ✅ V9.2: Reset revanche
+          _isRevanche = false;
+          _temAnotacao = false;
+          _anotacaoExistente = null;
         });
 
         try {
           ref.read(recursosPersonalizadosProvider.notifier).aplicarGameOver();
           await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
-          _checkIfRevanche(); // ✅ V9.2: Verificar revanche da nova questão
+          await _checkIfRevanche();
           _startTimer();
           print('🔄 Nova sessão iniciada após Game Over');
         } catch (e) {
@@ -477,15 +534,18 @@ class _QuestaoPersonalizadaScreenState
       _timeLeft = 45;
       _currentEmotion = AvatarEmotion.neutro;
       _isPaused = false;
-      _isRevanche = false; // ✅ V9.2: Reset revanche
+      _isRevanche = false;
+      _temAnotacao = false;
+      _anotacaoExistente = null;
     });
 
     ref.read(sessaoQuestoesProvider.notifier).voltarParaInicio();
-    _checkIfRevanche(); // ✅ V9.2: Verificar revanche
+    _checkIfRevanche();
     _startTimer();
     print('🔄 CHECKPOINT: Voltando para questão 1 (mesmas questões)');
   }
 
+  // ✅ V9.4: Modal de feedback com anotação existente
   void _showFeedbackModal(bool isCorrect, {bool isTimeout = false}) {
     if (!mounted) return;
 
@@ -497,9 +557,12 @@ class _QuestaoPersonalizadaScreenState
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => FeedbackPersonalizadoModal(
+      builder: (context) => _FeedbackPersonalizadoModalV94(
         acertou: isCorrect,
         isTimeout: isTimeout,
+        isRevanche: _isRevanche,
+        temAnotacao: _temAnotacao,
+        anotacaoExistente: _anotacaoExistente, // ✅ V9.4: Passar anotação
         selectedOption: _selectedOption,
         questao: sessao.questaoAtualObj,
         recursos: recursos,
@@ -538,8 +601,8 @@ class _QuestaoPersonalizadaScreenState
     if (sessao.temProximaQuestao) {
       ref.read(sessaoQuestoesProvider.notifier).proximaQuestao();
 
-      // ✅ V9.2: Verificar se próxima questão é revanche
-      _checkIfRevanche();
+      // ✅ V9.4: Verificar se próxima questão é revanche
+      await _checkIfRevanche();
 
       setState(() {
         _selectedOption = null;
@@ -551,7 +614,7 @@ class _QuestaoPersonalizadaScreenState
       _startTimer();
     } else {
       ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
-      context.go('/questoes-resultado');
+      if (mounted) context.go('/questoes-resultado');
     }
   }
 
@@ -636,6 +699,9 @@ class _QuestaoPersonalizadaScreenState
   }
 
   void _goToHome() {
+    _timer?.cancel();
+    // Salvar tempo restante para restaurar ao voltar
+    ref.read(sessaoQuestoesProvider.notifier).salvarTimeLeft(_timeLeft);
     ref.read(currentTabProvider.notifier).state = 0;
     context.go('/home');
   }
@@ -1007,14 +1073,14 @@ class _QuestaoPersonalizadaScreenState
     );
   }
 
-  // ✅ V9.2: Card de questão com visual de revanche
+  // ✅ V9.4: Card de questão com visual de revanche
   Widget _buildQuestaoCard(
       dynamic questao, OnboardingData onboardingData, dynamic sessao) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        // ✅ V9.2: Borda dourada se revanche
+        // ✅ V9.4: Borda dourada se revanche (com ou sem anotação)
         border: _isRevanche
             ? Border.all(color: Colors.amber.shade400, width: 3)
             : null,
@@ -1030,8 +1096,8 @@ class _QuestaoPersonalizadaScreenState
       ),
       child: Column(
         children: [
-          // ✅ V9.2: Header de revanche
-          if (_isRevanche) const RevancheHeader(xpBonus: 15),
+          // ✅ V9.4: Header de revanche (mostra XP bônus só se tem anotação)
+          if (_isRevanche) RevancheHeader(xpBonus: _temAnotacao ? 15 : 0),
 
           // Conteúdo do card
           Padding(
@@ -1134,6 +1200,29 @@ class _QuestaoPersonalizadaScreenState
                                     fontWeight: FontWeight.bold,
                                     color: Colors.blue.shade800)),
                           ),
+                          // ✅ V9.4: Badge "Tem anotação" se tiver
+                          if (_temAnotacao) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('📝', style: TextStyle(fontSize: 10)),
+                                  SizedBox(width: 2),
+                                  Text('Anotado',
+                                      style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.amber)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -1299,10 +1388,13 @@ class _QuestaoPersonalizadaScreenState
   }
 }
 
-// ===== MODAL DE FEEDBACK V9.2 - COM DIÁRIO =====
-class FeedbackPersonalizadoModal extends ConsumerStatefulWidget {
+// ===== MODAL DE FEEDBACK V9.4 - COM ANOTAÇÃO EXISTENTE =====
+class _FeedbackPersonalizadoModalV94 extends ConsumerStatefulWidget {
   final bool acertou;
   final bool isTimeout;
+  final bool isRevanche;
+  final bool temAnotacao;
+  final DiaryEntry? anotacaoExistente;
   final int? selectedOption;
   final dynamic questao;
   final Map<String, double> recursos;
@@ -1313,10 +1405,12 @@ class FeedbackPersonalizadoModal extends ConsumerStatefulWidget {
   final AvatarEmotion currentEmotion;
   final VoidCallback onContinue;
 
-  const FeedbackPersonalizadoModal({
-    super.key,
+  const _FeedbackPersonalizadoModalV94({
     required this.acertou,
     this.isTimeout = false,
+    this.isRevanche = false,
+    this.temAnotacao = false,
+    this.anotacaoExistente,
     this.selectedOption,
     this.questao,
     required this.recursos,
@@ -1329,13 +1423,50 @@ class FeedbackPersonalizadoModal extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FeedbackPersonalizadoModal> createState() =>
-      _FeedbackPersonalizadoModalState();
+  ConsumerState<_FeedbackPersonalizadoModalV94> createState() =>
+      _FeedbackPersonalizadoModalV94State();
 }
 
-class _FeedbackPersonalizadoModalState
-    extends ConsumerState<FeedbackPersonalizadoModal> {
+class _FeedbackPersonalizadoModalV94State
+    extends ConsumerState<_FeedbackPersonalizadoModalV94> {
   bool _annotationSaved = false;
+  bool _showingBadge = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ V9.4: Verificar badges após transformação
+    if (widget.acertou && widget.isRevanche && widget.temAnotacao) {
+      _checkForBadges();
+    }
+  }
+
+  Future<void> _checkForBadges() async {
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+
+    final badgesState = ref.read(diaryBadgesProvider);
+    if (badgesState.pendingUnlock.isNotEmpty) {
+      final notifier = ref.read(diaryBadgesProvider.notifier);
+      final badge = notifier.getNextPendingBadge();
+
+      if (badge != null && mounted) {
+        setState(() => _showingBadge = true);
+
+        await BadgeUnlockModal.show(
+          context: context,
+          badge: badge,
+        );
+
+        notifier.removePendingBadge(badge.id);
+
+        if (mounted) {
+          setState(() => _showingBadge = false);
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1344,26 +1475,43 @@ class _FeedbackPersonalizadoModalState
       body: Center(
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
-          height: MediaQuery.of(context).size.height * 0.85,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
           decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(),
-              Expanded(
+              Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
+                      // ✅ V9.4: Card de ERRO TRANSFORMADO
+                      if (widget.acertou &&
+                          widget.isRevanche &&
+                          widget.temAnotacao)
+                        _buildErroTransformadoCard(),
+
+                      // ✅ V9.4: Mostrar anotação existente na revanche
+                      if (widget.isRevanche && widget.anotacaoExistente != null)
+                        _buildAnotacaoExistenteCard(),
+
+                      const SizedBox(height: 12),
+
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(flex: 1, child: _buildExplicacaoCard()),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           Expanded(flex: 1, child: _buildRecursosCard()),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1371,10 +1519,12 @@ class _FeedbackPersonalizadoModalState
                             flex: 1,
                             child: !widget.acertou
                                 ? _buildAnotarCard()
-                                : const SizedBox(),
+                                : _buildProgressoCard(),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(flex: 1, child: _buildProgressoCard()),
+                          if (!widget.acertou) ...[
+                            const SizedBox(width: 12),
+                            Expanded(flex: 1, child: _buildProgressoCard()),
+                          ],
                         ],
                       ),
                     ],
@@ -1390,12 +1540,49 @@ class _FeedbackPersonalizadoModalState
   }
 
   Widget _buildHeader() {
+    final isTransformacao =
+        widget.acertou && widget.isRevanche && widget.temAnotacao;
+
+    Color headerColor;
+    String titulo;
+    String subtitulo;
+    IconData icone;
+
+    if (isTransformacao) {
+      headerColor = Colors.amber.shade500;
+      titulo = '🏆 ERRO TRANSFORMADO!';
+      subtitulo = 'Você venceu a revanche!';
+      icone = Icons.emoji_events;
+    } else if (widget.isRevanche && widget.acertou) {
+      headerColor = Colors.orange.shade400;
+      titulo = '🔄 Revanche Vencida!';
+      subtitulo = 'Você acertou dessa vez!';
+      icone = Icons.refresh;
+    } else if (widget.acertou) {
+      headerColor = Colors.green.shade400;
+      titulo = 'Excelente!';
+      subtitulo = _buildSubtitle();
+      icone = Icons.check_circle;
+    } else if (widget.isTimeout) {
+      headerColor = Colors.orange.shade400;
+      titulo = 'Tempo Esgotado!';
+      subtitulo = _buildSubtitle();
+      icone = Icons.schedule;
+    } else {
+      headerColor = Colors.red.shade400;
+      titulo = widget.isRevanche ? '🔄 Errou de novo...' : 'Quase lá!';
+      subtitulo = _buildSubtitle();
+      icone = Icons.cancel;
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: widget.acertou ? Colors.green.shade400 : Colors.red.shade400,
+        color: headerColor,
         borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
       ),
       child: Row(
         children: [
@@ -1409,41 +1596,57 @@ class _FeedbackPersonalizadoModalState
                   widget.currentAvatar!.getPath(widget.currentEmotion),
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Icon(
-                    widget.acertou ? Icons.check_circle : Icons.cancel,
-                    color: widget.acertou ? Colors.green : Colors.red,
+                    icone,
+                    color: headerColor,
                     size: 32,
                   ),
                 ),
               ),
             )
           else
-            Icon(
-              widget.isTimeout
-                  ? Icons.schedule
-                  : (widget.acertou ? Icons.check_circle : Icons.cancel),
-              color: Colors.white,
-              size: 40,
-            ),
+            Icon(icone, color: Colors.white, size: 40),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.isTimeout
-                      ? 'Tempo Esgotado!'
-                      : (widget.acertou ? 'Excelente!' : 'Quase lá!'),
+                  titulo,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                Text(_buildSubtitle(),
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  subtitulo,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
               ],
             ),
           ),
+          if (isTransformacao)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    '+15 XP',
+                    style: TextStyle(
+                      color: Colors.amber.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1464,6 +1667,175 @@ class _FeedbackPersonalizadoModalState
     return 'Sua resposta: $suaResposta | Correta: $letraCorreta';
   }
 
+  Widget _buildErroTransformadoCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.amber.shade100, Colors.orange.shade100],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade300, width: 2),
+      ),
+      child: Column(
+        children: [
+          const Text('🏆', style: TextStyle(fontSize: 40)),
+          const SizedBox(height: 8),
+          const Text(
+            'Lição Dominada!',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Você transformou seu erro em aprendizado',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🌱', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Text(
+                  'Movida para Hall da Fama!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnotacaoExistenteCard() {
+    final anotacao = widget.anotacaoExistente!;
+    final isErro = !widget.acertou;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isErro ? Colors.orange.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isErro ? Colors.orange.shade200 : Colors.green.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(isErro ? '📝' : '✅', style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isErro
+                      ? 'Sua anotação anterior:'
+                      : 'Sua anotação (dominada!):',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color:
+                        isErro ? Colors.orange.shade800 : Colors.green.shade800,
+                  ),
+                ),
+              ),
+              if (isErro)
+                TextButton.icon(
+                  onPressed: _openEditarAnotacao,
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Editar'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.orange.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+            ],
+          ),
+          const Divider(height: 16),
+          if (anotacao.userNote.isNotEmpty) ...[
+            Text(
+              '💡 O que aprendi:',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              anotacao.userNote,
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (anotacao.userStrategy.isNotEmpty) ...[
+            Text(
+              '🎯 Minha estratégia:',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              anotacao.userStrategy,
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+          ],
+          if (isErro) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Text('💪', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Revise sua estratégia e tente de novo!',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber.shade800,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildExplicacaoCard() {
     String explicacao = widget.questao?.explicacao ?? '';
     if (explicacao.isEmpty) {
@@ -1473,10 +1845,10 @@ class _FeedbackPersonalizadoModalState
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Column(
@@ -1484,14 +1856,19 @@ class _FeedbackPersonalizadoModalState
         children: [
           Row(
             children: [
-              Icon(Icons.lightbulb, color: Colors.amber[700], size: 20),
-              const SizedBox(width: 8),
-              const Text('Explicação',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Icon(Icons.lightbulb, color: Colors.amber[700], size: 18),
+              const SizedBox(width: 6),
+              const Text(
+                'Explicação',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(explicacao, style: const TextStyle(fontSize: 14, height: 1.5)),
+          const SizedBox(height: 10),
+          Text(
+            explicacao,
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
         ],
       ),
     );
@@ -1499,13 +1876,14 @@ class _FeedbackPersonalizadoModalState
 
   Widget _buildRecursosCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: widget.acertou ? Colors.green[200]! : Colors.red[200]!,
-            width: 2),
+          color: widget.acertou ? Colors.green[200]! : Colors.red[200]!,
+          width: 2,
+        ),
       ),
       child: Column(
         children: [
@@ -1514,21 +1892,26 @@ class _FeedbackPersonalizadoModalState
               Icon(
                 widget.acertou ? Icons.trending_up : Icons.trending_down,
                 color: widget.acertou ? Colors.green[600] : Colors.red[600],
-                size: 20,
+                size: 18,
               ),
-              const SizedBox(width: 8),
-              Text(
-                widget.acertou
-                    ? 'Recursos Recuperados!'
-                    : (widget.isTimeout ? 'Energia Perdida!' : 'Água Perdida!'),
-                style: TextStyle(
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.acertou
+                      ? 'Recursos Recuperados!'
+                      : (widget.isTimeout
+                          ? 'Energia Perdida!'
+                          : 'Água Perdida!'),
+                  style: TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color:
-                        widget.acertou ? Colors.green[700] : Colors.red[700]),
+                    color: widget.acertou ? Colors.green[700] : Colors.red[700],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildRecursoRow(Icons.flash_on, 'Energia',
               widget.recursos['energia']?.toInt() ?? 100, Colors.yellow[700]!),
           _buildRecursoRow(Icons.water_drop, 'Água',
@@ -1543,20 +1926,26 @@ class _FeedbackPersonalizadoModalState
   Widget _buildRecursoRow(IconData icon, String nome, int valor, Color cor) {
     final critico = valor <= 20;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: critico ? Colors.red : cor),
-          const SizedBox(width: 8),
-          Text(nome, style: TextStyle(color: critico ? Colors.red : null)),
+          Icon(icon, size: 14, color: critico ? Colors.red : cor),
+          const SizedBox(width: 6),
+          Text(nome,
+              style:
+                  TextStyle(fontSize: 12, color: critico ? Colors.red : null)),
           const Spacer(),
-          Text('$valor%',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: critico ? Colors.red : cor)),
+          Text(
+            '$valor%',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: critico ? Colors.red : cor,
+            ),
+          ),
           if (critico) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.warning, size: 14, color: Colors.red)
+            const Icon(Icons.warning, size: 12, color: Colors.red),
           ],
         ],
       ),
@@ -1565,31 +1954,42 @@ class _FeedbackPersonalizadoModalState
 
   Widget _buildProgressoCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.amber[50],
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.amber[200]!),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.star, color: Colors.amber[700], size: 20),
-              const SizedBox(width: 8),
-              Text('Progresso',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.amber[800])),
+              Icon(Icons.star, color: Colors.amber[700], size: 18),
+              const SizedBox(width: 6),
+              Text(
+                'Progresso',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber[800],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildStatRow('XP Total', '${widget.nivelUsuario.xpTotal}'),
-          _buildStatRow('Questão',
-              '${(widget.sessao?.questaoAtual ?? 0) + 1}/${widget.sessao?.totalQuestoes ?? 10}'),
-          _buildStatRow('Precisão',
-              '${(widget.sessaoUsuario.precisaoSessao * 100).toStringAsFixed(0)}%'),
-          _buildStatRow('Nível',
-              '${widget.nivelUsuario.tier.emoji} ${widget.nivelUsuario.nivel}'),
+          _buildStatRow(
+            'Questão',
+            '${(widget.sessao?.questaoAtual ?? 0) + 1}/${widget.sessao?.totalQuestoes ?? 10}',
+          ),
+          _buildStatRow(
+            'Precisão',
+            '${(widget.sessaoUsuario.precisaoSessao * 100).toStringAsFixed(0)}%',
+          ),
+          _buildStatRow(
+            'Nível',
+            '${widget.nivelUsuario.tier.emoji} ${widget.nivelUsuario.nivel}',
+          ),
         ],
       ),
     );
@@ -1601,41 +2001,56 @@ class _FeedbackPersonalizadoModalState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber[800])),
+          Text(label, style: const TextStyle(fontSize: 11)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.amber[800],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildAnotarCard() {
+    // ✅ V9.4: Se é revanche com anotação existente, oferecer editar
+    if (widget.isRevanche && widget.anotacaoExistente != null) {
+      return const SizedBox(); // Já mostramos no card de anotação existente
+    }
+
     if (_annotationSaved) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.green.shade300),
         ),
         child: Row(
           children: [
-            const Text('✅', style: TextStyle(fontSize: 24)),
-            const SizedBox(width: 12),
+            const Text('✅', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Anotação salva!',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700)),
-                  Text('+25 XP ganhos 🎉',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.green.shade600)),
+                  Text(
+                    'Anotação salva!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  Text(
+                    '+25 XP ganhos 🎉',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1645,47 +2060,54 @@ class _FeedbackPersonalizadoModalState
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient:
-            LinearGradient(colors: [Colors.green.shade50, Colors.teal.shade50]),
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [Colors.green.shade50, Colors.teal.shade50],
+        ),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.green.shade200),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Text('🌱', style: TextStyle(fontSize: 24)),
-              const SizedBox(width: 12),
+              const Text('🌱', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Plantar essa lição?',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text('Anote no Diário e ganhe +25 XP',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                    const Text(
+                      'Plantar essa lição?',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      'Anote no Diário e ganhe +25 XP',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _openAnotarModal,
-              icon: const Icon(Icons.edit_note, size: 18),
-              label: const Text('Anotar no Diário'),
+              icon: const Icon(Icons.edit_note, size: 16),
+              label: const Text('Anotar no Diário',
+                  style: TextStyle(fontSize: 13)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade600,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -1694,7 +2116,6 @@ class _FeedbackPersonalizadoModalState
     );
   }
 
-  // ✅ V9.2: Abrir modal de anotar erro com questionId real
   Future<void> _openAnotarModal() async {
     final questao = widget.questao;
     if (questao == null) return;
@@ -1731,10 +2152,9 @@ class _FeedbackPersonalizadoModalState
       }
     }
 
-    // ✅ V9.2: Passar questionId real
     final annotation = await AnotarErroModal.show(
       context: context,
-      questionId: questao.id, // ✅ ID real do Firebase
+      questionId: questao.id,
       questionText: questao.enunciado ?? 'Questão',
       correctAnswer: textoCorreto,
       userAnswer: textoUsuario,
@@ -1743,16 +2163,24 @@ class _FeedbackPersonalizadoModalState
     );
 
     if (annotation != null) {
-      // ✅ V9.2: Salvar com questionId
-      final xpGanho = await ref.read(diaryProvider.notifier).addAnnotation(
-            annotation,
-            questionId: questao.id,
-          );
+      // ✅ V9.4: Usar addOrUpdateAnnotation (1:1)
+      final xpGanho =
+          await ref.read(diaryProvider.notifier).addOrUpdateAnnotation(
+                annotation,
+                questionId: questao.id,
+              );
 
       if (xpGanho > 0) {
         setState(() {
           _annotationSaved = true;
         });
+
+        // Adicionar XP
+        await ref.read(nivelProvider.notifier).adicionarXp(xpGanho);
+
+        // Verificar badges de anotação
+        ref.read(diaryBadgesProvider.notifier).checkBadges();
+        _checkForBadges();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1774,22 +2202,34 @@ class _FeedbackPersonalizadoModalState
     }
   }
 
+  Future<void> _openEditarAnotacao() async {
+    // Abre o modal de anotar - que vai fazer update se já existe
+    await _openAnotarModal();
+  }
+
   Widget _buildBotaoContinuar() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton.icon(
-          onPressed: widget.onContinue,
-          icon: const Icon(Icons.arrow_forward),
-          label: const Text('Próxima Questão',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _showingBadge ? null : widget.onContinue,
+            icon: const Icon(Icons.arrow_forward),
+            label: Text(
+              _showingBadge ? 'Aguarde...' : 'Próxima Questão',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.grey.shade300,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
           ),
         ),
       ),
@@ -1797,7 +2237,7 @@ class _FeedbackPersonalizadoModalState
   }
 }
 
-// ===== 🏆 MODAL DE RANKING =====
+// ===== 🏆 MODAL DE RANKING (mantido igual) =====
 class _RankingModalContent extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onViewFull;
@@ -1981,7 +2421,7 @@ class _RankingModalContent extends StatelessWidget {
   }
 }
 
-// ===== 👤 MODAL DE PERFIL =====
+// ===== 👤 MODAL DE PERFIL (mantido igual) =====
 class _PerfilModalContent extends StatelessWidget {
   final String userName;
   final int nivel;

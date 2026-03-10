@@ -2,13 +2,26 @@
 // ✅ V7.2.1 - ADICIONADO: método voltarInicioNivel para Game Over
 // 📅 Atualizado: 10/02/2026
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/nivel_model.dart';
 import '../services/nivel_persistence.dart';
+import '../../../core/services/firebase_rest_auth.dart';
 
 /// Provider principal de níveis
 final nivelProvider = StateNotifierProvider<NivelNotifier, NivelUsuario>((ref) {
-  return NivelNotifier();
+  final notifier = NivelNotifier(ref);
+
+  // Recarregar XP do Firebase sempre que o usuário logar/deslogar
+  ref.listen<AuthState>(authProvider, (previous, next) {
+    final uid = next.user?.uid;
+    final prevUid = previous?.user?.uid;
+    if (uid != null && uid != prevUid) {
+      notifier.carregarDoFirebase(uid);
+    }
+  });
+
+  return notifier;
 });
 
 /// Provider para verificar se uma feature está desbloqueada
@@ -26,31 +39,60 @@ final proximosDesbloqueiosProvider = Provider<List<Desbloqueio>>((ref) {
 
 /// Notifier que gerencia o estado dos níveis
 class NivelNotifier extends StateNotifier<NivelUsuario> {
-  NivelNotifier() : super(NivelUsuario.inicial()) {
+  final Ref _ref;
+
+  NivelNotifier(this._ref) : super(NivelUsuario.inicial()) {
     _carregarDados();
   }
 
   // ===== PERSISTÊNCIA =====
 
-  /// Carrega dados salvos do SharedPreferences
+  /// Carrega dados: local primeiro (rápido), depois Firebase (fonte de verdade)
   Future<void> _carregarDados() async {
     try {
-      final xpSalvo = await NivelPersistence.carregarXpTotal();
-      if (xpSalvo > 0) {
-        state = NivelUsuario.fromXpTotal(xpSalvo);
-        print('📊 Nível carregado: ${state.nivel} (${state.xpTotal} XP)');
+      // 1. Local — exibe imediatamente
+      final xpLocal = await NivelPersistence.carregarXpTotal();
+      if (xpLocal > 0) {
+        state = NivelUsuario.fromXpTotal(xpLocal);
+        print('📊 Nível local: ${state.nivel} (${state.xpTotal} XP)');
+      }
+
+      // 2. Firebase — substitui se for maior (evita regressão por limpeza local)
+      final user = _ref.read(authProvider).user;
+      if (user != null && !user.isAnonymous) {
+        await carregarDoFirebase(user.uid);
       }
     } catch (e) {
       print('⚠️ Erro ao carregar nível: $e');
     }
   }
 
-  /// Salva dados no SharedPreferences
+  /// Carrega XP do Firebase e atualiza estado + local se for maior
+  Future<void> carregarDoFirebase(String userId) async {
+    try {
+      final xpFirebase = await NivelPersistence.carregarXpFirebase(userId);
+      if (xpFirebase != null && xpFirebase > state.xpTotal) {
+        state = NivelUsuario.fromXpTotal(xpFirebase);
+        await NivelPersistence.salvarXpTotal(xpFirebase);
+        print('☁️ XP restaurado do Firebase: ${state.nivel} (${state.xpTotal} XP)');
+      }
+    } catch (e) {
+      print('⚠️ Erro ao carregar XP do Firebase: $e');
+    }
+  }
+
+  /// Salva dados: local + Firebase (fire-and-forget para não bloquear UI)
   Future<void> _salvarDados() async {
     try {
       await NivelPersistence.salvarXpTotal(state.xpTotal);
       await NivelPersistence.salvarNivel(state.nivel);
       print('💾 Nível salvo: ${state.nivel} (${state.xpTotal} XP)');
+
+      // Firebase: salva em background (fire-and-forget para não bloquear UI)
+      final user = _ref.read(authProvider).user;
+      if (user != null && !user.isAnonymous) {
+        unawaited(NivelPersistence.salvarXpFirebase(user.uid, state.xpTotal));
+      }
     } catch (e) {
       print('⚠️ Erro ao salvar nível: $e');
     }
