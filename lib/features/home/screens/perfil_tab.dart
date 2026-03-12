@@ -16,6 +16,7 @@ import '../../onboarding/screens/onboarding_screen.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/models/nivel_model.dart';
 import '../../diario/providers/diary_provider.dart';
+import '../../questoes/providers/recursos_provider_v71.dart';
 
 class PerfilTab extends ConsumerWidget {
   const PerfilTab({super.key});
@@ -763,6 +764,9 @@ class PerfilTab extends ConsumerWidget {
     // Invalidar providers para forçar recarga com o novo usuário
     ref.invalidate(diaryProvider);
     ref.invalidate(nivelProvider);
+    if (isAnonymous) {
+      ref.invalidate(recursosPersonalizadosProvider);
+    }
     print('✅ Limpeza de dados concluída!');
   }
 }

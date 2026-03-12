@@ -10,6 +10,7 @@
 // ============================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'sessao_usuario_provider.dart';
 
 // ===== CONSTANTES DO JOGO V7.3 =====
@@ -314,6 +315,13 @@ final recursosPersonalizadosProvider = StateNotifierProvider<
   return RecursosPersonalizadosNotifierV71(ref);
 });
 
+// ===== CHAVES SHAREDPREFERENCES =====
+const _kRecursosAgua = 'studyquest_recursos_agua';
+const _kRecursosEnergia = 'studyquest_recursos_energia';
+const _kRecursosSaudeInicio = 'studyquest_recursos_saude_inicio';
+const _kRecursosAguaPerdida = 'studyquest_recursos_agua_perdida';
+const _kRecursosEnergiaPerdida = 'studyquest_recursos_energia_perdida';
+
 /// Notifier de compatibilidade que mantém a interface Map<String, double>
 /// mas usa a lógica V7.3 internamente
 class RecursosPersonalizadosNotifierV71
@@ -333,29 +341,53 @@ class RecursosPersonalizadosNotifierV71
           'agua': 100.0,
           'saude': 100.0,
         }) {
-    _carregarSaudeInicial();
+    _carregarRecursos();
   }
 
-  /// Carrega saúde inicial do provider de sessão
-  void _carregarSaudeInicial() {
+  /// Carrega recursos do SharedPreferences (persiste após F5)
+  Future<void> _carregarRecursos() async {
     try {
-      final sessao = ref.read(sessaoUsuarioProvider);
-      _saudeInicioSessao = sessao.saudeGlobal;
-      _atualizarState();
+      final prefs = await SharedPreferences.getInstance();
+      final aguaSalva = prefs.getDouble(_kRecursosAgua);
+      final energiaSalva = prefs.getDouble(_kRecursosEnergia);
+      final saudeSalva = prefs.getDouble(_kRecursosSaudeInicio);
+
+      // 🔍 DEBUG: mostrar o que foi encontrado no SharedPreferences
+      print('🔍 [RECURSOS] SharedPreferences keys: ${prefs.getKeys().where((k) => k.startsWith("studyquest_recursos"))}');
+      print('🔍 [RECURSOS] agua=$aguaSalva energia=$energiaSalva saudeInicio=$saudeSalva');
+
+      _agua = aguaSalva ?? 100.0;
+      _energia = energiaSalva ?? 100.0;
+      _saudeInicioSessao = saudeSalva ?? 100.0;
+      _aguaPerdidaSessao = prefs.getDouble(_kRecursosAguaPerdida) ?? 0.0;
+      _energiaPerdidaSessao = prefs.getDouble(_kRecursosEnergiaPerdida) ?? 0.0;
+
+      if (mounted) _atualizarState();
+      print('📦 [RECURSOS] Carregados: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
     } catch (e) {
-      print('⚠️ Erro ao carregar saúde inicial: $e');
+      print('⚠️ [RECURSOS] Erro ao carregar: $e');
     }
   }
 
-  /// Inicializa para nova sessão
+  /// Salva recursos no SharedPreferences (fire-and-forget)
+  Future<void> _salvarRecursos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_kRecursosAgua, _agua);
+      await prefs.setDouble(_kRecursosEnergia, _energia);
+      await prefs.setDouble(_kRecursosSaudeInicio, _saudeInicioSessao);
+      await prefs.setDouble(_kRecursosAguaPerdida, _aguaPerdidaSessao);
+      await prefs.setDouble(_kRecursosEnergiaPerdida, _energiaPerdidaSessao);
+      print('💾 [RECURSOS] Salvos: E=${_energia.toStringAsFixed(0)}% A=${_agua.toStringAsFixed(0)}% S=${_calcularSaudeAtual().toStringAsFixed(1)}%');
+    } catch (e) {
+      print('⚠️ [RECURSOS] Erro ao salvar: $e');
+    }
+  }
+
+  /// Inicializa para nova sessão (mantém saúde persistida)
   void iniciarSessao() {
-    try {
-      final sessao = ref.read(sessaoUsuarioProvider);
-      _saudeInicioSessao = sessao.saudeGlobal;
-    } catch (e) {
-      _saudeInicioSessao = 100.0;
-    }
-
+    // Saúde persiste entre sessões — mantém o valor atual (já carregado do SharedPreferences)
+    // Água e Energia são temporários — resetam por sessão
     _energia = 100.0;
     _agua = 100.0;
     _energiaPerdidaSessao = 0.0;
@@ -376,13 +408,14 @@ class RecursosPersonalizadosNotifierV71
     return (_saudeInicioSessao - saudePerdida).clamp(0.0, 100.0);
   }
 
-  /// Atualiza o state Map para a UI
+  /// Atualiza o state Map para a UI e persiste no SharedPreferences
   void _atualizarState() {
     state = {
       'energia': _energia,
       'agua': _agua,
       'saude': _calcularSaudeAtual(),
     };
+    _salvarRecursos(); // fire-and-forget
   }
 
   /// Método principal de atualização (compatibilidade + V7.3)

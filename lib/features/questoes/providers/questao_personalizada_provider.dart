@@ -3,6 +3,7 @@
 // 📅 Atualizado: 10/02/2026
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/questao_personalizada.dart';
 import '../../../shared/services/firebase_service.dart';
 import '../../modo_descoberta/providers/modo_descoberta_provider.dart';
@@ -10,6 +11,10 @@ import '../../../core/models/user_model.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import 'sessao_usuario_provider.dart';
 import 'recursos_provider_v71.dart';
+
+/// Chave SharedPreferences: indica que havia uma sessão de questões em andamento.
+/// Usado para distinguir F5 (retomar) de sessão nova (resetar recursos).
+const kSessaoAtiva = 'studyquest_sessao_ativa';
 
 // ===== CLASSE DE ESTADO DA SESSÃO =====
 class SessaoQuestoes {
@@ -155,8 +160,19 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
       // ✅ V7.1: Iniciar sessão no provider de usuário
       ref.read(sessaoUsuarioProvider.notifier).iniciarSessao();
 
-      // ✅ V7.1: Iniciar recursos
-      ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
+      // Verificar flag de sessão antes de iniciar recursos
+      final prefs = await SharedPreferences.getInstance();
+      final sessaoEmProgresso = prefs.getBool(kSessaoAtiva) ?? false;
+
+      // ✅ V7.1: Iniciar recursos — apenas se NÃO for retomada após F5
+      // Se havia sessão ativa (kSessaoAtiva=true), os recursos já foram
+      // carregados do SharedPreferences e não devem ser resetados.
+      if (!sessaoEmProgresso) {
+        ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
+        print('🔄 [SessaoNotifier] Recursos resetados (sessão nova)');
+      } else {
+        print('▶️ [SessaoNotifier] Recursos mantidos (retomada após F5)');
+      }
 
       // Atualizar estado da sessão de questões
       state = SessaoQuestoes(
@@ -167,6 +183,9 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
         inicioSessao: DateTime.now(),
         sessaoFinalizada: false,
       );
+
+      // Marcar sessão como ativa no SharedPreferences (persiste no F5)
+      await prefs.setBool(kSessaoAtiva, true);
 
       print('🎯 Sessão iniciada: ${questoesPersonalizadas.length} questões');
       print('🔧 Algoritmo V7.3: recursos e XP integrados');
@@ -221,6 +240,7 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   // ===== FINALIZAR SESSÃO =====
   void finalizarSessao() {
     state = state.copyWith(sessaoFinalizada: true);
+    _clearSessaoAtiva();
 
     // ✅ V7.1: Finalizar sessão no provider de usuário
     ref.read(sessaoUsuarioProvider.notifier).finalizarSessao();
@@ -234,6 +254,14 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   // ===== RESET COMPLETO =====
   void resetSessao() {
     state = SessaoQuestoes(inicioSessao: DateTime.now());
+    _clearSessaoAtiva();
+  }
+
+  Future<void> _clearSessaoAtiva() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(kSessaoAtiva, false);
+    } catch (_) {}
   }
 
   // ===== V7.3: VOLTAR PARA INÍCIO (CHECKPOINT) =====

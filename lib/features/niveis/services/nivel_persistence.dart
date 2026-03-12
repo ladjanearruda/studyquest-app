@@ -1,6 +1,6 @@
 // lib/features/niveis/services/nivel_persistence.dart
-// ✅ Sprint 9 - Sincronização Firebase de XP
-// 📅 Atualizado: 08/03/2026
+// ✅ Sprint 9 - Sincronização Firebase de XP + Suporte a usuário anônimo
+// 📅 Atualizado: 09/03/2026
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -76,6 +76,53 @@ class NivelPersistence {
       print('⚠️ Erro ao carregar XP do Firebase: $e');
       return null;
     }
+  }
+
+  // ===== API UNIFICADA: ANÔNIMO vs LOGADO =====
+
+  /// Salva XP: SharedPreferences (anônimo) ou Firebase + SharedPreferences (logado).
+  static Future<bool> salvarXp(
+    String userId,
+    int xp, {
+    required bool isAnonymous,
+  }) async {
+    // Sempre salva local (fonte rápida ao reabrir o app)
+    await salvarXpTotal(xp);
+
+    if (isAnonymous) {
+      return true; // anônimo: só local
+    }
+
+    // Logado: persiste no Firebase em background, retorna sucesso local
+    return salvarXpFirebase(userId, xp);
+  }
+
+  /// Carrega XP: SharedPreferences (anônimo) ou Firebase com fallback local (logado).
+  /// Para usuários logados, o Firebase é a fonte de verdade; se for maior que o local,
+  /// atualiza o local e retorna o valor do Firebase.
+  static Future<int> carregarXp(
+    String userId, {
+    required bool isAnonymous,
+  }) async {
+    final xpLocal = await carregarXpTotal();
+
+    if (isAnonymous) {
+      return xpLocal; // anônimo: só local
+    }
+
+    // Logado: Firebase é a fonte de verdade
+    try {
+      final xpFirebase = await carregarXpFirebase(userId);
+      if (xpFirebase != null && xpFirebase > xpLocal) {
+        await salvarXpTotal(xpFirebase); // mantém local sincronizado
+        print('☁️ XP restaurado do Firebase: $xpFirebase');
+        return xpFirebase;
+      }
+    } catch (e) {
+      print('⚠️ Erro ao carregar XP do Firebase, usando local: $e');
+    }
+
+    return xpLocal;
   }
 
   // ===== CHAVES DO SHAREDPREFERENCES =====

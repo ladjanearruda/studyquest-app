@@ -4,11 +4,15 @@
 // 🎯 Verifica critérios e desbloqueia badges automaticamente
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../models/diary_badge_model.dart';
 import '../models/diary_entry_model.dart';
 import './diary_provider.dart';
 import '../../../core/services/firebase_diary_service.dart';
 import '../../../core/services/firebase_rest_auth.dart';
+
+const _kBadgesKey = 'studyquest_unlocked_badges';
 
 /// Estado das badges do usuário
 class DiaryBadgesState {
@@ -142,9 +146,14 @@ class BadgeStats {
 class DiaryBadgesNotifier extends StateNotifier<DiaryBadgesState> {
   final Ref _ref;
 
+  /// Impede verificação de critérios antes de carregar badges já conquistadas.
+  /// Evita re-desbloquear badges após F5/login.
+  bool _badgesLoaded = false;
+
   DiaryBadgesNotifier(this._ref) : super(DiaryBadgesState()) {
-    // Observar mudanças no diário para verificar badges
+    // Observar mudanças no diário — só verifica após badges serem carregadas
     _ref.listen<DiaryState>(diaryProvider, (previous, next) {
+      if (!_badgesLoaded) return; // aguarda carga inicial
       if (previous?.entries.length != next.entries.length ||
           previous?.stats.totalTransformations !=
               next.stats.totalTransformations) {
@@ -153,32 +162,98 @@ class DiaryBadgesNotifier extends StateNotifier<DiaryBadgesState> {
     });
 
     // Carregar badges do Firebase PRIMEIRO, depois verificar critérios.
-    // Isso evita re-desbloquear badges já conquistadas após login.
     _loadBadgesAndCheck();
   }
 
-  /// Carrega badges persistidas no Firebase e depois verifica novas
+  /// Carrega badges persistidas (SharedPreferences + Firebase) e depois verifica novas.
+  /// O flag _badgesLoaded bloqueia o listener até essa função concluir.
   Future<void> _loadBadgesAndCheck() async {
+    print('🔍 [BADGES] _loadBadgesAndCheck() iniciado');
     try {
+      // 1. Carregar do SharedPreferences SEMPRE (funciona para anônimo e logado)
+      final localBadges = await _loadBadgesFromPrefs();
+      print('🔍 [BADGES] SharedPreferences: ${localBadges.length} badges locais: ${localBadges.map((b) => b.badgeId).toList()}');
+
+      // 2. Tentar carregar do Firebase (apenas para usuários não-anônimos)
       final user = await FirebaseRestAuth.getCurrentUser();
-      if (user != null && !user.isAnonymous && mounted) {
-        final badges =
-            await FirebaseDiaryService.getUnlockedBadges(user.uid);
-        if (badges.isNotEmpty && mounted) {
-          state = state.copyWith(unlockedBadges: badges);
-          print('🏅 ${badges.length} badges restauradas do Firebase');
+      print('🔍 [BADGES] user=${user?.uid} isAnonymous=${user?.isAnonymous}');
+
+      List<UnlockedBadge> mergedBadges = List.from(localBadges);
+
+      if (user != null && !user.isAnonymous) {
+        try {
+          final firebaseBadges = await FirebaseDiaryService.getUnlockedBadges(user.uid);
+          print('🔍 [BADGES] Firebase: ${firebaseBadges.length} badges: ${firebaseBadges.map((b) => b.badgeId).toList()}');
+
+          // Merge: adicionar badges do Firebase que não estão no local
+          for (final fb in firebaseBadges) {
+            if (!mergedBadges.any((b) => b.badgeId == fb.badgeId)) {
+              mergedBadges.add(fb);
+            }
+          }
+        } catch (e) {
+          print('⚠️ [BADGES] Erro ao carregar Firebase (usando local): $e');
         }
+      } else if (user?.isAnonymous == true) {
+        print('⚠️ [BADGES] Usuário anônimo — usando apenas SharedPreferences');
+      }
+
+      if (mergedBadges.isNotEmpty && mounted) {
+        state = state.copyWith(unlockedBadges: mergedBadges);
+        // Garantir que SharedPreferences está sincronizado com o merge
+        await _saveBadgesToPrefs(mergedBadges);
+        print('🏅 [BADGES] ${mergedBadges.length} badges restauradas no total');
       }
     } catch (e) {
-      print('❌ Erro ao carregar badges do Firebase: $e');
+      print('❌ [BADGES] Erro ao carregar badges: $e');
     }
 
-    // Verificar estado atual do diário (agora sabendo quais já estão desbloqueadas)
     if (!mounted) return;
+
+    // Agora é seguro verificar — já sabemos quais badges estão desbloqueadas
+    _badgesLoaded = true;
+    print('🔍 [BADGES] _badgesLoaded=true. unlockedBadges=${state.unlockedBadges.map((b) => b.badgeId).toList()}');
+
     final current = _ref.read(diaryProvider);
-    if (current.entries.isNotEmpty ||
-        current.stats.totalTransformations > 0) {
+    print('🔍 [BADGES] diaryProvider: entries=${current.entries.length} transformations=${current.stats.totalTransformations}');
+
+    if (current.entries.isNotEmpty || current.stats.totalTransformations > 0) {
       _updateStatsAndCheckBadges(current);
+    }
+  }
+
+  /// Carrega IDs de badges do SharedPreferences
+  Future<List<UnlockedBadge>> _loadBadgesFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_kBadgesKey);
+      if (jsonStr == null) return [];
+      final List<dynamic> list = jsonDecode(jsonStr);
+      return list.map((item) => UnlockedBadge(
+        badgeId: item['badgeId'] as String,
+        odId: item['odId'] as String? ?? '',
+        unlockedAt: DateTime.parse(item['unlockedAt'] as String),
+        xpEarned: item['xpEarned'] as int? ?? 0,
+      )).toList();
+    } catch (e) {
+      print('⚠️ [BADGES] Erro ao ler SharedPreferences: $e');
+      return [];
+    }
+  }
+
+  /// Salva lista de badges no SharedPreferences
+  Future<void> _saveBadgesToPrefs(List<UnlockedBadge> badges) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = badges.map((b) => {
+        'badgeId': b.badgeId,
+        'odId': b.odId,
+        'unlockedAt': b.unlockedAt.toIso8601String(),
+        'xpEarned': b.xpEarned,
+      }).toList();
+      await prefs.setString(_kBadgesKey, jsonEncode(list));
+    } catch (e) {
+      print('⚠️ [BADGES] Erro ao salvar no SharedPreferences: $e');
     }
   }
 
@@ -385,11 +460,13 @@ class DiaryBadgesNotifier extends StateNotifier<DiaryBadgesState> {
       xpEarned: badge.xpRecompensa,
     );
 
-    state = state.copyWith(
-      unlockedBadges: [...state.unlockedBadges, unlocked],
-    );
+    final updatedBadges = [...state.unlockedBadges, unlocked];
+    state = state.copyWith(unlockedBadges: updatedBadges);
 
-    // Persistir no Firebase (fire-and-forget)
+    // Persistir no SharedPreferences (todos os usuários, fire-and-forget)
+    _saveBadgesToPrefs(updatedBadges);
+
+    // Persistir no Firebase (apenas logados, fire-and-forget)
     _saveBadgeToFirebase(badge);
 
     print(

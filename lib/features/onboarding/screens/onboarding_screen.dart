@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/models/avatar.dart';
+import 'dart:convert';
 import 'dart:math' as math;
 
 // === ENUMS E MODELS ===
@@ -49,6 +51,63 @@ class OnboardingData {
 
   // Construtor padrão (mantém compatibilidade)
   OnboardingData();
+
+  // ===== SERIALIZAÇÃO =====
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'educationLevel': educationLevel?.name,
+        'studyGoal': studyGoal?.name,
+        'interestArea': interestArea?.name,
+        'dreamUniversity': dreamUniversity,
+        'studyTime': studyTime,
+        'mainDifficulty': mainDifficulty,
+        'behavioralAspect': behavioralAspect,
+        'studyStyle': studyStyle,
+        'selectedAvatarType': selectedAvatarType?.name,
+        'selectedAvatarGender': selectedAvatarGender?.name,
+      };
+
+  static OnboardingData fromJson(Map<String, dynamic> json) {
+    final data = OnboardingData();
+    data.name = json['name'] as String?;
+    data.educationLevel = json['educationLevel'] != null
+        ? EducationLevel.values.firstWhere(
+            (e) => e.name == json['educationLevel'],
+            orElse: () => EducationLevel.medio1,
+          )
+        : null;
+    data.studyGoal = json['studyGoal'] != null
+        ? StudyGoal.values.firstWhere(
+            (e) => e.name == json['studyGoal'],
+            orElse: () => StudyGoal.improveGrades,
+          )
+        : null;
+    data.interestArea = json['interestArea'] != null
+        ? ProfessionalTrail.values.firstWhere(
+            (e) => e.name == json['interestArea'],
+            orElse: () => ProfessionalTrail.cienciasNatureza,
+          )
+        : null;
+    data.dreamUniversity = json['dreamUniversity'] as String?;
+    data.studyTime = json['studyTime'] as String?;
+    data.mainDifficulty = json['mainDifficulty'] as String?;
+    data.behavioralAspect = json['behavioralAspect'] as String?;
+    data.studyStyle = json['studyStyle'] as String?;
+    data.selectedAvatarType = json['selectedAvatarType'] != null
+        ? AvatarType.values.firstWhere(
+            (e) => e.name == json['selectedAvatarType'],
+            orElse: () => AvatarType.explorador,
+          )
+        : null;
+    data.selectedAvatarGender = json['selectedAvatarGender'] != null
+        ? AvatarGender.values.firstWhere(
+            (e) => e.name == json['selectedAvatarGender'],
+            orElse: () => AvatarGender.masculino,
+          )
+        : null;
+    return data;
+  }
 
   // ✅ NOVO: Método copyWith para atualizações seguras
   OnboardingData copyWith({
@@ -99,8 +158,49 @@ enum NivelHabilidade {
   final String descricao;
 }
 
+// ===== PROVIDER COM PERSISTÊNCIA =====
+
+const _kOnboardingDataKey = 'studyquest_onboarding_data';
+
+class OnboardingNotifier extends StateNotifier<OnboardingData> {
+  OnboardingNotifier() : super(OnboardingData()) {
+    _loadFromPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kOnboardingDataKey);
+      if (raw != null) {
+        final data = OnboardingData.fromJson(json.decode(raw) as Map<String, dynamic>);
+        state = data;
+        print('📦 Onboarding restaurado do SharedPreferences (nome: ${data.name})');
+      }
+    } catch (e) {
+      print('⚠️ Erro ao carregar onboarding: $e');
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kOnboardingDataKey, json.encode(state.toJson()));
+    } catch (e) {
+      print('⚠️ Erro ao salvar onboarding: $e');
+    }
+  }
+
+  /// Compatível com o padrão StateProvider: `ref.read(onboardingProvider.notifier).update((s) => ...)`
+  void update(OnboardingData Function(OnboardingData) updater) {
+    state = updater(state);
+    _saveToPrefs();
+  }
+}
+
 final onboardingProvider =
-    StateProvider<OnboardingData>((ref) => OnboardingData());
+    StateNotifierProvider<OnboardingNotifier, OnboardingData>(
+  (ref) => OnboardingNotifier(),
+);
 
 // === CLASSES DE DADOS ===
 

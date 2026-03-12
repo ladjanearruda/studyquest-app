@@ -8,10 +8,12 @@ import 'package:flutter/material.dart';
 /// (usuário errou antes e anotou no Diário)
 class RevancheHeader extends StatelessWidget {
   final int xpBonus;
+  final bool temAnotacao;
 
   const RevancheHeader({
     super.key,
     this.xpBonus = 15,
+    this.temAnotacao = false,
   });
 
   @override
@@ -69,7 +71,9 @@ class RevancheHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Você anotou essa lição antes',
+                  temAnotacao
+                      ? 'Você anotou essa lição antes'
+                      : 'Você errou essa questão antes',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 12,

@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import '../providers/questao_personalizada_provider.dart';
@@ -139,7 +140,18 @@ class _QuestaoPersonalizadaScreenState
         }
 
         // ── NOVA SESSÃO ──────────────────────────────────────────────────
-        ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
+        // Verificar se havia sessão ativa antes do F5
+        // Se sim: recursos já foram carregados do SharedPreferences → não resetar
+        // Se não: sessão genuinamente nova → resetar água/energia para 100%
+        final prefs = await SharedPreferences.getInstance();
+        final sessaoEmProgresso = prefs.getBool(kSessaoAtiva) ?? false;
+        print('🔍 [initSession] sessaoEmProgresso=$sessaoEmProgresso');
+        if (!sessaoEmProgresso) {
+          ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
+          print('🔄 [initSession] Recursos resetados (sessão nova)');
+        } else {
+          print('▶️ [initSession] Recursos mantidos (retomando após F5)');
+        }
         await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
 
         // ✅ V9.4: Garantir que diário está inicializado
@@ -1097,7 +1109,7 @@ class _QuestaoPersonalizadaScreenState
       child: Column(
         children: [
           // ✅ V9.4: Header de revanche (mostra XP bônus só se tem anotação)
-          if (_isRevanche) RevancheHeader(xpBonus: _temAnotacao ? 15 : 0),
+          if (_isRevanche) RevancheHeader(xpBonus: _temAnotacao ? 15 : 0, temAnotacao: _temAnotacao),
 
           // Conteúdo do card
           Padding(
@@ -1435,41 +1447,43 @@ class _FeedbackPersonalizadoModalV94State
   @override
   void initState() {
     super.initState();
-    // ✅ V9.4: Verificar badges após transformação
+    // Verificar badges pendentes do momento de revanche (Transformador)
     if (widget.acertou && widget.isRevanche && widget.temAnotacao) {
-      _checkForBadges();
+      _showNextPendingBadge();
     }
   }
 
-  Future<void> _checkForBadges() async {
-    await Future.delayed(const Duration(milliseconds: 800));
+  /// Mostra o próximo badge pendente se houver, aguardando qualquer modal fechar.
+  Future<void> _showNextPendingBadge() async {
+    // Aguarda 1 frame para garantir que modais anteriores fecharam
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted || _showingBadge) return;
 
-    if (!mounted) return;
+    final notifier = ref.read(diaryBadgesProvider.notifier);
+    final badge = notifier.getNextPendingBadge();
+    if (badge == null) return;
 
-    final badgesState = ref.read(diaryBadgesProvider);
-    if (badgesState.pendingUnlock.isNotEmpty) {
-      final notifier = ref.read(diaryBadgesProvider.notifier);
-      final badge = notifier.getNextPendingBadge();
-
-      if (badge != null && mounted) {
-        setState(() => _showingBadge = true);
-
-        await BadgeUnlockModal.show(
-          context: context,
-          badge: badge,
-        );
-
-        notifier.removePendingBadge(badge.id);
-
-        if (mounted) {
-          setState(() => _showingBadge = false);
-        }
-      }
+    setState(() => _showingBadge = true);
+    await BadgeUnlockModal.show(context: context, badge: badge);
+    notifier.removePendingBadge(badge.id);
+    if (mounted) {
+      setState(() => _showingBadge = false);
+      // Verificar se há mais
+      _showNextPendingBadge();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Escuta badges novas em tempo real (cobre anotação nova E revanche)
+    ref.listen<DiaryBadgesState>(diaryBadgesProvider, (previous, next) {
+      final hadPending = previous?.pendingUnlock.isNotEmpty ?? false;
+      final hasPending = next.pendingUnlock.isNotEmpty;
+      if (!hadPending && hasPending && !_showingBadge) {
+        _showNextPendingBadge();
+      }
+    });
+
     return Scaffold(
       backgroundColor: Colors.black54,
       body: Center(
@@ -2178,9 +2192,8 @@ class _FeedbackPersonalizadoModalV94State
         // Adicionar XP
         await ref.read(nivelProvider.notifier).adicionarXp(xpGanho);
 
-        // Verificar badges de anotação
+        // Verificar badges de anotação (o ref.listen no build() vai reagir automaticamente)
         ref.read(diaryBadgesProvider.notifier).checkBadges();
-        _checkForBadges();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

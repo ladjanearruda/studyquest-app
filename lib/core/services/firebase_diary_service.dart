@@ -659,11 +659,22 @@ class FirebaseDiaryService {
       };
 
       final headers = await FirebaseRestAuth.getAuthHeaders();
+      final authHeader = headers['Authorization'];
+
+      // 🔍 DEBUG
+      print('📡 [getUnlockedBadges] userId=$userId');
+      print('📡 [getUnlockedBadges] Authorization: ${authHeader != null ? "${authHeader.substring(0, authHeader.length.clamp(0, 20))}... (${authHeader.length} chars)" : "AUSENTE ⚠️"}');
+
       final response = await http.post(
         Uri.parse(url),
         headers: headers,
         body: json.encode(body),
       );
+
+      // 🔍 DEBUG
+      print('📡 [getUnlockedBadges] statusCode: ${response.statusCode}');
+      final bodyPreview = response.body.length > 300 ? '${response.body.substring(0, 300)}...' : response.body;
+      print('📡 [getUnlockedBadges] body: $bodyPreview');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
@@ -681,13 +692,14 @@ class FirebaseDiaryService {
           }
         }
 
-        print('🏅 ${badges.length} badges carregadas do Firebase para $userId');
+        print('🏅 [getUnlockedBadges] ${badges.length} badges encontradas: ${badges.map((b) => b.badgeId).toList()}');
         return badges;
       }
 
+      print('❌ [getUnlockedBadges] statusCode inválido: ${response.statusCode}');
       return [];
     } catch (e) {
-      print('❌ Erro ao carregar badges: $e');
+      print('❌ [getUnlockedBadges] Exceção: $e');
       return [];
     }
   }

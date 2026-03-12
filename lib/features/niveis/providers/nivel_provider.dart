@@ -47,33 +47,29 @@ class NivelNotifier extends StateNotifier<NivelUsuario> {
 
   // ===== PERSISTÊNCIA =====
 
-  /// Carrega dados: local primeiro (rápido), depois Firebase (fonte de verdade)
+  /// Carrega XP na inicialização (usa API unificada do NivelPersistence)
   Future<void> _carregarDados() async {
     try {
-      // 1. Local — exibe imediatamente
-      final xpLocal = await NivelPersistence.carregarXpTotal();
-      if (xpLocal > 0) {
-        state = NivelUsuario.fromXpTotal(xpLocal);
-        print('📊 Nível local: ${state.nivel} (${state.xpTotal} XP)');
-      }
-
-      // 2. Firebase — substitui se for maior (evita regressão por limpeza local)
       final user = _ref.read(authProvider).user;
-      if (user != null && !user.isAnonymous) {
-        await carregarDoFirebase(user.uid);
+      final isAnonymous = user == null || user.isAnonymous;
+      final userId = user?.uid ?? 'anon';
+
+      final xp = await NivelPersistence.carregarXp(userId, isAnonymous: isAnonymous);
+      if (xp > 0) {
+        state = NivelUsuario.fromXpTotal(xp);
+        print('📊 Nível carregado: ${state.nivel} (${state.xpTotal} XP) [${isAnonymous ? "local" : "Firebase"}]');
       }
     } catch (e) {
       print('⚠️ Erro ao carregar nível: $e');
     }
   }
 
-  /// Carrega XP do Firebase e atualiza estado + local se for maior
+  /// Chamado pelo ref.listen quando um novo usuário loga
   Future<void> carregarDoFirebase(String userId) async {
     try {
-      final xpFirebase = await NivelPersistence.carregarXpFirebase(userId);
-      if (xpFirebase != null && xpFirebase > state.xpTotal) {
-        state = NivelUsuario.fromXpTotal(xpFirebase);
-        await NivelPersistence.salvarXpTotal(xpFirebase);
+      final xp = await NivelPersistence.carregarXp(userId, isAnonymous: false);
+      if (xp > state.xpTotal) {
+        state = NivelUsuario.fromXpTotal(xp);
         print('☁️ XP restaurado do Firebase: ${state.nivel} (${state.xpTotal} XP)');
       }
     } catch (e) {
@@ -81,18 +77,17 @@ class NivelNotifier extends StateNotifier<NivelUsuario> {
     }
   }
 
-  /// Salva dados: local + Firebase (fire-and-forget para não bloquear UI)
+  /// Salva XP (usa API unificada: local para anônimo, Firebase para logado)
   Future<void> _salvarDados() async {
     try {
-      await NivelPersistence.salvarXpTotal(state.xpTotal);
-      await NivelPersistence.salvarNivel(state.nivel);
-      print('💾 Nível salvo: ${state.nivel} (${state.xpTotal} XP)');
-
-      // Firebase: salva em background (fire-and-forget para não bloquear UI)
       final user = _ref.read(authProvider).user;
-      if (user != null && !user.isAnonymous) {
-        unawaited(NivelPersistence.salvarXpFirebase(user.uid, state.xpTotal));
-      }
+      final isAnonymous = user == null || user.isAnonymous;
+      final userId = user?.uid ?? 'anon';
+
+      await NivelPersistence.salvarNivel(state.nivel);
+      unawaited(NivelPersistence.salvarXp(userId, state.xpTotal, isAnonymous: isAnonymous));
+
+      print('💾 Nível salvo: ${state.nivel} (${state.xpTotal} XP) [${isAnonymous ? "local" : "Firebase"}]');
     } catch (e) {
       print('⚠️ Erro ao salvar nível: $e');
     }
