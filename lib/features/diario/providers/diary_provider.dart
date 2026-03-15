@@ -568,6 +568,75 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
   // 📅 REVISÕES
   // ========================================
 
+  /// Completar revisão de uma anotação
+  /// dominei=true → avança intervalo (+5 XP, +10 bônus se 5/5 completo)
+  /// dominei=false → reseta para dia 1 (+3 XP)
+  Future<int> completeReview(String entryId, {required bool dominei}) async {
+    if (state.userId == null) return 0;
+
+    try {
+      final entryIndex = state.entries.indexWhere((e) => e.id == entryId);
+      if (entryIndex == -1) return 0;
+
+      final entry = state.entries[entryIndex];
+      const intervals = [1, 3, 7, 14, 30];
+
+      int newTimesReviewed;
+      bool newMastered;
+      DateTime newNextReview;
+
+      if (dominei) {
+        newTimesReviewed = entry.timesReviewed + 1;
+        newMastered = newTimesReviewed >= 5;
+        final days = intervals[newTimesReviewed.clamp(0, intervals.length - 1)];
+        newNextReview = DateTime.now().add(Duration(days: days));
+      } else {
+        newTimesReviewed = 0;
+        newMastered = false;
+        newNextReview = DateTime.now().add(const Duration(days: 1));
+      }
+
+      final success = await FirebaseDiaryService.completeReview(
+        entryId: entryId,
+        currentTimesReviewed: entry.timesReviewed,
+        dominei: dominei,
+      );
+      if (!success) return 0;
+
+      final updatedEntry = entry.copyWith(
+        timesReviewed: newTimesReviewed,
+        mastered: newMastered,
+        nextReviewDate: newNextReview,
+      );
+
+      final newEntries = [...state.entries];
+      newEntries[entryIndex] = updatedEntry;
+
+      final newAnotacoesIds = Set<String>.from(state.anotacoesQuestionIds);
+      if (newMastered) newAnotacoesIds.remove(entry.questionId);
+
+      final newStats = state.stats.copyWith(
+        totalReviews: state.stats.totalReviews + 1,
+        totalTransformations: newMastered
+            ? state.stats.totalTransformations + 1
+            : state.stats.totalTransformations,
+      );
+
+      state = state.copyWith(
+        entries: newEntries,
+        stats: newStats,
+        anotacoesQuestionIds: newAnotacoesIds,
+      );
+
+      print('✅ Revisão: $entryId (dominei=$dominei, reviews=$newTimesReviewed, mastered=$newMastered)');
+      if (!dominei) return 3;
+      return newMastered ? 15 : 5; // 5 base + 10 bônus se dominou (5/5)
+    } catch (e) {
+      print('❌ Erro ao completar revisão: $e');
+      return 0;
+    }
+  }
+
   Future<List<DiaryEntry>> getPendingReviews() async {
     if (state.userId == null) return [];
 

@@ -454,6 +454,75 @@ class FirebaseDiaryService {
     }
   }
 
+  /// Completar revisão: avança intervalo (dominei=true) ou reseta ao dia 1 (dominei=false)
+  static Future<bool> completeReview({
+    required String entryId,
+    required int currentTimesReviewed,
+    required bool dominei,
+  }) async {
+    try {
+      const intervals = [1, 3, 7, 14, 30];
+      int newTimesReviewed;
+      bool newMastered;
+      String? newNextReviewDate;
+
+      if (dominei) {
+        newTimesReviewed = currentTimesReviewed + 1;
+        if (newTimesReviewed >= 5) {
+          newMastered = true;
+          newNextReviewDate = null;
+        } else {
+          newMastered = false;
+          final days = intervals[newTimesReviewed.clamp(0, intervals.length - 1)];
+          newNextReviewDate =
+              DateTime.now().add(Duration(days: days)).toUtc().toIso8601String();
+        }
+      } else {
+        newTimesReviewed = 0;
+        newMastered = false;
+        newNextReviewDate = DateTime.now()
+            .add(const Duration(days: 1))
+            .toUtc()
+            .toIso8601String();
+      }
+
+      final maskParams = [
+        'updateMask.fieldPaths=times_reviewed',
+        'updateMask.fieldPaths=mastered',
+        'updateMask.fieldPaths=next_review_date',
+      ].join('&');
+
+      final url = '$_baseUrl/diary_entries/$entryId?$maskParams';
+
+      final fields = <String, dynamic>{
+        'times_reviewed': {'integerValue': newTimesReviewed.toString()},
+        'mastered': {'booleanValue': newMastered},
+        if (newNextReviewDate != null)
+          'next_review_date': {'timestampValue': newNextReviewDate}
+        else
+          'next_review_date': {'nullValue': null},
+      };
+
+      final headers = await FirebaseRestAuth.getAuthHeaders();
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode({'fields': fields}),
+      );
+
+      if (response.statusCode == 200) {
+        print(
+            '✅ Revisão completada: $entryId (dominei=$dominei, reviews=$newTimesReviewed)');
+        return true;
+      }
+      print('❌ Erro ao completar revisão: ${response.statusCode}');
+      return false;
+    } catch (e) {
+      print('❌ Exceção ao completar revisão: $e');
+      return false;
+    }
+  }
+
   /// Buscar anotações pendentes de revisão
   static Future<List<DiaryEntry>> getPendingReviews(String userId) async {
     try {
