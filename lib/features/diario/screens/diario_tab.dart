@@ -8,6 +8,7 @@ import 'diario_dashboard_tab.dart';
 import 'diario_anotacoes_tab.dart';
 import 'diario_revisoes_tab.dart';
 import 'diario_conquistas_tab.dart';
+import 'diario_insights_tab.dart';
 import '../providers/diary_provider.dart';
 
 class DiarioTab extends ConsumerStatefulWidget {
@@ -24,7 +25,7 @@ class _DiarioTabState extends ConsumerState<DiarioTab>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -144,6 +145,11 @@ class _DiarioTabState extends ConsumerState<DiarioTab>
                         label: 'Troféus',
                         isSelected: _tabController.index == 3,
                       ),
+                      _buildTab(
+                        icon: '📊',
+                        label: 'Análise',
+                        isSelected: _tabController.index == 4,
+                      ),
                     ],
                   ),
                 ),
@@ -158,6 +164,7 @@ class _DiarioTabState extends ConsumerState<DiarioTab>
             DiarioAnotacoesTab(),
             DiarioRevisoesTab(),
             DiarioConquistasTab(),
+            DiarioInsightsTab(),
           ],
         ),
       ),
@@ -237,7 +244,7 @@ class _DiarioTabState extends ConsumerState<DiarioTab>
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: badgeColor.withOpacity(0.3),
+                          color: badgeColor.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),

@@ -210,7 +210,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
+            color: Colors.purple.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -305,7 +305,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -396,7 +396,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
               if (isToday) {
                 bgColor = Colors.green.shade500;
                 textColor = Colors.white;
-                badgeColor = Colors.white.withOpacity(0.85);
+                badgeColor = Colors.white.withValues(alpha: 0.85);
               } else if (status == _DayStatus.overdue) {
                 bgColor = Colors.red.shade100;
                 badgeColor = Colors.red.shade600;
@@ -441,7 +441,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
                         height: 14,
                         decoration: BoxDecoration(
                           color: isToday
-                              ? Colors.white.withOpacity(0.9)
+                              ? Colors.white.withValues(alpha: 0.9)
                               : badgeColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -509,7 +509,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text('$count',
@@ -574,10 +574,10 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cor.withOpacity(0.3)),
+          border: Border.all(color: cor.withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -590,7 +590,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: cor.withOpacity(0.1),
+                color: cor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -620,7 +620,7 @@ class _DiarioRevisoesTabState extends ConsumerState<DiarioRevisoesTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
-                          color: cor.withOpacity(0.1),
+                          color: cor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(urgencyLabel,

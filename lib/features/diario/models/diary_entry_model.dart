@@ -51,15 +51,23 @@ class DiaryEntry {
   bool get needsReview {
     if (mastered) return false;
     if (nextReviewDate == null) return true;
-    return DateTime.now().isAfter(nextReviewDate!);
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final reviewDate = DateTime(
+        nextReviewDate!.year, nextReviewDate!.month, nextReviewDate!.day);
+    return !reviewDate.isAfter(todayDate); // overdue ou hoje
   }
 
   ReviewUrgency get reviewUrgency {
     if (mastered) return ReviewUrgency.onTime;
     if (nextReviewDate == null) return ReviewUrgency.urgent;
 
+    // Comparar somente datas (sem hora) para evitar truncamento de Duration
     final now = DateTime.now();
-    final diff = now.difference(nextReviewDate!).inDays;
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final reviewDate = DateTime(
+        nextReviewDate!.year, nextReviewDate!.month, nextReviewDate!.day);
+    final diff = todayDate.difference(reviewDate).inDays;
 
     if (diff > 3) return ReviewUrgency.urgent;
     if (diff > 0) return ReviewUrgency.overdue;

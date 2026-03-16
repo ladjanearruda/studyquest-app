@@ -28,6 +28,9 @@ class DiaryState {
   final Set<String>
       anotacoesQuestionIds; // Só com anotação (para badge Transformador)
 
+  // ✅ V9.6: Respostas completas (para gráficos de performance)
+  final List<Map<String, dynamic>> userResponses;
+
   DiaryState({
     this.entries = const [],
     this.emotions = const [],
@@ -38,6 +41,7 @@ class DiaryState {
     this.userId,
     this.errosQuestionIds = const {},
     this.anotacoesQuestionIds = const {},
+    this.userResponses = const [],
   }) : stats = stats ?? DiaryStats();
 
   DiaryState copyWith({
@@ -50,6 +54,7 @@ class DiaryState {
     String? userId,
     Set<String>? errosQuestionIds,
     Set<String>? anotacoesQuestionIds,
+    List<Map<String, dynamic>>? userResponses,
   }) {
     return DiaryState(
       entries: entries ?? this.entries,
@@ -61,6 +66,7 @@ class DiaryState {
       userId: userId ?? this.userId,
       errosQuestionIds: errosQuestionIds ?? this.errosQuestionIds,
       anotacoesQuestionIds: anotacoesQuestionIds ?? this.anotacoesQuestionIds,
+      userResponses: userResponses ?? this.userResponses,
     );
   }
 }
@@ -156,8 +162,20 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
           .map((r) => r['question_id'] as String)
           .toSet();
 
-      state = state.copyWith(errosQuestionIds: erros);
-      print('📒 Erros carregados: ${erros.length} questões');
+      state = state.copyWith(errosQuestionIds: erros, userResponses: responses);
+      print('📒 Erros carregados: ${erros.length} questões, ${responses.length} respostas totais');
+
+      // 🔍 DEBUG userResponses
+      print('[DEBUG userResponses] Total: ${responses.length}');
+      if (responses.isEmpty) {
+        print('[DEBUG userResponses] ⚠️ VAZIO - coleção user_responses não retornou dados para userId=${state.userId}');
+      } else {
+        print('[DEBUG userResponses] Chaves disponíveis: ${responses.first.keys.toList()}');
+        print('[DEBUG userResponses] Primeira resposta completa: ${responses.first}');
+        if (responses.length > 1) {
+          print('[DEBUG userResponses] Segunda resposta: ${responses[1]}');
+        }
+      }
     } catch (e) {
       print('❌ Erro ao carregar erros: $e');
     }
