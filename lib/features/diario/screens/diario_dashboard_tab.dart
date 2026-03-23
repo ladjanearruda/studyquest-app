@@ -10,7 +10,9 @@ import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/models/nivel_model.dart';
 
 class DiarioDashboardTab extends ConsumerStatefulWidget {
-  const DiarioDashboardTab({super.key});
+  final VoidCallback? onNavigateToRevisoes;
+
+  const DiarioDashboardTab({super.key, this.onNavigateToRevisoes});
 
   @override
   ConsumerState<DiarioDashboardTab> createState() => _DiarioDashboardTabState();
@@ -802,10 +804,7 @@ class _DiarioDashboardTabState extends ConsumerState<DiarioDashboardTab> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  // Navegar para tab de revisões (índice 2)
-                  DefaultTabController.of(context).animateTo(2);
-                },
+                onPressed: widget.onNavigateToRevisoes,
                 icon: const Icon(Icons.arrow_forward, size: 18),
                 label: const Text('Ver todas as revisões'),
                 style: OutlinedButton.styleFrom(
@@ -858,29 +857,36 @@ class _DiarioDashboardTabState extends ConsumerState<DiarioDashboardTab> {
         ? '${entry.questionText.substring(0, 45)}…'
         : entry.questionText;
 
-    return Row(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 16)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title.isNotEmpty ? title : subject,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return InkWell(
+      onTap: widget.onNavigateToRevisoes,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title.isNotEmpty ? title : subject,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '$subject · $tempo',
+                    style: TextStyle(color: cor, fontSize: 11),
+                  ),
+                ],
               ),
-              Text(
-                '$subject · $tempo',
-                style: TextStyle(color: cor, fontSize: 11),
-              ),
-            ],
-          ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
+          ],
         ),
-        Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
-      ],
+      ),
     );
   }
 

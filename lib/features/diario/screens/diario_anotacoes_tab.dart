@@ -1,6 +1,6 @@
 // lib/features/diario/screens/diario_anotacoes_tab.dart
-// ✅ V9.2 - Sprint 9 Fase 2: Tab Anotações Funcional
-// 📅 Atualizado: 21/02/2026
+// ✅ V9.3 - Sprint 9: Editar/Excluir Anotações
+// 📅 Atualizado: 18/03/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,7 +67,7 @@ class _DiarioAnotacoesTabState extends ConsumerState<DiarioAnotacoesTab> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -266,18 +266,76 @@ class _DiarioAnotacoesTabState extends ConsumerState<DiarioAnotacoesTab> {
         return _AnotacaoCard(
           entry: entry,
           onTap: () => _showDetalheAnotacao(entry),
+          onDelete: () => _confirmarExclusao(entry),
+          onEdit: () => _showDetalheAnotacao(entry, editMode: true),
         );
       },
     );
   }
 
-  void _showDetalheAnotacao(DiaryEntry entry) {
+  void _showDetalheAnotacao(DiaryEntry entry, {bool editMode = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _DetalheAnotacaoModal(entry: entry),
+      builder: (context) => _DetalheAnotacaoModal(
+        entry: entry,
+        startInEditMode: editMode,
+      ),
     );
+  }
+
+  Future<void> _confirmarExclusao(DiaryEntry entry) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Text('🗑️', style: TextStyle(fontSize: 22)),
+            SizedBox(width: 10),
+            Text('Excluir Anotação'),
+          ],
+        ),
+        content: Text(
+          'Tem certeza que deseja excluir esta anotação de "${entry.subject}"?\n\nEsta ação não pode ser desfeita.',
+          style: const TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      final ok =
+          await ref.read(diaryProvider.notifier).deleteAnnotation(entry.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok
+                ? '🗑️ Anotação excluída com sucesso'
+                : '❌ Erro ao excluir anotação'),
+            backgroundColor: ok ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -285,8 +343,15 @@ class _DiarioAnotacoesTabState extends ConsumerState<DiarioAnotacoesTab> {
 class _AnotacaoCard extends StatelessWidget {
   final DiaryEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
-  const _AnotacaoCard({required this.entry, required this.onTap});
+  const _AnotacaoCard({
+    required this.entry,
+    required this.onTap,
+    required this.onDelete,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +372,7 @@ class _AnotacaoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header: Matéria + Emoção + Data
+                // Header: Matéria + Emoção + Data + Menu
                 Row(
                   children: [
                     // Badge matéria
@@ -351,13 +416,14 @@ class _AnotacaoCard extends StatelessWidget {
                     // Badge urgência revisão
                     if (entry.needsReview)
                       Container(
+                        margin: const EdgeInsets.only(right: 4),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: corUrgencia.withOpacity(0.1),
+                          color: corUrgencia.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border:
-                              Border.all(color: corUrgencia.withOpacity(0.5)),
+                          border: Border.all(
+                              color: corUrgencia.withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -374,6 +440,48 @@ class _AnotacaoCard extends StatelessWidget {
                           ],
                         ),
                       ),
+
+                    // Menu 3 pontos
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        icon: Icon(Icons.more_vert,
+                            size: 18, color: Colors.grey.shade500),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        onSelected: (value) {
+                          if (value == 'edit') onEdit();
+                          if (value == 'delete') onDelete();
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined,
+                                    size: 18, color: Colors.blue),
+                                SizedBox(width: 10),
+                                Text('Editar'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline,
+                                    size: 18, color: Colors.red),
+                                SizedBox(width: 10),
+                                Text('Excluir',
+                                    style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -494,16 +602,148 @@ class _AnotacaoCard extends StatelessWidget {
   }
 }
 
-// ===== MODAL DE DETALHE =====
-class _DetalheAnotacaoModal extends StatelessWidget {
+// ===== MODAL DE DETALHE (com Editar / Excluir) =====
+class _DetalheAnotacaoModal extends ConsumerStatefulWidget {
   final DiaryEntry entry;
+  final bool startInEditMode;
 
-  const _DetalheAnotacaoModal({required this.entry});
+  const _DetalheAnotacaoModal({
+    required this.entry,
+    this.startInEditMode = false,
+  });
+
+  @override
+  ConsumerState<_DetalheAnotacaoModal> createState() =>
+      _DetalheAnotacaoModalState();
+}
+
+class _DetalheAnotacaoModalState
+    extends ConsumerState<_DetalheAnotacaoModal> {
+  bool _isEditing = false;
+  bool _isSaving = false;
+  late TextEditingController _noteController;
+  late TextEditingController _strategyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _isEditing = widget.startInEditMode;
+    _noteController = TextEditingController(text: widget.entry.userNote);
+    _strategyController =
+        TextEditingController(text: widget.entry.userStrategy);
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _strategyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _salvarEdicao() async {
+    final note = _noteController.text.trim();
+    if (note.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('O campo "O que aprendi" não pode estar vazio.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final ok = await ref.read(diaryProvider.notifier).editAnnotation(
+          widget.entry.id,
+          note,
+          _strategyController.text.trim(),
+        );
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (ok) _isEditing = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? '✅ Anotação atualizada!'
+            : '❌ Erro ao salvar. Tente novamente.'),
+        backgroundColor: ok ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _confirmarExclusao() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Text('🗑️', style: TextStyle(fontSize: 22)),
+            SizedBox(width: 10),
+            Text('Excluir Anotação'),
+          ],
+        ),
+        content: Text(
+          'Tem certeza que deseja excluir esta anotação de "${widget.entry.subject}"?\n\nEsta ação não pode ser desfeita.',
+          style: const TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      setState(() => _isSaving = true);
+      final ok = await ref
+          .read(diaryProvider.notifier)
+          .deleteAnnotation(widget.entry.id);
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      if (ok) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🗑️ Anotação excluída com sucesso'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Erro ao excluir anotação'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.9,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -523,16 +763,21 @@ class _DetalheAnotacaoModal extends StatelessWidget {
 
           // Header
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade100,
+                    color: _isEditing
+                        ? Colors.blue.shade100
+                        : Colors.green.shade100,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text('📝', style: TextStyle(fontSize: 28)),
+                  child: Text(
+                    _isEditing ? '✏️' : '📝',
+                    style: const TextStyle(fontSize: 28),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -545,14 +790,44 @@ class _DetalheAnotacaoModal extends StatelessWidget {
                             fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Anotado em ${_formatarDataCompleta(entry.createdAt)}',
+                        _isEditing
+                            ? 'Editando anotação...'
+                            : 'Anotado em ${_formatarDataCompleta(entry.createdAt)}',
                         style: TextStyle(
-                            fontSize: 13, color: Colors.grey.shade600),
+                            fontSize: 13,
+                            color: _isEditing
+                                ? Colors.blue.shade600
+                                : Colors.grey.shade600),
                       ),
                     ],
                   ),
                 ),
-                Text(entry.emotion, style: const TextStyle(fontSize: 32)),
+
+                // Botões de ação no header (só quando não está editando)
+                if (!_isEditing && !_isSaving) ...[
+                  IconButton(
+                    tooltip: 'Editar anotação',
+                    icon: Icon(Icons.edit_outlined,
+                        color: Colors.blue.shade600, size: 22),
+                    onPressed: () => setState(() => _isEditing = true),
+                  ),
+                  IconButton(
+                    tooltip: 'Excluir anotação',
+                    icon:
+                        const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                    onPressed: _confirmarExclusao,
+                  ),
+                ] else if (!_isEditing && _isSaving) ...[
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+
+                if (!_isEditing)
+                  Text(entry.emotion, style: const TextStyle(fontSize: 32)),
               ],
             ),
           ),
@@ -566,7 +841,7 @@ class _DetalheAnotacaoModal extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Questão original
+                  // Questão original (sempre somente leitura)
                   _buildSecao(
                     icon: '❓',
                     titulo: 'Questão',
@@ -575,7 +850,7 @@ class _DetalheAnotacaoModal extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Respostas
+                  // Respostas (sempre somente leitura)
                   Row(
                     children: [
                       Expanded(
@@ -599,152 +874,289 @@ class _DetalheAnotacaoModal extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // O que aprendi
-                  _buildSecao(
-                    icon: '💡',
-                    titulo: 'O que aprendi',
-                    conteudo: entry.userNote,
-                    cor: Colors.green.shade50,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Estratégia (se tiver)
-                  if (entry.userStrategy.isNotEmpty) ...[
-                    _buildSecao(
-                      icon: '🎯',
-                      titulo: 'Como evitar esse erro',
-                      conteudo: entry.userStrategy,
-                      cor: Colors.blue.shade50,
+                  // O que aprendi — editável quando _isEditing
+                  if (_isEditing) ...[
+                    _buildLabelCampo(icon: '💡', titulo: 'O que aprendi *'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _noteController,
+                      maxLines: 4,
+                      minLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'O que você aprendeu com este erro?',
+                        filled: true,
+                        fillColor: Colors.green.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.green.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.green.shade600, width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.green.shade200),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
-                  ],
+                    _buildLabelCampo(
+                        icon: '🎯', titulo: 'Como evitar esse erro'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _strategyController,
+                      maxLines: 3,
+                      minLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Qual estratégia vai usar da próxima vez?',
+                        filled: true,
+                        fillColor: Colors.blue.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.blue.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: Colors.blue.shade600, width: 2),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.blue.shade200),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // Modo leitura
+                    _buildSecao(
+                      icon: '💡',
+                      titulo: 'O que aprendi',
+                      conteudo: entry.userNote,
+                      cor: Colors.green.shade50,
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Dificuldade e emoção
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMiniCard(
-                          titulo: 'Dificuldade',
-                          valor:
-                              '${'⭐' * entry.difficultyRating}${'☆' * (5 - entry.difficultyRating)}',
-                          cor: Colors.amber.shade50,
-                          corTexto: Colors.amber.shade800,
-                        ),
+                    if (entry.userStrategy.isNotEmpty) ...[
+                      _buildSecao(
+                        icon: '🎯',
+                        titulo: 'Como evitar esse erro',
+                        conteudo: entry.userStrategy,
+                        cor: Colors.blue.shade50,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMiniCard(
-                          titulo: 'Revisões',
-                          valor: '${entry.timesReviewed}x',
-                          cor: Colors.purple.shade50,
-                          corTexto: Colors.purple.shade700,
-                        ),
-                      ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                  const SizedBox(height: 16),
 
-                  // Próxima revisão
-                  if (entry.nextReviewDate != null && !entry.mastered)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade200),
+                    // Dificuldade e revisões
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMiniCard(
+                            titulo: 'Dificuldade',
+                            valor:
+                                '${'⭐' * entry.difficultyRating}${'☆' * (5 - entry.difficultyRating)}',
+                            cor: Colors.amber.shade50,
+                            corTexto: Colors.amber.shade800,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildMiniCard(
+                            titulo: 'Revisões',
+                            valor: '${entry.timesReviewed}x',
+                            cor: Colors.purple.shade50,
+                            corTexto: Colors.purple.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Próxima revisão
+                    if (entry.nextReviewDate != null && !entry.mastered)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.schedule, color: Colors.orange),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Próxima revisão',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    _formatarDataCompleta(
+                                        entry.nextReviewDate!),
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.schedule, color: Colors.orange),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                    // Badge conquistado
+                    if (entry.mastered) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.shade100,
+                              Colors.orange.shade100
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🏆', style: TextStyle(fontSize: 28)),
+                            const SizedBox(width: 12),
+                            Column(
                               children: [
                                 const Text(
-                                  'Próxima revisão',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  'Erro Transformado!',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
                                 ),
                                 Text(
-                                  _formatarDataCompleta(entry.nextReviewDate!),
+                                  'Você dominou essa lição',
                                   style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       color: Colors.grey.shade600),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Badge conquistado
-                  if (entry.mastered) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.amber.shade100,
-                            Colors.orange.shade100
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amber.shade300),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('🏆', style: TextStyle(fontSize: 28)),
-                          const SizedBox(width: 12),
-                          Column(
-                            children: [
-                              const Text(
-                                'Erro Transformado!',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              Text(
-                                'Você dominou essa lição',
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ],
                 ],
               ),
             ),
           ),
 
-          // Botão fechar
+          // Botões do rodapé
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Fechar',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: _isEditing
+                ? Row(
+                    children: [
+                      // Cancelar edição
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () => setState(() {
+                                    _isEditing = false;
+                                    _noteController.text =
+                                        widget.entry.userNote;
+                                    _strategyController.text =
+                                        widget.entry.userStrategy;
+                                  }),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.grey.shade700,
+                            side: BorderSide(color: Colors.grey.shade400),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Cancelar',
+                              style: TextStyle(fontSize: 16)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Salvar edição
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _salvarEdicao,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.check, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Salvar',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  )
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Fechar',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLabelCampo({required String icon, required String titulo}) {
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 8),
+        Text(titulo,
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      ],
     );
   }
 

@@ -195,6 +195,25 @@ class OnboardingNotifier extends StateNotifier<OnboardingData> {
     state = updater(state);
     _saveToPrefs();
   }
+
+  /// Restaura dados do perfil salvo no Firebase após login.
+  /// Chamado quando o SharedPreferences foi limpo no logout e o usuário
+  /// faz login novamente na mesma conta.
+  /// As chaves do Firebase usam snake_case; fromJson usa camelCase.
+  Future<void> restoreFromFirebaseProfile(Map<String, dynamic> firebaseProfile) async {
+    final mapped = <String, dynamic>{
+      'name':                firebaseProfile['name'],
+      'selectedAvatarType':  firebaseProfile['avatar_type'],
+      'selectedAvatarGender': firebaseProfile['avatar_gender'],
+      'educationLevel':      firebaseProfile['education_level'],
+      'studyGoal':           firebaseProfile['study_goal'],
+      'interestArea':        firebaseProfile['interest_area'],
+      'dreamUniversity':     firebaseProfile['dream_university'],
+    };
+    state = OnboardingData.fromJson(mapped);
+    await _saveToPrefs();
+    print('✅ Perfil restaurado do Firebase: ${state.name}');
+  }
 }
 
 final onboardingProvider =

@@ -8,13 +8,45 @@ import '../../../core/models/avatar.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/models/nivel_model.dart';
+import '../../niveis/services/nivel_persistence.dart';
+import '../../diario/providers/diary_badges_provider.dart';
+import '../../diario/models/diary_badge_model.dart';
 import 'home_screen.dart';
 
-class InicioTab extends ConsumerWidget {
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull {
+    final it = iterator;
+    return it.moveNext() ? it.current : null;
+  }
+}
+
+// Providers públicos para que possam ser invalidados de outras telas
+final statsHojeProvider = FutureProvider<Map<String, int>>((ref) {
+  return NivelPersistence.carregarQuestoesHoje();
+});
+
+final statsSemanaisProvider = FutureProvider<Map<String, int>>((ref) {
+  return NivelPersistence.carregarEstatisticasQuestoes();
+});
+
+class InicioTab extends ConsumerStatefulWidget {
   const InicioTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InicioTab> createState() => _InicioTabState();
+}
+
+class _InicioTabState extends ConsumerState<InicioTab> {
+  @override
+  Widget build(BuildContext context) {
+    // Invalida stats sempre que o usuário retorna à aba Início (tab 0)
+    ref.listen(currentTabProvider, (prev, next) {
+      if (next == 0) {
+        ref.invalidate(statsHojeProvider);
+        ref.invalidate(statsSemanaisProvider);
+      }
+    });
+
     final onboarding = ref.watch(onboardingProvider);
     final nivelUsuario = ref.watch(nivelProvider);
     final userName = onboarding.name ?? 'Explorador';
@@ -50,13 +82,13 @@ class InicioTab extends ConsumerWidget {
 
                   const SizedBox(height: 24),
 
-                  // Resumo da Semana
-                  _buildResumoSemana(),
+                  // Resumo Geral
+                  _buildResumoSemana(ref),
 
                   const SizedBox(height: 24),
 
                   // Conquistas Recentes
-                  _buildConquistasRecentes(),
+                  _buildConquistasRecentes(ref),
 
                   const SizedBox(height: 24),
 
@@ -250,173 +282,217 @@ class InicioTab extends ConsumerWidget {
   }
 
   Widget _buildMetaDoDia(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.flag, color: Colors.green.shade600, size: 24),
+    final statsAsync = ref.watch(statsHojeProvider);
+    const int meta = 10;
+
+    return statsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (stats) {
+        final respondidas = stats['respondidas'] ?? 0;
+        final progresso = (respondidas / meta).clamp(0.0, 1.0);
+        final faltam = (meta - respondidas).clamp(0, meta);
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Meta de Hoje',
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:
+                        Icon(Icons.flag, color: Colors.green.shade600, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meta de Hoje',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          'Complete para ganhar bônus!',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: respondidas >= meta
+                          ? Colors.green.shade100
+                          : Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$respondidas/$meta',
                       style: TextStyle(
-                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: respondidas >= meta
+                            ? Colors.green.shade800
+                            : Colors.amber.shade800,
                       ),
                     ),
-                    Text(
-                      'Complete para ganhar bônus!',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Barra de progresso
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progresso,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green.shade400,
+                          Colors.green.shade600
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                  ],
+                  ),
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
-                  borderRadius: BorderRadius.circular(20),
+
+              const SizedBox(height: 12),
+
+              Text(
+                respondidas >= meta
+                    ? 'Meta concluída! Parabéns! 🎉'
+                    : faltam == 1
+                        ? 'Falta apenas 1 questão para completar!'
+                        : 'Responda mais $faltam questões para completar!',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
                 ),
-                child: Text(
-                  '3/10',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade800,
+              ),
+
+              const SizedBox(height: 16),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: respondidas >= meta
+                      ? null
+                      : () {
+                          ref.read(currentTabProvider.notifier).state = 1;
+                        },
+                  icon: Icon(respondidas >= meta
+                      ? Icons.check_circle
+                      : Icons.play_arrow),
+                  label: Text(respondidas >= meta ? 'Meta Completa!' : 'Jogar Agora'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.green.shade300,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // Barra de progresso
-          Container(
-            height: 12,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: 0.3,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green.shade400, Colors.green.shade600],
-                  ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Text(
-            'Responda mais 7 questões para completar!',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade600,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Botão Jogar
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Ir para aba Jogar
-                ref.read(currentTabProvider.notifier).state = 1;
-              },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Jogar Agora'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildResumoSemana() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.bar_chart, color: Colors.blue.shade600, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Resumo da Semana',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+  Widget _buildResumoSemana(WidgetRef ref) {
+    final statsAsync = ref.watch(statsSemanaisProvider);
+    final nivelUsuario = ref.watch(nivelProvider);
+
+    return statsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (stats) {
+        final respondidas = stats['respondidas'] ?? 0;
+        final corretas = stats['corretas'] ?? 0;
+        final precisao = respondidas > 0
+            ? ((corretas / respondidas) * 100).round()
+            : 0;
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatItem(
-                  '45', 'Questões', Icons.check_circle, Colors.green),
-              _buildStatItem('85%', 'Precisão', Icons.trending_up, Colors.blue),
-              _buildStatItem(
-                  '7', 'Sequência', Icons.local_fire_department, Colors.orange),
+              Row(
+                children: [
+                  Icon(Icons.bar_chart, color: Colors.blue.shade600, size: 24),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Resumo Geral',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  _buildStatItem(
+                      '$respondidas', 'Questões', Icons.check_circle, Colors.green),
+                  _buildStatItem(
+                      '$precisao%', 'Precisão', Icons.trending_up, Colors.blue),
+                  _buildStatItem('${nivelUsuario.nivel}', 'Nível',
+                      Icons.local_fire_department, Colors.orange),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -447,7 +523,15 @@ class InicioTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildConquistasRecentes() {
+  Widget _buildConquistasRecentes(WidgetRef ref) {
+    final badgesState = ref.watch(diaryBadgesProvider);
+    final unlocked = badgesState.unlockedBadges;
+
+    // Pegar as 3 mais recentes (ordenadas por data)
+    final recentes = [...unlocked]
+      ..sort((a, b) => b.unlockedAt.compareTo(a.unlockedAt));
+    final top3 = recentes.take(3).toList();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -482,41 +566,57 @@ class InicioTab extends ConsumerWidget {
                   ),
                 ],
               ),
-              TextButton(
-                onPressed: () {
-                  // TODO: Ver todas conquistas
-                },
-                child: Text(
-                  'Ver todas',
-                  style: TextStyle(color: Colors.green.shade600),
+              Text(
+                '${unlocked.length}/${DiaryBadgeCatalog.totalBadges}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildConquistaItem('🏆', 'Primeira Vitória', Colors.amber),
-              _buildConquistaItem('🔥', '7 Dias Seguidos', Colors.orange),
-              _buildConquistaItem('⭐', '50 Questões', Colors.purple),
-            ],
-          ),
+          if (top3.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Nenhuma conquista ainda.\nJogue para desbloquear badges!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ),
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: top3.map((unlockedBadge) {
+                final badge = DiaryBadgeCatalog.todas
+                    .where((b) => b.id == unlockedBadge.badgeId)
+                    .firstOrNull;
+                if (badge == null) return const SizedBox.shrink();
+                return _buildConquistaItem(badge.emoji, badge.nome);
+              }).toList(),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildConquistaItem(String emoji, String label, Color color) {
+  Widget _buildConquistaItem(String emoji, String label) {
     return Column(
       children: [
         Container(
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: Colors.amber.shade50,
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: color.withOpacity(0.3), width: 2),
+            border: Border.all(color: Colors.amber.shade200, width: 2),
           ),
           child: Center(
             child: Text(emoji, style: const TextStyle(fontSize: 28)),

@@ -27,6 +27,7 @@ import '../../../core/models/avatar.dart';
 import '../../niveis/models/nivel_model.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/widgets/level_up_modal.dart';
+import '../../niveis/services/nivel_persistence.dart';
 
 // ✅ V9.4: Imports do Diário, Badges e Firebase
 import '../../diario/widgets/anotar_erro_modal.dart';
@@ -36,6 +37,7 @@ import '../../diario/widgets/badge_unlock_modal.dart';
 import '../../diario/models/diary_entry_model.dart';
 import '../../../core/services/firebase_diary_service.dart';
 import '../../../core/services/firebase_rest_auth.dart';
+import '../../../core/services/firebase_user_service.dart';
 
 class QuestaoPersonalizadaScreen extends ConsumerStatefulWidget {
   const QuestaoPersonalizadaScreen({super.key});
@@ -119,17 +121,11 @@ class _QuestaoPersonalizadaScreenState
         final user = await FirebaseRestAuth.getCurrentUser();
         if (user != null) {
           _currentUserId = user.uid;
-          print('👤 Usuário carregado: ${user.uid}');
         }
 
         // ── VERIFICAR SE HÁ SESSÃO PAUSADA ──────────────────────────────
         final sessaoAtual = ref.read(sessaoQuestoesProvider);
         if (sessaoAtual.isAtiva) {
-          // Sessão pausada: restaurar tempo e continuar de onde parou
-          print('▶️ Retomando sessão pausada: '
-              'questão ${sessaoAtual.questaoAtual + 1}/${sessaoAtual.totalQuestoes}, '
-              'tempo: ${sessaoAtual.timeLeft}s');
-
           if (mounted) {
             setState(() => _timeLeft = sessaoAtual.timeLeft);
             await ref.read(diaryProvider.notifier).ensureInitialized();
@@ -145,12 +141,8 @@ class _QuestaoPersonalizadaScreenState
         // Se não: sessão genuinamente nova → resetar água/energia para 100%
         final prefs = await SharedPreferences.getInstance();
         final sessaoEmProgresso = prefs.getBool(kSessaoAtiva) ?? false;
-        print('🔍 [initSession] sessaoEmProgresso=$sessaoEmProgresso');
         if (!sessaoEmProgresso) {
           ref.read(recursosPersonalizadosProvider.notifier).iniciarSessao();
-          print('🔄 [initSession] Recursos resetados (sessão nova)');
-        } else {
-          print('▶️ [initSession] Recursos mantidos (retomando após F5)');
         }
         await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
 
@@ -196,10 +188,6 @@ class _QuestaoPersonalizadaScreenState
           _anotacaoExistente = anotacao;
         });
 
-        if (isRevanche) {
-          print('🔄 REVANCHE detectada: ${questao.id}');
-          print('   Tem anotação: $temAnotacao');
-        }
       }
     }
   }
@@ -221,7 +209,6 @@ class _QuestaoPersonalizadaScreenState
       _isPaused = true;
     });
     _timer?.cancel();
-    print('⏸️ Jogo pausado');
   }
 
   void _resumeGame() {
@@ -230,7 +217,6 @@ class _QuestaoPersonalizadaScreenState
         _isPaused = false;
       });
       _startTimer();
-      print('▶️ Jogo retomado');
     }
   }
 
@@ -337,6 +323,13 @@ class _QuestaoPersonalizadaScreenState
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(false, isTimeout: true);
 
+    // Incrementar contador do dia e estatísticas gerais (timeout = respondida, não acertada)
+    NivelPersistence.incrementarQuestaoHoje(acertou: false);
+    NivelPersistence.atualizarEstatisticasQuestoes(
+      respondidas: 1,
+      corretas: 0,
+    );
+
     _showFeedbackAndCheckStatus(false, isTimeout: true);
   }
 
@@ -370,8 +363,6 @@ class _QuestaoPersonalizadaScreenState
         subject: questao.subject,
         difficulty: questao.difficulty,
       );
-      print('💾 Resposta salva: ${questao.id} (${isCorrect ? "✓" : "✗"})');
-
       // ✅ V9.4: Se ERROU, registrar erro (para revanche futura)
       if (!isCorrect) {
         ref.read(diaryProvider.notifier).registrarErro(questao.id);
@@ -383,13 +374,19 @@ class _QuestaoPersonalizadaScreenState
         .read(recursosPersonalizadosProvider.notifier)
         .atualizarRecursos(isCorrect);
 
+    // Incrementar contador do dia e estatísticas gerais
+    NivelPersistence.incrementarQuestaoHoje(acertou: isCorrect);
+    NivelPersistence.atualizarEstatisticasQuestoes(
+      respondidas: 1,
+      corretas: isCorrect ? 1 : 0,
+    );
+
     // ✅ V9.4: Verificar se é transformação de erro (revanche COM ANOTAÇÃO acertada!)
     if (isCorrect && _isRevanche && _temAnotacao && questao != null) {
       final diaryNotifier = ref.read(diaryProvider.notifier);
       final xpBonus = await diaryNotifier.transformarErro(questao.id);
 
       if (xpBonus > 0 && mounted) {
-        print('🏆 ERRO TRANSFORMADO! +$xpBonus XP');
 
         // Adicionar XP bônus ao nível
         await ref.read(nivelProvider.notifier).adicionarXp(xpBonus);
@@ -410,8 +407,6 @@ class _QuestaoPersonalizadaScreenState
 
       if (resultado['subiuNivel'] == true) {
         _pendingLevelUp = resultado;
-        print(
-            '🎉 LEVEL UP PENDENTE: ${resultado['nivelAnterior']} → ${resultado['novoNivel']}');
       }
     }
 
@@ -523,7 +518,6 @@ class _QuestaoPersonalizadaScreenState
           await ref.read(sessaoQuestoesProvider.notifier).iniciarSessao();
           await _checkIfRevanche();
           _startTimer();
-          print('🔄 Nova sessão iniciada após Game Over');
         } catch (e) {
           print('❌ Erro ao reiniciar após Game Over: $e');
           if (mounted) {
@@ -554,7 +548,6 @@ class _QuestaoPersonalizadaScreenState
     ref.read(sessaoQuestoesProvider.notifier).voltarParaInicio();
     _checkIfRevanche();
     _startTimer();
-    print('🔄 CHECKPOINT: Voltando para questão 1 (mesmas questões)');
   }
 
   // ✅ V9.4: Modal de feedback com anotação existente
@@ -2250,15 +2243,62 @@ class _FeedbackPersonalizadoModalV94State
   }
 }
 
-// ===== 🏆 MODAL DE RANKING (mantido igual) =====
-class _RankingModalContent extends StatelessWidget {
+// ===== 🏆 MODAL DE RANKING (dados reais do Firebase) =====
+class _RankingModalContent extends ConsumerStatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onViewFull;
 
   const _RankingModalContent({required this.onClose, required this.onViewFull});
 
   @override
+  ConsumerState<_RankingModalContent> createState() =>
+      _RankingModalContentState();
+}
+
+class _RankingModalContentState extends ConsumerState<_RankingModalContent> {
+  List<Map<String, dynamic>> _topRanking = [];
+  bool _isLoading = true;
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRanking();
+  }
+
+  Future<void> _loadRanking() async {
+    final user = await FirebaseRestAuth.getCurrentUser();
+    final ranking = await FirebaseUserService.getTopByXp(limit: 10);
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = user?.uid;
+      _topRanking = ranking;
+      _isLoading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final medals = ['🥇', '🥈', '🥉'];
+    final medalColors = [
+      Colors.amber,
+      Colors.grey.shade400,
+      Colors.orange.shade300,
+    ];
+
+    // Posição do usuário atual no ranking
+    int? myPosition;
+    int? myXp;
+    if (_currentUserId != null) {
+      final myEntry = _topRanking
+          .where((e) => e['userId'] == _currentUserId)
+          .firstOrNull;
+      if (myEntry != null) {
+        myPosition = myEntry['position'] as int?;
+        myXp = myEntry['xp_total'] as int?;
+      }
+    }
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
@@ -2266,6 +2306,7 @@ class _RankingModalContent extends StatelessWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       child: Column(
         children: [
+          // Handle
           Container(
               margin: const EdgeInsets.only(top: 12),
               width: 40,
@@ -2273,6 +2314,8 @@ class _RankingModalContent extends StatelessWidget {
               decoration: BoxDecoration(
                   color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(2))),
+
+          // Header
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -2304,74 +2347,125 @@ class _RankingModalContent extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     icon: const Icon(Icons.close, color: Colors.grey)),
               ],
             ),
           ),
           const Divider(height: 1),
+
+          // Conteúdo
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _buildRankingPreviewItem(
-                      1, '🥇', 'Lucas Silva', 2500, Colors.amber),
-                  _buildRankingPreviewItem(
-                      2, '🥈', 'Maria Santos', 2350, Colors.grey.shade400),
-                  _buildRankingPreviewItem(
-                      3, '🥉', 'Pedro Costa', 2100, Colors.orange.shade300),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green.shade200)),
-                    child: Row(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.amber))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
                       children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: const Center(
-                              child: Text('#7',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold))),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Sua posição',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green)),
-                              Text('Continue jogando para subir!',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey)),
-                            ],
+                        // Top 3 (ou menos se não houver)
+                        if (_topRanking.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Text(
+                              'Nenhum jogador no ranking ainda.\nJogue para ser o primeiro! 🚀',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: Colors.grey.shade600, fontSize: 14),
+                            ),
+                          )
+                        else
+                          ..._topRanking.take(3).toList().asMap().entries.map(
+                            (e) {
+                              final i = e.key;
+                              final item = e.value;
+                              final isMe =
+                                  item['userId'] == _currentUserId;
+                              final color = i < medalColors.length
+                                  ? medalColors[i]
+                                  : Colors.blue.shade200;
+                              final medal = i < medals.length
+                                  ? medals[i]
+                                  : '#${i + 1}';
+                              return _buildRankingPreviewItem(
+                                medal: medal,
+                                name: item['name'] as String? ?? 'Explorador',
+                                xp: item['xp_total'] as int? ?? 0,
+                                color: color,
+                                isMe: isMe,
+                              );
+                            },
                           ),
-                        ),
-                        const Icon(Icons.trending_up, color: Colors.green),
+
+                        const SizedBox(height: 16),
+
+                        // Card da posição do usuário atual
+                        if (_currentUserId != null)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(16),
+                                border:
+                                    Border.all(color: Colors.green.shade200)),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      borderRadius: BorderRadius.circular(10)),
+                                  child: Center(
+                                    child: Text(
+                                      myPosition != null
+                                          ? '#$myPosition'
+                                          : '—',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Sua posição',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green)),
+                                      Text(
+                                        myPosition != null
+                                            ? '${myXp ?? 0} XP · Continue jogando para subir!'
+                                            : 'Responda questões para entrar no ranking!',
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.trending_up,
+                                    color: Colors.green),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
           ),
+
+          // Botões
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: onViewFull,
+                    onPressed: widget.onViewFull,
                     style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(color: Colors.amber.shade600),
@@ -2387,7 +2481,7 @@ class _RankingModalContent extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Voltar ao Jogo'),
                     style: ElevatedButton.styleFrom(
@@ -2406,28 +2500,66 @@ class _RankingModalContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRankingPreviewItem(
-      int position, String medal, String name, int points, Color color) {
+  Widget _buildRankingPreviewItem({
+    required String medal,
+    required String name,
+    required int xp,
+    required Color color,
+    required bool isMe,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: isMe
+              ? Colors.green.shade50
+              : color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3))),
+          border: Border.all(
+              color: isMe
+                  ? Colors.green.shade300
+                  : color.withValues(alpha: 0.3))),
       child: Row(
         children: [
           Text(medal, style: const TextStyle(fontSize: 24)),
           const SizedBox(width: 12),
           Expanded(
-              child: Text(name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15))),
-          Text('$points pts',
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isMe)
+                  Container(
+                    margin: const EdgeInsets.only(left: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('Você',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('$xp XP',
               style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: color.withOpacity(0.8),
-                  fontSize: 15)),
+                  color: isMe
+                      ? Colors.green.shade700
+                      : color.withValues(alpha: 0.9),
+                  fontSize: 14)),
         ],
       ),
     );
@@ -2435,7 +2567,7 @@ class _RankingModalContent extends StatelessWidget {
 }
 
 // ===== 👤 MODAL DE PERFIL (mantido igual) =====
-class _PerfilModalContent extends StatelessWidget {
+class _PerfilModalContent extends StatefulWidget {
   final String userName;
   final int nivel;
   final int xpTotal;
@@ -2452,6 +2584,36 @@ class _PerfilModalContent extends StatelessWidget {
       this.avatar,
       required this.onClose,
       required this.onViewFull});
+
+  @override
+  State<_PerfilModalContent> createState() => _PerfilModalContentState();
+}
+
+class _PerfilModalContentState extends State<_PerfilModalContent> {
+  String _precisao = '--';
+  String _totalQuestoes = '--';
+  bool _statsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final stats = await NivelPersistence.carregarEstatisticasQuestoes();
+    if (!mounted) return;
+    final respondidas = stats['respondidas'] ?? 0;
+    final corretas = stats['corretas'] ?? 0;
+    final precisao = respondidas > 0
+        ? '${((corretas / respondidas) * 100).round()}%'
+        : '0%';
+    setState(() {
+      _precisao = precisao;
+      _totalQuestoes = '$respondidas';
+      _statsLoaded = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2482,16 +2644,16 @@ class _PerfilModalContent extends StatelessWidget {
                         Colors.teal.shade500
                       ]),
                       borderRadius: BorderRadius.circular(30)),
-                  child: avatar != null
+                  child: widget.avatar != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(30),
                           child: Image.asset(
-                            avatar!.getPath(AvatarEmotion.feliz),
+                            widget.avatar!.getPath(AvatarEmotion.feliz),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Center(
                                 child: Text(
-                                    userName.isNotEmpty
-                                        ? userName[0].toUpperCase()
+                                    widget.userName.isNotEmpty
+                                        ? widget.userName[0].toUpperCase()
                                         : 'U',
                                     style: const TextStyle(
                                         color: Colors.white,
@@ -2501,8 +2663,8 @@ class _PerfilModalContent extends StatelessWidget {
                         )
                       : Center(
                           child: Text(
-                              userName.isNotEmpty
-                                  ? userName[0].toUpperCase()
+                              widget.userName.isNotEmpty
+                                  ? widget.userName[0].toUpperCase()
                                   : 'U',
                               style: const TextStyle(
                                   color: Colors.white,
@@ -2514,7 +2676,7 @@ class _PerfilModalContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName,
+                      Text(widget.userName,
                           style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -2525,7 +2687,7 @@ class _PerfilModalContent extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     icon: const Icon(Icons.close, color: Colors.grey)),
               ],
             ),
@@ -2551,18 +2713,18 @@ class _PerfilModalContent extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(tier.emoji,
+                            Text(widget.tier.emoji,
                                 style: const TextStyle(fontSize: 32)),
                             const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Nível $nivel',
+                                Text('Nível ${widget.nivel}',
                                     style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black87)),
-                                Text(tier.nome,
+                                Text(widget.tier.nome,
                                     style: TextStyle(
                                         fontSize: 14,
                                         color: Colors.amber.shade800,
@@ -2578,7 +2740,7 @@ class _PerfilModalContent extends StatelessWidget {
                             const Icon(Icons.star,
                                 color: Colors.amber, size: 20),
                             const SizedBox(width: 8),
-                            Text('$xpTotal XP Total',
+                            Text('${widget.xpTotal} XP Total',
                                 style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -2589,11 +2751,18 @@ class _PerfilModalContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(children: [
-                    _buildStatCard('🎯', 'Precisão', '85%'),
-                    const SizedBox(width: 12),
-                    _buildStatCard('🔥', 'Sequência', '3 dias')
-                  ]),
+                  _statsLoaded
+                      ? Row(children: [
+                          _buildStatCard('🎯', 'Precisão', _precisao),
+                          const SizedBox(width: 12),
+                          _buildStatCard('📚', 'Questões', _totalQuestoes),
+                        ])
+                      : const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
                 ],
               ),
             ),
@@ -2604,7 +2773,7 @@ class _PerfilModalContent extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: onViewFull,
+                    onPressed: widget.onViewFull,
                     style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(color: Colors.green.shade600),
@@ -2620,7 +2789,7 @@ class _PerfilModalContent extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Voltar ao Jogo'),
                     style: ElevatedButton.styleFrom(

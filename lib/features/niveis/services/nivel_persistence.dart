@@ -39,29 +39,15 @@ class NivelPersistence {
     }
   }
 
-  /// Carrega XP do Firestore. Retorna null se não existir ou falhar.
+  /// Carrega XP do Firestore.
+  /// Retorna o valor inteiro se encontrado (200).
+  /// Retorna 0 se o documento não existe (404) — usuário novo, sem XP ainda.
+  /// Retorna null apenas em caso de erro de rede/exceção — para fallback local.
   static Future<int?> carregarXpFirebase(String userId) async {
     try {
       final url = '$_baseUrl/user_xp/$userId';
       final headers = await FirebaseRestAuth.getAuthHeaders();
-
-      // 🔍 DEBUG
-      print('📡 [carregarXpFirebase] URL: $url');
-      final authHeader = headers['Authorization'];
-      if (authHeader != null) {
-        print('📡 [carregarXpFirebase] Authorization: ${authHeader.substring(0, authHeader.length.clamp(0, 27))}... (${authHeader.length} chars)');
-      } else {
-        print('📡 [carregarXpFirebase] Authorization: AUSENTE ⚠️');
-      }
-
       final response = await http.get(Uri.parse(url), headers: headers);
-
-      // 🔍 DEBUG
-      print('📡 [carregarXpFirebase] statusCode: ${response.statusCode}');
-      final bodyPreview = response.body.length > 500
-          ? '${response.body.substring(0, 500)}...'
-          : response.body;
-      print('📡 [carregarXpFirebase] body: $bodyPreview');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -70,11 +56,18 @@ class NivelPersistence {
         if (xpField != null) {
           return int.parse(xpField['integerValue'].toString());
         }
+        return 0; // Documento existe mas sem campo xp_total → 0 XP
       }
-      return null;
+
+      if (response.statusCode == 404) {
+        // Documento não existe — usuário novo, ainda não ganhou XP
+        return 0;
+      }
+
+      return null; // Erro de servidor → cair no fallback local
     } catch (e) {
       print('⚠️ Erro ao carregar XP do Firebase: $e');
-      return null;
+      return null; // Erro de rede → cair no fallback local
     }
   }
 
@@ -98,8 +91,9 @@ class NivelPersistence {
   }
 
   /// Carrega XP: SharedPreferences (anônimo) ou Firebase com fallback local (logado).
-  /// Para usuários logados, o Firebase é a fonte de verdade; se for maior que o local,
-  /// atualiza o local e retorna o valor do Firebase.
+  /// Para usuários logados, o Firebase é a fonte de verdade:
+  ///   - Firebase retorna int (0 ou mais) → usa Firebase, sincroniza local
+  ///   - Firebase retorna null (erro de rede) → usa local como fallback
   static Future<int> carregarXp(
     String userId, {
     required bool isAnonymous,
@@ -111,17 +105,17 @@ class NivelPersistence {
     }
 
     // Logado: Firebase é a fonte de verdade
-    try {
-      final xpFirebase = await carregarXpFirebase(userId);
-      if (xpFirebase != null && xpFirebase > xpLocal) {
-        await salvarXpTotal(xpFirebase); // mantém local sincronizado
-        print('☁️ XP restaurado do Firebase: $xpFirebase');
-        return xpFirebase;
+    final xpFirebase = await carregarXpFirebase(userId);
+
+    if (xpFirebase != null) {
+      // Firebase respondeu (incluindo 0 para novo usuário) → é a verdade
+      if (xpFirebase != xpLocal) {
+        await salvarXpTotal(xpFirebase); // mantém cache local sincronizado
       }
-    } catch (e) {
-      print('⚠️ Erro ao carregar XP do Firebase, usando local: $e');
+      return xpFirebase;
     }
 
+    // null = erro de rede → fallback para o cache local
     return xpLocal;
   }
 
@@ -135,6 +129,9 @@ class NivelPersistence {
       'studyquest_questoes_respondidas';
   static const String _keyQuestoesCorretas = 'studyquest_questoes_corretas';
   static const String _keyMaiorStreak = 'studyquest_maior_streak';
+  static const String _keyQuestoesHoje = 'studyquest_questoes_hoje';
+  static const String _keyDataHoje = 'studyquest_data_hoje';
+  static const String _keyAcertosHoje = 'studyquest_acertos_hoje';
 
   // ===== XP E NÍVEL =====
 
@@ -318,6 +315,60 @@ class NivelPersistence {
     }
   }
 
+  // ===== QUESTÕES DO DIA =====
+
+  /// Retorna a data de hoje no formato YYYY-MM-DD
+  static String _dataHojeStr() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Incrementa o contador de questões respondidas hoje (com reset automático de dia).
+  static Future<void> incrementarQuestaoHoje({bool acertou = false}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hoje = _dataHojeStr();
+      final dataGravada = prefs.getString(_keyDataHoje) ?? '';
+
+      if (dataGravada != hoje) {
+        // Novo dia → zera contadores
+        await prefs.setString(_keyDataHoje, hoje);
+        await prefs.setInt(_keyQuestoesHoje, 1);
+        await prefs.setInt(_keyAcertosHoje, acertou ? 1 : 0);
+      } else {
+        final atual = prefs.getInt(_keyQuestoesHoje) ?? 0;
+        await prefs.setInt(_keyQuestoesHoje, atual + 1);
+        if (acertou) {
+          final acertos = prefs.getInt(_keyAcertosHoje) ?? 0;
+          await prefs.setInt(_keyAcertosHoje, acertos + 1);
+        }
+      }
+    } catch (e) {
+      print('❌ Erro ao incrementar questão do dia: $e');
+    }
+  }
+
+  /// Carrega estatísticas do dia atual.
+  /// Retorna {'respondidas': N, 'acertos': N} — zera automaticamente se mudou o dia.
+  static Future<Map<String, int>> carregarQuestoesHoje() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hoje = _dataHojeStr();
+      final dataGravada = prefs.getString(_keyDataHoje) ?? '';
+
+      if (dataGravada != hoje) {
+        return {'respondidas': 0, 'acertos': 0};
+      }
+
+      return {
+        'respondidas': prefs.getInt(_keyQuestoesHoje) ?? 0,
+        'acertos': prefs.getInt(_keyAcertosHoje) ?? 0,
+      };
+    } catch (e) {
+      return {'respondidas': 0, 'acertos': 0};
+    }
+  }
+
   // ===== MIGRAÇÃO (Sprint 8) =====
 
   /// Verifica se existem dados locais para migrar
@@ -366,7 +417,6 @@ class NivelPersistence {
       await prefs.remove(_keyQuestoesCorretas);
       await prefs.remove(_keyMaiorStreak);
 
-      print('🗑️ Dados locais limpos');
       return true;
     } catch (e) {
       print('❌ Erro ao limpar dados: $e');

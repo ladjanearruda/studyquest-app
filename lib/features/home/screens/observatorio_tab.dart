@@ -1,31 +1,14 @@
 // lib/features/home/screens/observatorio_tab.dart
-// ObservatorioTab V9 - CARDS DINÂMICOS POR TAB
-// ✅ Avatar GRANDE 100x100px FORA do card (à esquerda)
-// ✅ Card rosa COMPACTO 60px altura + informações DINÂMICAS por tab
-// ✅ Tab Geral: Precisão + posição geral
-// ✅ Tab Série: Série + posição na série
-// ✅ Tab Estado: Estado + posição no estado
-// ✅ Tab Universidade: Meta UnB + posição entre candidatos (mock baseado em dreamUniversity)
-// ✅ Animação suave ao trocar tabs (fade + slide)
-// ✅ Avatares: Helper SEM "assets/" (Flutter Web adiciona automaticamente)
-// ✅ Mock data: explorador/equilibrado/academico (sempre masculino no tipo)
-// ✅ ZERO overflow garantido
-// ✅ Dados mockados prontos para integração com autenticação
+// ✅ Sprint 10 - Rankings Reais do Firebase (REST API)
+// 📅 Atualizado: 18/03/2026
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/firebase_user_service.dart';
+import '../../../core/services/firebase_rest_auth.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
+import '../../niveis/providers/nivel_provider.dart';
 
-/// ObservatorioTab - Sistema de Rankings Educacionais
-///
-/// VERSÃO 9 - CARDS DINÂMICOS POR TAB:
-/// - Card rosa muda informações baseado na tab ativa
-/// - Tab 0 (Geral): Precisão + ranking geral
-/// - Tab 1 (Série): Série escolar + ranking série
-/// - Tab 2 (Estado): Estado + ranking estadual
-/// - Tab 3 (Univ): Universidade meta + ranking candidatos
-/// - AnimatedSwitcher com fade + slide (300ms)
-/// - Listener no TabController para atualizar setState
-/// - Mock data estruturado e pronto para dados reais
 class ObservatorioTab extends ConsumerStatefulWidget {
   const ObservatorioTab({super.key});
 
@@ -37,170 +20,18 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // ========== DADOS MOCKADOS (correto para Sprint 7) ==========
-  final Map<String, dynamic> _mockUserData = {
-    'name': 'Você',
-    'position': 7,
-    'score': 1450,
-    'accuracy': 88.0,
-    'avatarType': 'equilibrado_masculino',
-    'schoolLevel': 'EM2',
-    'state': 'DF',
-  };
-
-  final List<Map<String, dynamic>> _mockTop10Geral = [
-    {
-      'name': 'Lucas Silva',
-      'position': 1,
-      'score': 2500,
-      'accuracy': 96.0,
-      'avatarType': 'academico_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Maria Santos',
-      'position': 2,
-      'score': 2350,
-      'accuracy': 94.0,
-      'avatarType': 'explorador_feminino' // ✅ CORRIGIDO (era exploradora)
-    },
-    {
-      'name': 'Pedro Costa',
-      'position': 3,
-      'score': 2100,
-      'accuracy': 92.0,
-      'avatarType': 'competitivo_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Ana Oliveira',
-      'position': 4,
-      'score': 1950,
-      'accuracy': 90.0,
-      'avatarType': 'equilibrado_feminino' // ✅ CORRIGIDO (era equilibrada)
-    },
-    {
-      'name': 'João Pereira',
-      'position': 5,
-      'score': 1800,
-      'accuracy': 89.0,
-      'avatarType': 'explorador_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Julia Lima',
-      'position': 6,
-      'score': 1650,
-      'accuracy': 87.0,
-      'avatarType': 'academico_feminino' // ✅ CORRIGIDO (era academica)
-    },
-    {
-      'name': 'Você',
-      'position': 7,
-      'score': 1450,
-      'accuracy': 88.0,
-      'avatarType': 'equilibrado_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Rafael Souza',
-      'position': 8,
-      'score': 1300,
-      'accuracy': 85.0,
-      'avatarType': 'competitivo_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Carla Alves',
-      'position': 9,
-      'score': 1200,
-      'accuracy': 84.0,
-      'avatarType': 'explorador_feminino' // ✅ CORRIGIDO (era exploradora)
-    },
-    {
-      'name': 'Bruno Rocha',
-      'position': 10,
-      'score': 1100,
-      'accuracy': 82.0,
-      'avatarType': 'academico_masculino' // ✅ CORRETO
-    },
-  ];
-
-  final List<Map<String, dynamic>> _mockTop10Serie = [
-    {
-      'name': 'Ana Oliveira',
-      'position': 1,
-      'score': 1950,
-      'accuracy': 90.0,
-      'avatarType': 'equilibrado_feminino' // ✅ CORRIGIDO
-    },
-    {
-      'name': 'Julia Lima',
-      'position': 2,
-      'score': 1650,
-      'accuracy': 87.0,
-      'avatarType': 'academico_feminino' // ✅ CORRIGIDO
-    },
-    {
-      'name': 'Você',
-      'position': 3,
-      'score': 1450,
-      'accuracy': 88.0,
-      'avatarType': 'equilibrado_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Rafael Souza',
-      'position': 4,
-      'score': 1300,
-      'accuracy': 85.0,
-      'avatarType': 'competitivo_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Carla Alves',
-      'position': 5,
-      'score': 1200,
-      'accuracy': 84.0,
-      'avatarType': 'explorador_feminino' // ✅ CORRIGIDO
-    },
-  ];
-
-  final List<Map<String, dynamic>> _mockTop10Estado = [
-    {
-      'name': 'Pedro Costa',
-      'position': 1,
-      'score': 2100,
-      'accuracy': 92.0,
-      'avatarType': 'competitivo_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Julia Lima',
-      'position': 2,
-      'score': 1650,
-      'accuracy': 87.0,
-      'avatarType': 'academico_feminino' // ✅ CORRIGIDO
-    },
-    {
-      'name': 'Você',
-      'position': 3,
-      'score': 1450,
-      'accuracy': 88.0,
-      'avatarType': 'equilibrado_masculino' // ✅ CORRETO
-    },
-    {
-      'name': 'Bruno Rocha',
-      'position': 4,
-      'score': 1100,
-      'accuracy': 82.0,
-      'avatarType': 'academico_masculino' // ✅ CORRETO
-    },
-  ];
+  List<Map<String, dynamic>> _topRanking = [];
+  bool _isLoading = true;
+  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-
-    // ✅ Listener para atualizar card ao trocar de tab
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        setState(() {}); // Atualiza card com dados da nova tab
-      }
+      if (_tabController.indexIsChanging) setState(() {});
     });
+    _loadRanking();
   }
 
   @override
@@ -209,60 +40,117 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
     super.dispose();
   }
 
-  /// ✅ NOVO: Retorna dados do card baseado na tab ativa
-  Map<String, String> _getCardDataByTab() {
-    switch (_tabController.index) {
-      case 0: // Geral
-        return {
-          'info1': 'Precisão ${_mockUserData['accuracy'].toStringAsFixed(0)}%',
-          'info2': '#${_mockUserData['position']} de 1.243',
-          'score': '${_mockUserData['score']} pts',
-        };
-      case 1: // Série
-        return {
-          'info1': _mockUserData['schoolLevel'],
-          'info2': '#3 de 156 estudantes',
-          'score': '${_mockUserData['score']} pts',
-        };
-      case 2: // Estado
-        return {
-          'info1': 'Brasília-${_mockUserData['state']}',
-          'info2': '#3 de 89 estudantes',
-          'score': '${_mockUserData['score']} pts',
-        };
-      case 3: // Universidade (mock baseado em dreamUniversity do onboarding)
-        return {
-          'info1': 'Meta: UnB',
-          'info2': '#12 de 45 candidatos',
-          'score': '${_mockUserData['score']} pts',
-        };
-      default:
-        return {
-          'info1': 'Precisão ${_mockUserData['accuracy'].toStringAsFixed(0)}%',
-          'info2': '#${_mockUserData['position']}',
-          'score': '${_mockUserData['score']} pts',
-        };
+  Future<void> _loadRanking() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await FirebaseRestAuth.getCurrentUser();
+      final ranking = await FirebaseUserService.getTopByXp(limit: 30);
+      if (mounted) {
+        setState(() {
+          _topRanking = ranking;
+          _currentUserId = user?.uid;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// ✅ CORREÇÃO CRÍTICA: Helper sem "assets/" no início
-  /// Flutter Web adiciona "assets/" automaticamente, causando duplicação
-  ///
-  /// Exemplo: "academico_masculino" → "images/avatars/academico/masculino/academico_masculino_neutro.png"
-  /// Resultado final no Flutter Web: "assets/images/avatars/academico/masculino/academico_masculino_neutro.png" ✅
-  String _getAvatarPath(String avatarType) {
-    final parts = avatarType.split('_');
-    if (parts.length < 2) return ''; // Segurança
+  // ── Helpers ──────────────────────────────────────────────────────────
 
-    final tipo = parts[
-        0]; // academico, competitivo, equilibrado, explorador (sempre masculino)
-    final genero = parts[1]; // masculino, feminino
-
-    return 'images/avatars/$tipo/$genero/${tipo}_${genero}_neutro.png';
+  /// Path do avatar sem prefixo "assets/" (Flutter Web adiciona automaticamente)
+  String _avatarPath(String type, String gender) {
+    final t = type.isNotEmpty ? type : 'explorador';
+    final g = gender.isNotEmpty ? gender : 'masculino';
+    return 'images/avatars/$t/$g/${t}_${g}_neutro.png';
   }
+
+  String _levelLabel(String level) {
+    const labels = {
+      'fundamental6': '6º Ano',
+      'fundamental7': '7º Ano',
+      'fundamental8': '8º Ano',
+      'fundamental9': '9º Ano',
+      'medio1': '1º EM',
+      'medio2': '2º EM',
+      'medio3': '3º EM',
+      'completed': 'Formado',
+    };
+    return labels[level] ?? '';
+  }
+
+  /// Filtra o top 30 por nível escolar e renumera posições
+  List<Map<String, dynamic>> _rankingBySerie(String educationLevel) {
+    if (educationLevel.isEmpty) return _topRanking;
+    final filtered = _topRanking
+        .where((r) => r['education_level'] == educationLevel)
+        .toList();
+    for (int i = 0; i < filtered.length; i++) {
+      filtered[i] = {...filtered[i], 'position': i + 1};
+    }
+    return filtered;
+  }
+
+  Map<String, String> _cardDataByTab(
+      OnboardingData onboarding, int xp, int? position) {
+    final posStr = position != null ? '#$position no Geral' : 'Fora do Top 30';
+    final level = onboarding.educationLevel?.name ?? '';
+    final levelLabel = _levelLabel(level);
+    final serieRanking = _rankingBySerie(level);
+    final mySerieEntry =
+        serieRanking.where((r) => r['userId'] == _currentUserId).firstOrNull;
+    final seriePos = mySerieEntry != null
+        ? '#${mySerieEntry['position']} na Série'
+        : 'Ranking da Série';
+    final univ = onboarding.dreamUniversity;
+
+    switch (_tabController.index) {
+      case 0:
+        return {'info1': '$xp XP', 'info2': posStr};
+      case 1:
+        return {
+          'info1': levelLabel.isNotEmpty ? levelLabel : 'Série',
+          'info2': seriePos,
+        };
+      case 2:
+        return {'info1': 'Estado', 'info2': 'Em Breve'};
+      case 3:
+        return {
+          'info1':
+              (univ != null && univ.isNotEmpty) ? 'Meta: $univ' : 'Meta: —',
+          'info2': 'Em Breve',
+        };
+      default:
+        return {'info1': '$xp XP', 'info2': posStr};
+    }
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final onboarding = ref.watch(onboardingProvider);
+    final nivel = ref.watch(nivelProvider);
+    final xp = nivel.xpTotal;
+
+    int? myPosition;
+    if (_currentUserId != null) {
+      final myEntry =
+          _topRanking.where((r) => r['userId'] == _currentUserId).firstOrNull;
+      myPosition = myEntry?['position'] as int?;
+    }
+
+    final avatarType = onboarding.selectedAvatarType?.name ?? 'explorador';
+    final avatarGender = onboarding.selectedAvatarGender?.name ?? 'masculino';
+    final userName =
+        (onboarding.name != null && onboarding.name!.isNotEmpty)
+            ? onboarding.name!
+            : 'Você';
+
+    final serieRanking =
+        _rankingBySerie(onboarding.educationLevel?.name ?? '');
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -276,7 +164,12 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
           child: Column(
             children: [
               _buildHeader(),
-              _buildUserPositionCard(),
+              _buildUserCard(
+                name: userName,
+                avatarType: avatarType,
+                avatarGender: avatarGender,
+                cardData: _cardDataByTab(onboarding, xp, myPosition),
+              ),
               const SizedBox(height: 16),
               _buildTabBar(),
               Expanded(
@@ -292,10 +185,22 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildGeralTab(),
-                      _buildSerieTab(),
-                      _buildEstadoTab(),
-                      _buildUniversidadeTab(),
+                      _buildRankingList(_topRanking),
+                      _buildRankingList(
+                        serieRanking,
+                        emptyMsg:
+                            'Nenhum estudante da sua série no ranking ainda!\nContinue jogando para aparecer aqui.',
+                      ),
+                      _buildEmBreve(
+                        'Estado',
+                        Icons.location_on,
+                        'Em breve você poderá competir com estudantes do seu estado!',
+                      ),
+                      _buildEmBreve(
+                        'Universidade',
+                        Icons.school,
+                        'Em breve você poderá competir com quem tem a mesma meta universitária!',
+                      ),
                     ],
                   ),
                 ),
@@ -307,6 +212,8 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
     );
   }
 
+  // ── Widgets ──────────────────────────────────────────────────────────
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -315,7 +222,7 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child:
@@ -326,47 +233,67 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Observatório',
-                    style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -0.5)),
-                Text('Rankings Educacionais',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500)),
+                Text(
+                  'Observatório',
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: -0.5),
+                ),
+                Text(
+                  'Rankings Educacionais',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500),
+                ),
               ],
             ),
           ),
           IconButton(
             onPressed: _showInfoDialog,
-            icon: const Icon(Icons.info_outline, color: Colors.white, size: 24),
+            icon:
+                const Icon(Icons.info_outline, color: Colors.white, size: 24),
+          ),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: _isLoading
+                ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : IconButton(
+                    onPressed: _loadRanking,
+                    icon: const Icon(Icons.refresh,
+                        color: Colors.white, size: 24),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  /// ✅ Card rosa DINÂMICO: muda informações baseado na tab ativa
-  Widget _buildUserPositionCard() {
-    final user = _mockUserData;
-    final cardData = _getCardDataByTab(); // ✅ Dados dinâmicos por tab
-
+  Widget _buildUserCard({
+    required String name,
+    required String avatarType,
+    required String avatarGender,
+    required Map<String, String> cardData,
+  }) {
     return TweenAnimationBuilder<double>(
       duration: const Duration(seconds: 2),
       tween: Tween(begin: 0.96, end: 1.0),
       curve: Curves.easeInOut,
-      builder: (context, scale, child) {
-        return Transform.scale(scale: scale, child: child);
-      },
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
-        height: 100, // ✅ Altura = avatar (100px)
+        height: 100,
         child: Row(
           children: [
-            // ✅ AVATAR MAIOR (100x100)
+            // Avatar real do usuário
             Container(
               width: 100,
               height: 100,
@@ -375,7 +302,7 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
                 border: Border.all(color: Colors.white, width: 3),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFe361ff).withOpacity(0.5),
+                    color: const Color(0xFFe361ff).withValues(alpha: 0.5),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -383,48 +310,43 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
               ),
               child: ClipOval(
                 child: Image.asset(
-                  _getAvatarPath(user['avatarType']),
+                  _avatarPath(avatarType, avatarGender),
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFFe361ff),
-                      child: Center(
-                        child: Text(
-                          user['name'][0].toUpperCase(),
-                          style: const TextStyle(
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFFe361ff),
+                    child: Center(
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : 'V',
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                            fontWeight: FontWeight.bold),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ),
             const SizedBox(width: 16),
-            // ✅ CARD ROSA DINÂMICO (60px) + INFO BASEADA NA TAB
+            // Card dinâmico por tab
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.1),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.1),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
                 child: Container(
-                  key: ValueKey(_tabController.index), // ✅ Key para animação
-                  height: 60,
+                  key: ValueKey(_tabController.index),
+                  height: 72,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFe361ff), Color(0xFFa855f7)],
@@ -432,49 +354,37 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFe361ff).withOpacity(0.4),
+                        color: const Color(0xFFe361ff).withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Nome (sempre fixo)
                       Text(
-                        user['name'],
+                        name,
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      // Info 1 (muda por tab)
-                      Text(
-                        cardData['info1']!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      // Info 2 (muda por tab)
-                      Text(
-                        cardData['info2']!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      // Score (muda por tab)
-                      Text(
-                        cardData['score']!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(cardData['info1']!,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.white70)),
+                          const SizedBox(width: 10),
+                          Text(cardData['info2']!,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
+                        ],
                       ),
                     ],
                   ),
@@ -491,7 +401,7 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
       ),
       child: TabBar(
@@ -504,7 +414,8 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
         dividerColor: Colors.transparent,
         labelColor: const Color(0xFF667eea),
         unselectedLabelColor: Colors.white,
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        labelStyle:
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         unselectedLabelStyle:
             const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         tabs: const [
@@ -517,187 +428,57 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
     );
   }
 
-  Widget _buildGeralTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _mockTop10Geral.length,
-      itemBuilder: (context, index) {
-        return _buildRankingCard(_mockTop10Geral[index]);
-      },
-    );
-  }
+  Widget _buildRankingList(
+    List<Map<String, dynamic>> ranking, {
+    String emptyMsg =
+        'Nenhum usuário no ranking ainda.\nJogue questões para aparecer aqui!',
+  }) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  Widget _buildSerieTab() {
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF667eea), width: 1),
-          ),
-          child: Row(
+    if (ranking.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.school, color: Color(0xFF667eea), size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Ranking do ${_mockUserData['schoolLevel']}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF667eea),
-                  ),
-                ),
+              const Text('🏆', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 16),
+              Text(
+                emptyMsg,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 15, color: Colors.grey.shade600, height: 1.5),
               ),
             ],
           ),
         ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _mockTop10Serie.length,
-            itemBuilder: (context, index) {
-              return _buildRankingCard(_mockTop10Serie[index]);
-            },
-          ),
-        ),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _buildEstadoTab() {
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF667eea), width: 1),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.location_on, color: Color(0xFF667eea), size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Ranking do ${_mockUserData['state']}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF667eea),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _mockTop10Estado.length,
-            itemBuilder: (context, index) {
-              return _buildRankingCard(_mockTop10Estado[index]);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildUniversidadeTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: 40),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.school, color: Colors.amber.shade700, size: 40),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Ranking Universidade',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF667eea)),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade700, width: 2),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.construction,
-                        color: Colors.amber.shade700, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Em breve você poderá competir com estudantes que têm o mesmo objetivo!',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.amber.shade900,
-                          height: 1.3,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Configure suas metas no perfil para desbloquear.',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.amber.shade800,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Disponível em breve',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
+    return RefreshIndicator(
+      onRefresh: _loadRanking,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: ranking.length,
+        itemBuilder: (context, index) => _buildRankingCard(ranking[index]),
       ),
     );
   }
 
-  /// ✅ Ranking card usando helper corrigido para avatares
   Widget _buildRankingCard(Map<String, dynamic> user) {
-    final isUser = user['name'] == 'Você';
+    final isMe = user['userId'] == _currentUserId;
     final position = user['position'] as int;
+    final avatarType = user['avatar_type'] as String? ?? 'explorador';
+    final avatarGender = user['avatar_gender'] as String? ?? 'masculino';
+    final xp = user['xp_total'] as int? ?? 0;
+    final name = user['name'] as String? ?? 'Explorador';
+    final level = user['education_level'] as String? ?? '';
 
     Color? medalColor;
     IconData? medalIcon;
-
     if (position == 1) {
       medalColor = const Color(0xFFFFD700);
       medalIcon = Icons.emoji_events;
@@ -713,20 +494,20 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: isUser
+        gradient: isMe
             ? const LinearGradient(
                 colors: [Color(0xFFe361ff), Color(0xFFa855f7)])
             : null,
-        color: isUser ? null : Colors.grey.shade100,
+        color: isMe ? null : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isUser ? const Color(0xFFe361ff) : Colors.grey.shade300,
-          width: isUser ? 2 : 1,
+          color: isMe ? const Color(0xFFe361ff) : Colors.grey.shade300,
+          width: isMe ? 2 : 1,
         ),
-        boxShadow: isUser
+        boxShadow: isMe
             ? [
                 BoxShadow(
-                    color: const Color(0xFFe361ff).withOpacity(0.3),
+                    color: const Color(0xFFe361ff).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4))
               ]
@@ -734,13 +515,14 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
       ),
       child: Row(
         children: [
-          // Posição
+          // Posição / medalha
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color:
-                  isUser ? Colors.white.withOpacity(0.2) : Colors.grey.shade300,
+              color: isMe
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : Colors.grey.shade300,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -749,90 +531,172 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
                   : Text(
                       '#$position',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isUser ? Colors.white : Colors.grey.shade700,
-                      ),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white : Colors.grey.shade700),
                     ),
             ),
           ),
           const SizedBox(width: 12),
-          // Avatar ✅ Usando helper corrigido
+          // Avatar real
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color:
-                  isUser ? Colors.white.withOpacity(0.2) : Colors.grey.shade300,
+              color: isMe
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : Colors.grey.shade300,
               shape: BoxShape.circle,
               border: Border.all(
-                  color: isUser ? Colors.white : Colors.grey.shade400,
-                  width: 2),
+                  color: isMe ? Colors.white : Colors.grey.shade400, width: 2),
             ),
             child: ClipOval(
               child: Image.asset(
-                _getAvatarPath(user['avatarType']),
+                _avatarPath(avatarType, avatarGender),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Center(
-                    child: Text(
-                      user['name'][0].toUpperCase(),
-                      style: TextStyle(
-                        color: isUser ? Colors.white : Colors.grey.shade700,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    style: TextStyle(
+                        color: isMe ? Colors.white : Colors.grey.shade700,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                },
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Nome + Accuracy
+          // Nome + série + badge "Você"
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  user['name'],
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: isUser ? Colors.white : Colors.grey.shade800,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isMe ? Colors.white : Colors.grey.shade800,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('Você',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ],
                 ),
-                Text(
-                  '${user['accuracy'].toStringAsFixed(0)}% precisão',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isUser ? Colors.white70 : Colors.grey.shade600,
+                if (level.isNotEmpty)
+                  Text(
+                    _levelLabel(level),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isMe ? Colors.white70 : Colors.grey.shade600),
+                  ),
+              ],
+            ),
+          ),
+          // XP
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$xp',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isMe ? Colors.white : const Color(0xFF667eea),
+                ),
+              ),
+              Text(
+                'XP',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isMe ? Colors.white70 : Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmBreve(String title, IconData icon, String message) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.amber.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.amber.shade700, size: 40),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Ranking $title',
+            style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF667eea)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade700, width: 2),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.construction,
+                    color: Colors.amber.shade700, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber.shade900,
+                        height: 1.3),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
-          // Score
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                user['score'].toString(),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isUser ? Colors.white : const Color(0xFF667eea),
-                ),
-              ),
-              Text(
-                'pts',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isUser ? Colors.white70 : Colors.grey.shade600,
-                ),
-              ),
-            ],
+          const SizedBox(height: 16),
+          Text(
+            'Disponível em breve',
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -856,28 +720,27 @@ class _ObservatorioTabState extends ConsumerState<ObservatorioTab>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('📊 Pontuação',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('⭐ Pontuação',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               SizedBox(height: 4),
-              Text('Sua pontuação é calculada com base em:',
+              Text(
+                  'O ranking é baseado no XP total acumulado jogando questões.',
                   style: TextStyle(fontSize: 13)),
-              SizedBox(height: 8),
-              Text('• Acertos: +10 pts cada', style: TextStyle(fontSize: 12)),
-              Text('• XP total: ÷10 pts', style: TextStyle(fontSize: 12)),
-              Text('• Streak dias: ×5 pts', style: TextStyle(fontSize: 12)),
               SizedBox(height: 16),
               Text('🏆 Rankings',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               SizedBox(height: 4),
-              Text('Compare seu desempenho:', style: TextStyle(fontSize: 13)),
+              Text('Compare seu desempenho:',
+                  style: TextStyle(fontSize: 13)),
               SizedBox(height: 8),
               Text('• Geral: Todos os estudantes',
                   style: TextStyle(fontSize: 12)),
-              Text('• Série: Mesma série escolar',
+              Text('• Série: Mesma série escolar (filtra o Top 30)',
                   style: TextStyle(fontSize: 12)),
-              Text('• Estado: Mesmo estado', style: TextStyle(fontSize: 12)),
-              Text('• Univ: Mesma meta universitária',
-                  style: TextStyle(fontSize: 12)),
+              Text('• Estado: Em breve', style: TextStyle(fontSize: 12)),
+              Text('• Univ: Em breve', style: TextStyle(fontSize: 12)),
             ],
           ),
         ),

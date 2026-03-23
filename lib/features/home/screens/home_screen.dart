@@ -44,7 +44,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  /// Verifica se veio initialTab via GoRouter extra
+  /// Verifica se veio initialTab via GoRouter extra.
+  /// Sempre reseta para 0 se não houver initialTab explícito,
+  /// evitando que o usuário abra o app na aba errada após logout/login.
   void _checkInitialTab() {
     try {
       final extra = GoRouterState.of(context).extra;
@@ -52,11 +54,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final initialTab = extra['initialTab'] as int?;
         if (initialTab != null && initialTab >= 0 && initialTab <= 4) {
           ref.read(currentTabProvider.notifier).state = initialTab;
-          print('📍 HomeScreen: Navegando para aba $initialTab');
+          return;
         }
       }
+      // Sem initialTab explícito → sempre começa no Início (tab 0)
+      ref.read(currentTabProvider.notifier).state = 0;
     } catch (e) {
-      print('⚠️ HomeScreen: Não foi possível ler initialTab: $e');
+      ref.read(currentTabProvider.notifier).state = 0;
     }
   }
 

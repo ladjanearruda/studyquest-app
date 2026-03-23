@@ -16,6 +16,7 @@ import '../../onboarding/screens/onboarding_screen.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/models/nivel_model.dart';
 import '../../diario/providers/diary_provider.dart';
+import '../../diario/providers/diary_badges_provider.dart';
 import '../../questoes/providers/recursos_provider_v71.dart';
 
 class PerfilTab extends ConsumerWidget {
@@ -746,27 +747,25 @@ class PerfilTab extends ConsumerWidget {
   }
 
   Future<void> _clearAllData(WidgetRef ref, bool isAnonymous) async {
-    print('🧹 Iniciando limpeza de dados...');
+    // Limpar TODO o SharedPreferences para ambos os casos:
+    //   • Anônimo: dados existem apenas localmente, clear é obrigatório.
+    //   • Logado: todo dado importante (XP, perfil, diary, badges) está no
+    //     Firebase e será restaurado no próximo login. Limpar garante que
+    //     o próximo usuário (mesmo ou diferente) não herde cache antigo
+    //     (especialmente XP/nível que causavam o bug de herdar nível 15).
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
 
-    if (isAnonymous) {
-      // Anônimo: limpar TUDO (dados não estão salvos na nuvem)
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      print('🧹 SharedPreferences limpo completamente');
-    }
-    // Logado: NÃO apagar dados locais (onboarding_complete, perfil, etc.)
-    // O signOut() já remove apenas o token de sessão (firebase_user)
-
-    // Fazer signOut no auth provider
+    // Fazer signOut (remove o token firebase_user)
     await ref.read(authProvider.notifier).signOut();
-    print('🧹 Auth signOut realizado');
 
-    // Invalidar providers para forçar recarga com o novo usuário
+    // Invalidar TODOS os providers com estado de usuário para que
+    // o próximo login carregue dados limpos do zero.
+    ref.invalidate(onboardingProvider);
+    ref.invalidate(descobertaNivelProvider);
     ref.invalidate(diaryProvider);
+    ref.invalidate(diaryBadgesProvider);
     ref.invalidate(nivelProvider);
-    if (isAnonymous) {
-      ref.invalidate(recursosPersonalizadosProvider);
-    }
-    print('✅ Limpeza de dados concluída!');
+    ref.invalidate(recursosPersonalizadosProvider);
   }
 }

@@ -159,12 +159,14 @@ class _DiarioTabState extends ConsumerState<DiarioTab>
         },
         body: TabBarView(
           controller: _tabController,
-          children: const [
-            DiarioDashboardTab(),
-            DiarioAnotacoesTab(),
-            DiarioRevisoesTab(),
-            DiarioConquistasTab(),
-            DiarioInsightsTab(),
+          children: [
+            DiarioDashboardTab(
+              onNavigateToRevisoes: () => _tabController.animateTo(2),
+            ),
+            const DiarioAnotacoesTab(),
+            const DiarioRevisoesTab(),
+            const DiarioConquistasTab(),
+            const DiarioInsightsTab(),
           ],
         ),
       ),

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/firebase_rest_auth.dart';
+import '../../../core/services/firebase_user_service.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 import '../../diario/providers/diary_provider.dart';
 import '../../diario/providers/diary_badges_provider.dart';
 import '../../niveis/providers/nivel_provider.dart';
@@ -53,36 +55,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     setState(() => _isLoading = true);
 
-    final authNotifier = ref.read(authProvider.notifier);
-    final success = await authNotifier.signIn(
+    final success = await ref.read(authProvider.notifier).signIn(
       _emailController.text.trim(),
       _passwordController.text,
     );
 
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
 
     if (success) {
-      // Forçar recarga dos providers com o novo usuário logado.
-      // diaryProvider: estava com isInitialized=false após logout (sem user),
-      //   precisa reinicializar para buscar anotações do Firebase.
-      // nivelProvider: já escuta authProvider via ref.listen, mas invalidar
-      //   garante que o XP local de sessão anterior não persista incorretamente.
+      // Recarregar providers com o novo usuário logado
       ref.invalidate(diaryProvider);
       ref.invalidate(nivelProvider);
       ref.invalidate(diaryBadgesProvider);
 
       final authState = ref.read(authProvider);
-      if (authState.hasCompletedOnboarding) {
-        context.go('/home');
-      } else {
-        context.go('/onboarding/0');
+      bool goHome = authState.hasCompletedOnboarding;
+
+      // SharedPreferences foi limpo no logout → verificar Firebase como fonte da verdade
+      if (!goHome) {
+        final userId = authState.user?.uid;
+        final isAnonymous = authState.user?.isAnonymous ?? true;
+
+        if (userId != null && !isAnonymous) {
+          final profile = await FirebaseUserService.getUserProfile(userId);
+          final hasProfile = profile != null &&
+              (profile['name'] as String? ?? '').isNotEmpty;
+
+          if (hasProfile) {
+            // Restaurar dados do perfil no onboardingProvider
+            await ref
+                .read(onboardingProvider.notifier)
+                .restoreFromFirebaseProfile(profile);
+            // Marcar onboarding como completo (prefs + estado)
+            await ref.read(authProvider.notifier).completeOnboarding();
+            goHome = true;
+          }
+        }
       }
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      context.go(goHome ? '/home' : '/onboarding/0');
     } else {
-      final errorMessage =
-          ref.read(authProvider).errorMessage ?? 'Erro ao fazer login';
-      _showError(errorMessage);
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      _showError(
+          ref.read(authProvider).errorMessage ?? 'Erro ao fazer login');
     }
   }
 
