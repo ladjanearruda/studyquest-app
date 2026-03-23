@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/avatar.dart';
 import '../../../core/models/user_profile.dart';
 import '../../../core/services/firebase_rest_auth.dart';
+import '../../../core/services/firebase_user_service.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../providers/avatar_provider.dart';
 
@@ -128,7 +129,17 @@ class _AvatarSelectionScreenState extends ConsumerState<AvatarSelectionScreen>
 
     // Marcar onboarding como completo
     await ref.read(authProvider.notifier).completeOnboarding();
-    print('✅ Onboarding marcado como completo!');
+
+    // ✅ Salvar perfil completo no Firebase (users/{userId} + user_xp denorm)
+    final authState = ref.read(authProvider);
+    if (authState.user != null && !authState.user!.isAnonymous) {
+      final onboardingData = ref.read(onboardingProvider);
+      await FirebaseUserService.saveUserProfile(
+        userId: authState.user!.uid,
+        onboardingData: onboardingData,
+        email: authState.user!.email,
+      );
+    }
 
     if (mounted) context.go('/modo-selection');
   }
