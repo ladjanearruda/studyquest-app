@@ -181,6 +181,11 @@ class OnboardingNotifier extends StateNotifier<OnboardingData> {
     }
   }
 
+  /// Força recarregamento do estado a partir do SharedPreferences.
+  /// Chamado antes de iniciar uma sessão de questões para garantir
+  /// que preferências alteradas no onboarding estejam sempre atualizadas.
+  Future<void> recarregarDoStorage() => _loadFromPrefs();
+
   Future<void> _saveToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();

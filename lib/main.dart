@@ -47,6 +47,9 @@ import 'features/questoes/screens/questao_personalizada_screen.dart';
 import 'features/questoes/screens/questoes_gameover_screen.dart';
 import 'features/questoes/screens/questoes_resultado_screen.dart';
 
+// ===== IMPORTS DEBUG =====
+import 'features/debug/screens/debug_preview_screen.dart';
+
 // ===== IMPORTS MODELS =====
 import 'features/trilha/models/recursos_vitais.dart';
 
@@ -247,6 +250,14 @@ final router = GoRouter(
     GoRoute(
       path: '/questoes-resultado',
       builder: (context, state) => const QuestoesResultadoScreen(),
+    ),
+
+    // ========================================
+    // ROTAS DEBUG
+    // ========================================
+    GoRoute(
+      path: '/debug/preview',
+      builder: (_, __) => const DebugPreviewScreen(),
     ),
   ],
 );

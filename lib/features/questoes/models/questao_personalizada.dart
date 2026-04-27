@@ -11,6 +11,15 @@ class QuestaoPersonalizada {
   final List<String> tags;
   final Map<String, dynamic> metadata;
 
+  // Campos opcionais — questões ENEM/vestibular
+  final String? vestibular;   // Ex: "ENEM-2024", "FUVEST-2023"
+  final String? fonte;        // Ex: "ENEM-2024-adaptada"
+  final bool fonteAdaptada;   // true se a questão foi contextualizada
+
+  // Campos opcionais — alternativas com imagem
+  final String? alternativasTipo;        // "texto" (padrão) ou "imagem"
+  final List<String>? alternativasImagens; // URLs das imagens por índice
+
   const QuestaoPersonalizada({
     required this.id,
     required this.subject,
@@ -23,7 +32,23 @@ class QuestaoPersonalizada {
     this.imagemEspecifica,
     required this.tags,
     required this.metadata,
+    this.vestibular,
+    this.fonte,
+    this.fonteAdaptada = false,
+    this.alternativasTipo,
+    this.alternativasImagens,
   });
+
+  bool get temAlternativasComImagem =>
+      alternativasTipo == 'imagem' &&
+      alternativasImagens != null &&
+      alternativasImagens!.isNotEmpty;
+
+  String? getImagemAlternativa(int index) {
+    if (!temAlternativasComImagem) return null;
+    if (index >= alternativasImagens!.length) return null;
+    return alternativasImagens![index];
+  }
 
   // Conversão do Firebase
   factory QuestaoPersonalizada.fromFirestore(Map<String, dynamic> data) {
@@ -39,6 +64,13 @@ class QuestaoPersonalizada {
       imagemEspecifica: data['imagem_especifica'],
       tags: List<String>.from(data['tags'] ?? []),
       metadata: data['metadata'] ?? {},
+      vestibular: data['vestibular'] as String?,
+      fonte: data['fonte'] as String?,
+      fonteAdaptada: data['fonte_adaptada'] as bool? ?? false,
+      alternativasTipo: data['alternativas_tipo'] as String?,
+      alternativasImagens: data['alternativas_imagens'] != null
+          ? List<String>.from(data['alternativas_imagens'])
+          : null,
     );
   }
 }

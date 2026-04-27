@@ -84,6 +84,12 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
   // ===== INICIAR SESSÃO =====
   Future<void> iniciarSessao({String? modo}) async {
     try {
+      // Garantir que o onboarding está com os dados mais recentes do
+      // SharedPreferences (evita usar estado cacheado antes do async load
+      // do construtor completar, e garante que mudanças no onboarding
+      // sejam refletidas imediatamente sem precisar de logout)
+      await ref.read(onboardingProvider.notifier).recarregarDoStorage();
+
       // Obter dados do onboarding real
       final onboardingData = ref.read(onboardingProvider);
 
@@ -154,6 +160,11 @@ class SessaoQuestoesNotifier extends StateNotifier<SessaoQuestoes> {
                 imagemEspecifica: questionModel.imagemEspecifica,
                 tags: questionModel.tags,
                 metadata: questionModel.metadata,
+                vestibular: questionModel.vestibular,
+                fonte: questionModel.fonte,
+                fonteAdaptada: questionModel.fonteAdaptada,
+                alternativasTipo: questionModel.alternativasTipo,
+                alternativasImagens: questionModel.alternativasImagens,
               ))
           .toList();
 

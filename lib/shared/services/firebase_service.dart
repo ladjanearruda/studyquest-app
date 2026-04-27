@@ -78,6 +78,9 @@ class FirebaseService {
     print('\n🧠 ALGORITMO MULTI-LAYER V7.0');
 
     List<QuestionModel> selected = [];
+    // Set de IDs para deduplicação O(1) — evita repetir questão
+    // mesmo quando objetos vêm de caches diferentes (Layers 3+)
+    final Set<String> selectedIds = {};
     final targetDifficulty = user.userLevel;
     final materiaProblematica = _normalizarNomeMateria(user.mainDifficulty);
 
@@ -99,7 +102,9 @@ class FirebaseService {
 
     int seventyPercent = (limit * 0.7).round();
     questoesMateria.shuffle();
-    selected.addAll(questoesMateria.take(seventyPercent));
+    final materiaChosen = questoesMateria.take(seventyPercent).toList();
+    selected.addAll(materiaChosen);
+    selectedIds.addAll(materiaChosen.map((q) => q.id));
 
     print(
         '   ✅ Matéria (${materiaProblematica}): ${selected.length}/$seventyPercent');
@@ -108,19 +113,21 @@ class FirebaseService {
     var questoesInteresse = baseQuestions
         .where((q) => _isSubjectOfInterest(q.subject, user.interestArea))
         .where((q) => q.difficulty == targetDifficulty)
-        .where((q) => !selected.contains(q))
+        .where((q) => !selectedIds.contains(q.id))
         .toList();
 
     if (questoesInteresse.isEmpty) {
       questoesInteresse = baseQuestions
           .where((q) => _isSubjectOfInterest(q.subject, user.interestArea))
-          .where((q) => !selected.contains(q))
+          .where((q) => !selectedIds.contains(q.id))
           .toList();
     }
 
     int thirtyPercent = (limit * 0.3).round();
     questoesInteresse.shuffle();
-    selected.addAll(questoesInteresse.take(thirtyPercent));
+    final interesseChosen = questoesInteresse.take(thirtyPercent).toList();
+    selected.addAll(interesseChosen);
+    selectedIds.addAll(interesseChosen.map((q) => q.id));
 
     print(
         '   ✅ Interesse: ${selected.length}/${seventyPercent + thirtyPercent}');
@@ -131,13 +138,15 @@ class FirebaseService {
 
       final needed = limit - selected.length;
       var related = baseQuestions
-          .where((q) => !selected.contains(q))
+          .where((q) => !selectedIds.contains(q.id))
           .where((q) => _isRelatedSubject(
               q.subject, materiaProblematica, user.interestArea))
           .toList();
 
       related.shuffle();
-      selected.addAll(related.take(needed));
+      final relatedChosen = related.take(needed).toList();
+      selected.addAll(relatedChosen);
+      selectedIds.addAll(relatedChosen.map((q) => q.id));
 
       print('   ✅ Relacionadas: +${related.take(needed).length} questões');
     }
@@ -162,7 +171,7 @@ class FirebaseService {
 
         // Priorizar mesma matéria e dificuldade
         var priorityQuestions = expandedPool
-            .where((q) => !selected.contains(q))
+            .where((q) => !selectedIds.contains(q.id))
             .where((q) =>
                 _isSubjectMatch(q.subject, materiaProblematica) ||
                 _isSubjectOfInterest(q.subject, user.interestArea))
@@ -172,11 +181,13 @@ class FirebaseService {
         if (priorityQuestions.isEmpty) {
           // Aceitar qualquer matéria relevante
           priorityQuestions =
-              expandedPool.where((q) => !selected.contains(q)).toList();
+              expandedPool.where((q) => !selectedIds.contains(q.id)).toList();
         }
 
         priorityQuestions.shuffle();
-        selected.addAll(priorityQuestions.take(needed));
+        final layer3Chosen = priorityQuestions.take(needed).toList();
+        selected.addAll(layer3Chosen);
+        selectedIds.addAll(layer3Chosen.map((q) => q.id));
 
         print(
             '   ✅ Níveis adjacentes: +${priorityQuestions.take(needed).length} questões');
@@ -189,10 +200,12 @@ class FirebaseService {
 
       final needed = limit - selected.length;
       var remaining =
-          baseQuestions.where((q) => !selected.contains(q)).toList();
+          baseQuestions.where((q) => !selectedIds.contains(q.id)).toList();
 
       remaining.shuffle();
-      selected.addAll(remaining.take(needed));
+      final layer4Chosen = remaining.take(needed).toList();
+      selected.addAll(layer4Chosen);
+      selectedIds.addAll(layer4Chosen.map((q) => q.id));
 
       print(
           '   ✅ Outras matérias Firebase: +${remaining.take(needed).length} questões');
@@ -210,7 +223,7 @@ class FirebaseService {
 
       // Evitar duplicatas
       final fallbackFiltered = fallbackQuestions
-          .where((q) => !selected.any((s) => s.id == q.id))
+          .where((q) => !selectedIds.contains(q.id))
           .toList();
 
       selected.addAll(fallbackFiltered);
@@ -416,39 +429,63 @@ class FirebaseService {
     final cached = _questionsCache[cacheKey];
 
     if (cached != null && !cached.isExpired) {
-      print('   💾 Cache hit: ${cached.questions.length} questões');
       return cached.questions;
     }
 
     try {
-      print('   🔍 Buscando Firebase: $schoolLevel...');
+      // Filtro no servidor via runQuery: só traz questões do schoolLevel do
+      // usuário. Paginação de 200 docs por request — sem limite silencioso.
+      final questions = <QuestionModel>[];
+      const pageSize = 200;
+      int offset = 0;
+      bool hasMore = true;
 
-      final url = '$baseUrl/questions';
-      final response = await http.get(Uri.parse(url));
+      while (hasMore) {
+        final response = await http.post(
+          Uri.parse('$baseUrl:runQuery'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'structuredQuery': {
+              'from': [
+                {'collectionId': 'questions'}
+              ],
+              'where': {
+                'fieldFilter': {
+                  'field': {'fieldPath': 'school_level'},
+                  'op': 'EQUAL',
+                  'value': {'stringValue': schoolLevel},
+                },
+              },
+              'limit': pageSize,
+              'offset': offset,
+            },
+          }),
+        );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final documents = data['documents'] as List<dynamic>? ?? [];
+        if (response.statusCode != 200) {
+          throw Exception('Erro HTTP: ${response.statusCode}');
+        }
 
-        final questions = <QuestionModel>[];
+        final data = jsonDecode(response.body) as List<dynamic>;
+        int docsInPage = 0;
 
-        for (final doc in documents) {
+        for (final item in data) {
+          if (item['document'] == null) continue;
+          final doc = item['document'] as Map<String, dynamic>;
           final fields = doc['fields'] as Map<String, dynamic>;
           final questionData =
               _convertFirestoreToQuestionModel(doc['name'], fields);
-
-          if (questionData['schoolLevel'] == schoolLevel) {
-            questions.add(QuestionModel.fromMap(questionData));
-          }
+          questions.add(QuestionModel.fromMap(questionData));
+          docsInPage++;
         }
 
-        _questionsCache[cacheKey] = CacheEntry(questions, DateTime.now());
-
-        print('   ✅ Firebase: ${questions.length} questões');
-        return questions;
-      } else {
-        throw Exception('Erro HTTP: ${response.statusCode}');
+        // Se retornou menos que pageSize, não há mais páginas
+        hasMore = docsInPage == pageSize;
+        offset += docsInPage;
       }
+
+      _questionsCache[cacheKey] = CacheEntry(questions, DateTime.now());
+      return questions;
     } catch (e) {
       print('   ❌ Erro Firebase: $e');
       return [];
@@ -474,10 +511,27 @@ class FirebaseService {
           fields, ['resposta_correta', 'correct_answer']),
 
       'explicacao': _getFirestoreStringValue(fields['explicacao']),
-      'imagemEspecifica': _getFirestoreStringValue(fields['imagem_especifica']),
+      // imagem_url é o campo principal nas questões ENEM; imagem_especifica é legado
+      'imagemEspecifica': _getFirestoreStringValueWithFallback(
+          fields, ['imagem_url', 'imagem_especifica']),
       'tags': _getFirestoreArrayValue(fields['tags']),
       'metadata': _getFirestoreMapValue(fields['metadata']),
       'createdAt': DateTime.now().toIso8601String(),
+
+      // Campos opcionais — questões ENEM/vestibular
+      'vestibular': fields['vestibular']?['stringValue'],
+      'fonte': fields['fonte']?['stringValue'],
+      'fonteAdaptada': fields['fonte_adaptada']?['booleanValue'] ?? false,
+
+      // Campos opcionais — alternativas com imagem
+      'alternativasTipo': fields['alternativas_tipo']?['stringValue'],
+      'alternativasImagens': fields['alternativas_imagens']?['arrayValue']
+                  ?['values'] != null
+              ? (fields['alternativas_imagens']['arrayValue']['values']
+                      as List<dynamic>)
+                  .map((v) => v['stringValue'] as String? ?? '')
+                  .toList()
+              : null,
     };
   }
 

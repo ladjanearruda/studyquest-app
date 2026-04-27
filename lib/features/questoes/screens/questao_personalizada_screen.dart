@@ -27,6 +27,10 @@ import '../../../core/models/avatar.dart';
 import '../../niveis/models/nivel_model.dart';
 import '../../niveis/providers/nivel_provider.dart';
 import '../../niveis/widgets/level_up_modal.dart';
+import '../../../shared/widgets/fonte_tag_widget.dart';
+import '../../../shared/widgets/alternativa_imagem_modal.dart';
+import '../../../shared/widgets/questao_imagem_widget.dart';
+import '../../../shared/widgets/math_or_text_widget.dart';
 import '../../niveis/services/nivel_persistence.dart';
 
 // ✅ V9.4: Imports do Diário, Badges e Firebase
@@ -1238,7 +1242,13 @@ class _QuestaoPersonalizadaScreenState
                               fontWeight: FontWeight.bold,
                               color: Colors.green.shade800)),
                       const SizedBox(height: 12),
-                      Text(questao.enunciado,
+                      FonteTagWidget(fonte: questao.fonte),
+                      if (questao.imagemEspecifica != null &&
+                          questao.imagemEspecifica!.isNotEmpty)
+                        QuestaoImagemWidget(
+                            imagemUrl: questao.imagemEspecifica!),
+                      MathOrTextWidget(
+                          texto: questao.enunciado,
                           style: const TextStyle(
                               fontSize: 14,
                               height: 1.5,
@@ -1282,6 +1292,7 @@ class _QuestaoPersonalizadaScreenState
       final opcao = entry.value as String;
       final letra = String.fromCharCode(65 + index);
       final isSelected = _selectedOption == index;
+      final imagemUrl = questao.getImagemAlternativa(index);
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -1317,7 +1328,42 @@ class _QuestaoPersonalizadaScreenState
               ),
               const SizedBox(width: 12),
               Expanded(
-                  child: Text(opcao, style: const TextStyle(fontSize: 15))),
+                  child: MathOrTextWidget(
+                      texto: opcao,
+                      style: const TextStyle(fontSize: 15))),
+              // Botão "Ver imagem" apenas quando a alternativa tem imagem
+              if (imagemUrl != null && imagemUrl.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => AlternativaImagemModal.show(
+                    context,
+                    imagemUrl: imagemUrl,
+                    letra: letra,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.image_outlined,
+                            size: 14, color: Colors.blue.shade700),
+                        const SizedBox(width: 4),
+                        Text('Ver',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue.shade700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1872,8 +1918,8 @@ class _FeedbackPersonalizadoModalV94State
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            explicacao,
+          MathOrTextWidget(
+            texto: explicacao,
             style: const TextStyle(fontSize: 13, height: 1.4),
           ),
         ],

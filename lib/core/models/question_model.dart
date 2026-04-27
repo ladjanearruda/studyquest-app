@@ -16,6 +16,15 @@ class QuestionModel {
   final Map<String, dynamic> metadata; // dados para personalização
   final DateTime createdAt;
 
+  // Campos opcionais — questões ENEM/vestibular
+  final String? vestibular;    // Ex: "ENEM-2024", "FUVEST-2023"
+  final String? fonte;         // Ex: "ENEM-2024-adaptada"
+  final bool fonteAdaptada;    // true se a questão foi contextualizada
+
+  // Campos opcionais — alternativas com imagem
+  final String? alternativasTipo;        // "texto" (padrão) ou "imagem"
+  final List<String>? alternativasImagens; // URLs das imagens por índice
+
   const QuestionModel({
     required this.id,
     required this.subject,
@@ -30,7 +39,23 @@ class QuestionModel {
     required this.tags,
     required this.metadata,
     required this.createdAt,
+    this.vestibular,
+    this.fonte,
+    this.fonteAdaptada = false,
+    this.alternativasTipo,
+    this.alternativasImagens,
   });
+
+  bool get temAlternativasComImagem =>
+      alternativasTipo == 'imagem' &&
+      alternativasImagens != null &&
+      alternativasImagens!.isNotEmpty;
+
+  String? getImagemAlternativa(int index) {
+    if (!temAlternativasComImagem) return null;
+    if (index >= alternativasImagens!.length) return null;
+    return alternativasImagens![index];
+  }
 
   // ===== FACTORY METHODS =====
 
@@ -52,6 +77,13 @@ class QuestionModel {
       createdAt: doc['created_at'] != null
           ? DateTime.parse(doc['created_at'].toString())
           : DateTime.now(),
+      vestibular: doc['vestibular'] as String?,
+      fonte: doc['fonte'] as String?,
+      fonteAdaptada: doc['fonte_adaptada'] as bool? ?? false,
+      alternativasTipo: doc['alternativas_tipo'] as String?,
+      alternativasImagens: doc['alternativas_imagens'] != null
+          ? List<String>.from(doc['alternativas_imagens'])
+          : null,
     );
   }
 
@@ -75,6 +107,13 @@ class QuestionModel {
               ? DateTime.parse(map['createdAt'])
               : map['createdAt'] as DateTime)
           : DateTime.now(),
+      vestibular: map['vestibular'] as String?,
+      fonte: map['fonte'] as String?,
+      fonteAdaptada: map['fonteAdaptada'] as bool? ?? false,
+      alternativasTipo: map['alternativasTipo'] as String?,
+      alternativasImagens: map['alternativasImagens'] != null
+          ? List<String>.from(map['alternativasImagens'])
+          : null,
     );
   }
 
@@ -115,6 +154,11 @@ class QuestionModel {
       'tags': tags,
       'metadata': metadata,
       'createdAt': createdAt.toIso8601String(),
+      if (vestibular != null) 'vestibular': vestibular,
+      if (fonte != null) 'fonte': fonte,
+      'fonteAdaptada': fonteAdaptada,
+      if (alternativasTipo != null) 'alternativasTipo': alternativasTipo,
+      if (alternativasImagens != null) 'alternativasImagens': alternativasImagens,
     };
   }
 
@@ -132,6 +176,11 @@ class QuestionModel {
       'tags': tags,
       'metadata': metadata,
       'created_at': createdAt,
+      if (vestibular != null) 'vestibular': vestibular,
+      if (fonte != null) 'fonte': fonte,
+      'fonte_adaptada': fonteAdaptada,
+      if (alternativasTipo != null) 'alternativas_tipo': alternativasTipo,
+      if (alternativasImagens != null) 'alternativas_imagens': alternativasImagens,
     };
   }
 
@@ -186,6 +235,11 @@ class QuestionModel {
     List<String>? tags,
     Map<String, dynamic>? metadata,
     DateTime? createdAt,
+    String? vestibular,
+    String? fonte,
+    bool? fonteAdaptada,
+    String? alternativasTipo,
+    List<String>? alternativasImagens,
   }) {
     return QuestionModel(
       id: id ?? this.id,
@@ -201,6 +255,11 @@ class QuestionModel {
       tags: tags ?? this.tags,
       metadata: metadata ?? this.metadata,
       createdAt: createdAt ?? this.createdAt,
+      vestibular: vestibular ?? this.vestibular,
+      fonte: fonte ?? this.fonte,
+      fonteAdaptada: fonteAdaptada ?? this.fonteAdaptada,
+      alternativasTipo: alternativasTipo ?? this.alternativasTipo,
+      alternativasImagens: alternativasImagens ?? this.alternativasImagens,
     );
   }
 
